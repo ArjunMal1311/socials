@@ -16,7 +16,6 @@ from services.platform.youtube.support.process_scheduled_youtube_uploads import 
 console = Console()
 
 def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    """Enhanced logging function with consistent formatting and API info support."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     
     if is_error:
@@ -40,7 +39,7 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
 
 def main():
     parser = argparse.ArgumentParser(description="YouTube Scheduler CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use (e.g., Default, akg).")
+    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use")
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
     parser.add_argument("--process-youtube-uploads", action="store_true", help="Process and schedule YouTube uploads.")
     parser.add_argument("--generate-sample", action="store_true", help="Generate sample YouTube posts.")
@@ -86,9 +85,9 @@ def main():
             generate_sample_youtube_posts(scheduled_title_prefix=args.video_title_prefix, description=args.video_description, tags=args.video_tags, privacyStatus=args.video_privacy_status, start_video_number=args.start_video_number, num_days=args.num_days, profile_name=args.profile, start_date=args.start_date, fixed_gap_hours=args.fixed_gap_hours, fixed_gap_minutes=args.fixed_gap_minutes, verbose=args.verbose)
         _log("Sample YouTube posts generated and saved to youtube_schedule.json", args.verbose)
     elif args.generate_titles:
-        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY_1")
+        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY_1 environment variable.", args.verbose, is_error=True)
+            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, is_error=True)
         else:
             title_prompt = args.gemini_title_prompt or PROFILES[args.profile].get("youtube_title_prompt", "Generate a concise and engaging YouTube video title based on the video content. Return only the title.")
             tags_prompt = args.gemini_tags_prompt or PROFILES[args.profile].get("youtube_tags_prompt")

@@ -50,7 +50,6 @@ def _ensure_eternity_folder(profile_name: str) -> str:
 
 
 def _copy_media_into_eternity(media_paths: List[str], eternity_folder: str, verbose: bool = False) -> List[str]:
-    """Copy media into eternity folder and return ABSOLUTE target paths."""
     saved_abs_paths: List[str] = []
     for path in media_paths:
         if not path:

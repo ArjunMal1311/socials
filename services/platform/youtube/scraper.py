@@ -19,7 +19,6 @@ from services.platform.youtube.support.content_analyzer import analyze_video_con
 console = Console()
 
 def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    """Enhanced logging function with consistent formatting and API info support."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     
     if is_error:
@@ -44,7 +43,7 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="YouTube Scraper CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use (e.g., Default, akg). Scraped data will be saved to youtube/{profile}.")
+    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use. Scraped data will be saved to youtube/{profile}.")
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
     parser.add_argument("--search-query", type=str, help="Optional: Search query for YouTube videos. If not provided, trending videos will be scraped.")
     parser.add_argument("--max-videos", type=int, default=50, help="Maximum number of videos to scrape (default: 50).")

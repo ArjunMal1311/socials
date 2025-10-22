@@ -53,7 +53,7 @@ class APIKeyPool:
                 keys_to_load = [key.strip() for key in os.getenv('GEMINI_API').split(',') if key.strip()]
 
             if not keys_to_load:
-                _log("Warning: No API keys provided or found in GEMINI_API_KEYS environment variable. Pool is empty.", verbose, is_error=False)
+                _log("Warning: No API keys provided or found in GEMINI_API environment variable. Pool is empty.", verbose, is_error=False)
                 return
 
             self.api_keys.extend(keys_to_load)

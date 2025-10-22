@@ -12,7 +12,6 @@ from services.platform.youtube.support.schedule_youtube_api import get_authentic
 console = Console()
 
 def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    """Enhanced logging function with consistent formatting and API info support."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     
     if is_error:

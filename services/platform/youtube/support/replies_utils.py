@@ -92,9 +92,9 @@ def get_authenticated_youtube_service(profile_name="Default", verbose: bool = Fa
 
 def _init_gemini_pro_model(api_key=None):
     if not api_key:
-        api_key = os.getenv("GEMINI_API_KEY_1")
+        api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("No Gemini API key found. Set GEMINI_API_KEY_1 environment variable or pass via argument.")
+        raise ValueError("No Gemini API key found. Set GEMINI_API_KEY environment variable or pass via argument.")
     genai.configure(api_key=api_key)
     return genai.GenerativeModel("gemini-2.5-flash")
 

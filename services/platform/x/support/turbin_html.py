@@ -41,9 +41,6 @@ def _render_media_tags(media_files: List[str]) -> str:
 
 
 def build_schedule_html(profile_name: str, verbose: bool = False) -> Optional[str]:
-    """Generate an HTML review page for replies-x/{profile_name}/schedule.json.
-    Returns the path to the generated HTML file, or None on failure.
-    """
     schedule_path = get_turbin_schedule_file_path(profile_name)
     if not os.path.exists(schedule_path):
         _log(f"Schedule not found: {schedule_path}", verbose, is_error=True)

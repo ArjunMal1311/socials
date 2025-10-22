@@ -6,7 +6,6 @@ profiles.py
 cache
 logs
 browser-data
-*.env
 schedule
 __pycache__
 downloads

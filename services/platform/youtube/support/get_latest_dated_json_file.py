@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any
 console = Console()
 
 def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Any] = None, api_info: Optional[Dict[str, Any]] = None):
-    """Enhanced logging function with consistent formatting and API info support."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     
     if is_error:

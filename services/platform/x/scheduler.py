@@ -129,9 +129,9 @@ def main():
         try_mp4_for_missing_media(args.profile)
         _log("Media check complete.", args.verbose, status=None, api_info=None)
     elif args.generate_captions:
-        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY")
+        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API")
         if not gemini_api_key:
-            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, status=None, api_info=None)
+            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API environment variable.", args.verbose, status=None, api_info=None)
         else:
             generate_captions_for_schedule(args.profile, gemini_api_key)
     elif args.clear_media:
