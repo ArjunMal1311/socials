@@ -38,13 +38,13 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
     elif status:
         status.update(message)
 
-def process_scheduled_tweets(profile_name="Default", verbose: bool = False):
+def process_scheduled_tweets(profile_name="Default", verbose: bool = False, headless: bool = True):
     _log(f"Processing scheduled tweets for profile: {profile_name}", verbose)
     user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'browser-data', profile_name))
     driver = None
     try:
         with Status("[white]Initializing WebDriver...[/white]", spinner="dots", console=console) as status:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name)
+            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless)
             for msg in setup_messages:
                 status.update(Text(f"[white]{msg}[/white]"))
                 time.sleep(0.1)

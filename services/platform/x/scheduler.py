@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any
 
 from profiles import PROFILES
 
+from services.support.path_config import initialize_directories
 from services.platform.x.support.clear_media_files import clear_media
 from services.platform.x.support.display_tweets import display_scheduled_tweets
 from services.platform.x.support.generate_sample_posts import generate_sample_posts
@@ -17,7 +18,6 @@ from services.platform.x.support.try_mp4_missing_media import try_mp4_for_missin
 from services.platform.x.support.generate_captions import generate_captions_for_schedule
 from services.platform.x.support.process_scheduled_tweets import process_scheduled_tweets
 from services.platform.x.support.move_tomorrow_schedules import move_tomorrows_from_schedule2
-from services.support.path_config import initialize_directories
 
 console = Console()
 
@@ -82,6 +82,7 @@ def main():
     parser.add_argument("--start-date", type=str, help="Start date for scheduling in YYYY-MM-DD format.")
     parser.add_argument("--gemini-api-key", type=str, help="Gemini API key for caption generation.")
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 
@@ -122,7 +123,7 @@ def main():
                 _log(f"{moved} tweet(s) moved from schedule2.json to schedule.json for tomorrow.", args.verbose, status=None, api_info=None)
             else:
                 _log("No tomorrow tweets found in schedule2.json.", args.verbose, status=None, api_info=None)
-        process_scheduled_tweets(args.profile)
+        process_scheduled_tweets(args.profile, headless=not args.no_headless)
         _log("Processing complete.", args.verbose, status=None, api_info=None)
     elif args.try_mp4:
         _log("Checking for missing media and attempting .mp4 conversion...", args.verbose, status=None, api_info=None)

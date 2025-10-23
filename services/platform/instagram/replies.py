@@ -47,6 +47,7 @@ def main():
     parser.add_argument("--number-of-reels", type=int, default=1, help="Number of Instagram Reels to process (default: 1).")
     parser.add_argument("--parse", action="store_true", help="Parse the existing instagram_comments_dump.html file and print the JSON output.")
     parser.add_argument("--clear", action="store_true", help="Clear all generated files (HTML dumps, downloaded reels) for the profile.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 
@@ -59,7 +60,7 @@ def main():
             os.makedirs(profile_base_dir, exist_ok=True)
 
             with Status(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]", spinner="dots", console=console) as status:
-                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name)
+                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
                 for msg in setup_messages:
                     status.update(f"[white]{msg}[/white]")
                     time.sleep(0.1)

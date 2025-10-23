@@ -87,7 +87,7 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
     
     return all_tweets_data
 
-def scrape_community_tweets(community_name: str, profile_name: str, browser_profile: Optional[str] = None, max_tweets: int = 1000, verbose: bool = False):
+def scrape_community_tweets(community_name: str, profile_name: str, browser_profile: Optional[str] = None, max_tweets: int = 1000, verbose: bool = False, headless: bool = True):
     driver = None
     all_tweets_data = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -95,7 +95,7 @@ def scrape_community_tweets(community_name: str, profile_name: str, browser_prof
 
     try:
         user_data_dir = get_browser_data_dir(browser_profile or profile_name)
-        driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile or profile_name, verbose=verbose)
+        driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile or profile_name, verbose=verbose, headless=headless)
         for msg in setup_messages:
             _log(msg, verbose)
         

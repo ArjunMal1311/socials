@@ -14,8 +14,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
 from services.platform.x.support.action import setup_driver
+from services.platform.x.support.profile_analyzer import analyze_profile
 from services.platform.x.support.post_to_community import post_to_community_tweet
 from services.platform.x.support.eternity_server import start_eternity_review_server 
+from services.support.path_config import get_browser_data_dir, initialize_directories
 from services.platform.x.support.action_server import start_action_mode_review_server
 from services.platform.x.support.community_scraper_utils import scrape_community_tweets
 from services.platform.x.support.eternity import run_eternity_mode, clear_eternity_files 
@@ -23,7 +25,6 @@ from services.platform.x.support.tweet_analyzer import analyze_community_tweets_
 from services.platform.x.support.turbin import run_turbin_mode, clear_turbin_files, serve_turbin_review
 from services.platform.x.support.post_approved_tweets import post_approved_replies, check_profile_credentials
 from services.platform.x.support.action import run_action_mode, run_action_mode_with_review, post_approved_action_mode_replies, run_action_mode_online, post_approved_action_mode_replies_online
-from services.support.path_config import get_browser_data_dir, initialize_directories
 
 console = Console()
 
@@ -100,6 +101,8 @@ def main():
     parser.add_argument("--post-via-api", action="store_true", help="Use X API to post replies instead of browser automation in action mode. This is faster and more reliable than browser-based posting.")
     parser.add_argument("--specific-target-profiles", type=str, default=None, help="Target specific profiles for scraping and analysis. Must match a profile name from the SPECIFIC_TARGET_PROFILES configuration.")
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
+    parser.add_argument("--analyze-account", type=str, help="Analyze a specific X account by scraping their tweets and storing them in a Google Sheet. Requires the target profile's username.")
 
     args = parser.parse_args()
 
@@ -258,6 +261,30 @@ def main():
                 _log(f"Media: {', '.join(sample.get('media_files', []))}", args.verbose, status=status, api_info=None)
         return
 
+    if args.analyze_account:
+        profile = args.profile
+        if profile not in PROFILES:
+            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
+            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            sys.exit(1)
+
+        profile_name = PROFILES[profile]['name']
+        target_profile_name = args.analyze_account
+        user_data_dir = get_browser_data_dir(profile_name)
+
+        driver = None
+        try:
+            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
+            for msg in setup_messages:
+                _log(msg, args.verbose, status=None, api_info=None)
+            analyze_profile(driver, profile_name, target_profile_name, verbose=args.verbose)
+        except Exception as e:
+            _log(f"Error during profile analysis: {e}", args.verbose, is_error=True, status=None, api_info=None)
+        finally:
+            if driver:
+                driver.quit()
+        return
+
     if args.action_generate:
         profile = args.profile
         if profile not in PROFILES:
@@ -315,7 +342,7 @@ def main():
                 _log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None)
                 input()
             else:
-                driver = run_action_mode_with_review(profile_name, custom_prompt, max_tweets=17, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose)
+                driver = run_action_mode_with_review(profile_name, custom_prompt, max_tweets=17, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
                 status.stop()
                 
         if driver:
@@ -365,7 +392,7 @@ def main():
         driver = None
         if not args.post_via_api:
             try:
-                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=True)
+                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
                 for msg in setup_messages:
                     _log(msg, args.verbose, status=None, api_info=None)
             except Exception as e:
@@ -392,7 +419,7 @@ def main():
         user_data_dir = get_browser_data_dir(profile_name)
 
         try:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=args.online)
+            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
             for msg in setup_messages:
                 _log(msg, args.verbose, status=None, api_info=None)
         except Exception as e:
@@ -491,7 +518,7 @@ def main():
         custom_prompt = PROFILES[profile]['prompt']
         
         with Status(f'[white]Running Action Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
-            result = run_action_mode(profile_name, custom_prompt, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose)
+            result = run_action_mode(profile_name, custom_prompt, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             _log("Action Mode Results:", args.verbose, status=status, api_info=None)
             for res in result:

@@ -58,6 +58,7 @@ def main():
     parser.add_argument("--clean", action="store_true", help="Remove videos with no views and sort by view count in descending order.")
     parser.add_argument("--api-key", type=str, default=None, help="Specify a Gemini API key to use for the session, overriding environment variables.")
     parser.add_argument("--suggest-content", action="store_true", help="Analyze cleaned videos with Gemini to suggest the best content ideas for your channel based on scraped data.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 
@@ -73,7 +74,7 @@ def main():
             sys.exit(1)
 
         with Status(f"[white]Running YouTube Scraper for profile '{profile_name}' Searching for '{search_query}' (max {max_videos} videos)...[/white]" if search_query else f"[white]Running YouTube Scraper for profile '{profile_name}' Scraping trending videos (max {max_videos} videos)...[/white]", spinner="dots", console=console) as status:
-            results = run_youtube_scraper(profile_name, search_query, max_videos, weekly_filter=weekly_filter, today_filter=today_filter, status=status, verbose=args.verbose)
+            results = run_youtube_scraper(profile_name, search_query, max_videos, weekly_filter=weekly_filter, today_filter=today_filter, status=status, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             _log(f"YouTube Scraper finished. Scraped {len(results)} videos.", args.verbose)
             if results:
@@ -106,7 +107,7 @@ def main():
             sys.exit(1)
 
         with Status(f"[white]Downloading captions for {len(scraped_videos)} videos for profile '{profile_name}'[/white]", spinner="dots", console=console) as status:
-            results = download_captions_for_videos(profile_name, scraped_videos, verbose=args.verbose)
+            results = download_captions_for_videos(profile_name, scraped_videos, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             _log(f"Caption download complete. Success: {len(results['success'])}, Failed: {len(results['failed'])}", args.verbose)
 

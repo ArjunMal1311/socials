@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--port", type=int, default=8767, help="Port for review server (default: 8767).")
     parser.add_argument("--clear", action="store_true", help="Clear all generated files for the profile (downloaded videos, review JSONs). ")
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 
@@ -83,7 +84,7 @@ def main():
         try:
             user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'browser-data', profile_name))
             with Status(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]", spinner="dots", console=console) as status:
-                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name)
+                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
                 for msg in setup_messages:
                     status.update(f"[white]{msg}[/white]")
                     time.sleep(0.1)

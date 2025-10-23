@@ -24,8 +24,8 @@ from services.platform.x.support.action_html import build_action_mode_schedule_h
 from services.platform.x.support.generate_reply_with_key import generate_reply_with_key
 from services.platform.x.support.capture_containers_scroll import capture_containers_and_scroll
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoSuchElementException
+from services.support.path_config import get_browser_data_dir, get_replies_dir, get_action_schedule_file_path, ensure_dir_exists
 from services.support.sheets_util import get_google_sheets_service, save_action_mode_replies_to_sheet, get_online_action_mode_replies, batch_update_online_action_mode_replies, sanitize_sheet_name, get_generated_replies, save_posted_reply_to_replied_tweets_sheet
-from services.support.path_config import get_browser_data_dir, get_replies_dir, get_action_schedule_file_path, get_temp_media_dir, ensure_dir_exists
 
 console = Console()
 
@@ -199,14 +199,14 @@ def _navigate_to_community(driver, community_name: str, verbose: bool = False):
     except Exception as e:
         _log(f"Could not find or click community tab '{community_name}': {e}. Proceeding with general home feed scraping.", verbose, is_error=False)
 
-def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False) -> Any:
+def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True) -> Any:
     user_data_dir = get_browser_data_dir(profile_name)
     schedule_folder = _ensure_action_mode_folder(profile_name)
     setup_messages = []
     _log(f"Action Mode Online: user_data_dir is {user_data_dir}", verbose, status)
 
     try:
-        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, verbose=verbose, status=status)
+        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, verbose=verbose, status=status, headless=headless)
         setup_messages.extend(messages_from_driver)
         _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
         for msg in setup_messages:
@@ -673,7 +673,7 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
 
     return {"processed": len(approved_replies), "posted": posted, "failed": failed}
 
-def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False) -> Any:
+def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True) -> Any:
     user_data_dir = get_browser_data_dir(profile_name)
     schedule_folder = _ensure_action_mode_folder(profile_name)
     setup_messages = []
@@ -681,7 +681,7 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
     _log(f"Action Mode With Review: user_data_dir is {user_data_dir}", verbose, status)
 
     try:
-        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name)
+        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         setup_messages.extend(messages_from_driver)
         _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
         for msg in setup_messages:
@@ -868,14 +868,14 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
     
     return driver
 
-def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False):
+def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True):
     user_data_dir = get_browser_data_dir(profile_name)
     setup_messages = [] 
     
     _log(f"Action Mode: user_data_dir is {user_data_dir}", verbose, status)
 
     try:
-        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name)
+        driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         setup_messages.extend(messages_from_driver)
         _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
         for msg in setup_messages:

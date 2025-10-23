@@ -3,7 +3,6 @@ import re
 import json
 import time
 
-
 from datetime import datetime
 from rich.console import Console
 from selenium.webdriver.common.by import By
@@ -169,11 +168,11 @@ def _scroll_page(driver, verbose: bool = False):
     _log(f"Scrolled {scroll_attempts} times.", verbose)
 
 
-def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, max_videos: int = 50, weekly_filter: bool = False, today_filter: bool = False, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
+def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, max_videos: int = 50, weekly_filter: bool = False, today_filter: bool = False, status=None, verbose: bool = False, headless: bool = True) -> List[Dict[str, Any]]:
     user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'browser-data', profile_name))
     
     try:
-        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name)
+        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         for msg in setup_messages:
             _log(msg, verbose)
         if status:

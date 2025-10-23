@@ -9,9 +9,9 @@ from selenium.webdriver.common.by import By
 from typing import List, Dict, Any, Optional
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
+from services.support.web_driver_handler import setup_driver
 from selenium.webdriver.support import expected_conditions as EC
 
-from services.support.web_driver_handler import setup_driver
 
 console = Console()
 
@@ -137,7 +137,7 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
             "video_id": video_id
         }
         
-def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False) -> Dict[str, Any]:
+def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False, headless: bool = True) -> Dict[str, Any]:
     results = {
         "success": [],
         "failed": []
@@ -180,7 +180,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
         driver, setup_messages = setup_driver(
             user_data_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'browser-data', profile_name)),
             profile=profile_name,
-            headless=True,
+            headless=headless,
             prefs=prefs,
             additional_arguments=additional_arguments
         )

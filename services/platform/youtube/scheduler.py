@@ -62,6 +62,7 @@ def main():
     parser.add_argument("--gemini-title-prompt", type=str, default="Generate a concise, engaging, and single YouTube video title based on the video content. Return only the title.", help="Prompt for Gemini title generation.")
     parser.add_argument("--gemini-tags-prompt", type=str, help="Prompt for Gemini tags generation.")
     parser.add_argument("--gemini-description-prompt", type=str, help="Prompt for Gemini description generation.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 

@@ -56,7 +56,8 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
 
     _log(f"Attempting to set up driver with user_data_dir: {user_data_dir} and profile: {profile}", verbose, status=status, api_info=None)
 
-    # options.add_argument('--headless=new')
+    if headless:
+        options.add_argument('--headless=new')
         
     if prefs:
         options.add_experimental_option("prefs", prefs)

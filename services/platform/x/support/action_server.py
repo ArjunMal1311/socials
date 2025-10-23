@@ -5,8 +5,8 @@ import json
 from datetime import datetime
 from rich.console import Console
 from urllib.parse import urlparse
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 from services.support.path_config import get_replies_dir
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 console = Console()
 

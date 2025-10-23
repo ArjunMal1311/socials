@@ -165,14 +165,14 @@ def _get_tweets_from_profile_page(driver, profile_url: str, max_tweets_to_collec
     return collected_tweets[:max_tweets_to_collect] if max_tweets_to_collect > 0 else collected_tweets
 
 
-def run_eternity_mode(profile_name: str, custom_prompt: str, eternity_browser_profile: str, max_tweets: int = 10, days_back: int = 2, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
+def run_eternity_mode(profile_name: str, custom_prompt: str, eternity_browser_profile: str, max_tweets: int = 10, days_back: int = 2, status=None, verbose: bool = False, headless: bool = True) -> List[Dict[str, Any]]:
     
     browser_profile_name = eternity_browser_profile or profile_name
     user_data_dir = get_browser_data_dir(browser_profile_name)
     eternity_folder = _ensure_eternity_folder(profile_name)
 
     try:
-        driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile_name, verbose=verbose)
+        driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile_name, verbose=verbose, headless=headless)
         for msg in setup_messages:
             _log(msg, verbose, status)
         if status:

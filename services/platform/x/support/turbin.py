@@ -95,12 +95,12 @@ def _prepare_media_for_gemini(tweet_data: Dict[str, Any], profile_name: str, sch
 
     return media_abs_paths_for_gemini
 
-def run_turbin_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, verbose: bool = False) -> List[Dict[str, Any]]:
+def run_turbin_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, verbose: bool = False, headless: bool = True) -> List[Dict[str, Any]]:
     user_data_dir = get_browser_data_dir(profile_name)
     schedule_folder = _ensure_schedule_folder(profile_name)
 
     try:
-        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, verbose=verbose)
+        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, verbose=verbose, headless=headless)
         for msg in setup_messages:
             _log(msg, verbose, status)
         if status:

@@ -94,6 +94,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
     parser.add_argument("--urls", type=str, required=True, help="Comma-separated list of Instagram video URLs to download.")
     parser.add_argument("--show-complete", action="store_true", help="Show complete logs.")
+    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
 
     args = parser.parse_args()
 
