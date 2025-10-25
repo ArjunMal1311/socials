@@ -12,6 +12,7 @@ from selenium.common.exceptions import TimeoutException
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
 from selenium.webdriver.support import expected_conditions as EC
+from services.support.path_config import get_youtube_captions_dir
 
 console = Console()
 
@@ -105,7 +106,7 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
         
         start_time = time.time()
         downloaded_file = None
-        captions_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'captions'))
+        captions_dir = get_youtube_captions_dir(profile_name)
         
         while time.time() - start_time < 30:
             downloaded_files = [f for f in os.listdir(captions_dir) if f.startswith("[English]") and f.endswith("[DownSub.com].txt")]
@@ -148,7 +149,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
     
     driver = None
     try:
-        download_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'captions'))
+        download_dir = get_youtube_captions_dir(profile_name)
         Path(download_dir).mkdir(parents=True, exist_ok=True)
         
         prefs = {

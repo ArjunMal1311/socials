@@ -8,6 +8,7 @@ from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 from typing import Optional, Dict, Any
+from services.support.path_config import get_instagram_videos_dir
 
 console = Console()
 
@@ -34,7 +35,7 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
         status.update(formatted_message)
 
 def download_instagram_videos(video_urls: list, profile_name: str, status: Status = None, verbose: bool = False):
-    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instagram_videos', profile_name))
+    output_dir = get_instagram_videos_dir(profile_name)
     os.makedirs(output_dir, exist_ok=True)
 
     try:

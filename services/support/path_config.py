@@ -32,6 +32,33 @@ def get_schedule_dir(profile_name: str) -> str:
 def get_community_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "community", profile_name)
 
+def get_instagram_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "instagram", profile_name)
+
+def get_instagram_reels_dir(profile_name: str) -> str:
+    return os.path.join(get_instagram_profile_dir(profile_name), "reels")
+
+def get_instagram_videos_dir(profile_name: str) -> str:
+    return os.path.join(get_instagram_profile_dir(profile_name), "videos")
+
+def get_youtube_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "youtube", profile_name)
+
+def get_youtube_videos_dir(profile_name: str) -> str:
+    return os.path.join(get_youtube_profile_dir(profile_name), "videos")
+
+def get_youtube_captions_dir(profile_name: str) -> str:
+    return os.path.join(get_youtube_profile_dir(profile_name), "captions")
+
+def get_youtube_shorts_dir(profile_name: str) -> str:
+    return os.path.join(get_youtube_profile_dir(profile_name), "shorts")
+
+def get_youtube_replies_for_review_dir(profile_name: str) -> str:
+    return os.path.join(get_youtube_profile_dir(profile_name), "replies_for_review")
+
+def get_youtube_schedule_videos_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "schedule-videos", profile_name)
+
 def ensure_dir_exists(path: str) -> str:
     os.makedirs(path, exist_ok=True)
     return path
@@ -75,6 +102,9 @@ def get_temp_media_dir(profile_name: str, mode: str = "action") -> str:
 
 def get_schedule2_file_path(profile_name: str) -> str:
     return os.path.join(get_schedule_dir(profile_name), "schedule2.json")
+
+def get_profiles_file_path() -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'profiles.py'))
 
 def get_community_output_file_path(profile_name: str, community_name: str, timestamp: str) -> str:
     return os.path.join(get_community_dir(profile_name), f"{community_name}_{timestamp}.json")

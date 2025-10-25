@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from typing import Optional, Dict, Any
 from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_browser_data_dir, get_instagram_profile_dir, get_instagram_reels_dir
 from services.platform.instagram.support.instagram_replies_utils import scrape_instagram_reels_comments, generate_instagram_replies, post_instagram_reply, move_to_next_reel, download_instagram_reel, parse_instagram_comments_robust, extract_structured_comments
 
 console = Console()
@@ -39,15 +40,23 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Instagram Replies CLI Tool")
+    
+    # Profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use.")
-    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
+
+    # Scrape & reply
     parser.add_argument("--scrape-and-reply", action="store_true", help="Scrape comments from Instagram Reels and generate replies.")
     parser.add_argument("--max-comments", type=int, default=50, help="Maximum number of comments to scrape (default: 50).")
-    parser.add_argument("--gemini-api-key", type=str, help="Gemini API key for generating replies.")
     parser.add_argument("--number-of-reels", type=int, default=1, help="Number of Instagram Reels to process (default: 1).")
     parser.add_argument("--parse", action="store_true", help="Parse the existing instagram_comments_dump.html file and print the JSON output.")
+
+    # Clear
     parser.add_argument("--clear", action="store_true", help="Clear all generated files (HTML dumps, downloaded reels) for the profile.")
+
+    # Additional
+    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
     parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
+    parser.add_argument("--gemini-api-key", type=str, help="Gemini API key for generating replies.")
 
     args = parser.parse_args()
 
@@ -55,8 +64,8 @@ def main():
         profile_name = args.profile
         driver = None
         try:
-            user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'browser-data', profile_name))
-            profile_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instagram', profile_name))
+            user_data_dir = get_browser_data_dir(profile_name)
+            profile_base_dir = get_instagram_profile_dir(profile_name)
             os.makedirs(profile_base_dir, exist_ok=True)
 
             with Status(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]", spinner="dots", console=console) as status:
@@ -145,7 +154,7 @@ def main():
 
     elif args.parse:
         profile_name = args.profile 
-        profile_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instagram', profile_name))
+        profile_base_dir = get_instagram_profile_dir(profile_name)
         os.makedirs(profile_base_dir, exist_ok=True)
 
         html_dump_path = os.path.join(profile_base_dir, "instagram_comments_dump.html")
@@ -167,14 +176,14 @@ def main():
 
     elif args.clear:
         profile_name = args.profile
-        profile_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instagram', profile_name))
+        profile_base_dir = get_instagram_profile_dir(profile_name)
         html_dump_path = os.path.join(profile_base_dir, "instagram_comments_dump.html")
         
         if os.path.exists(html_dump_path):
             os.remove(html_dump_path)
             _log(f"Deleted HTML dump: {html_dump_path}", args.verbose)
 
-        reels_dir = os.path.join(profile_base_dir, "reels")
+        reels_dir = get_instagram_reels_dir(profile_name)
         if os.path.exists(reels_dir):
             for file_name in os.listdir(reels_dir):
                 file_path = os.path.join(reels_dir, file_name)

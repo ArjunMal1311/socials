@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from rich.console import Console
 from typing import Optional, Dict, Any
+from services.support.path_config import get_youtube_profile_dir
 
 console = Console()
 
@@ -29,7 +30,7 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
         status.update(formatted_message)
 
 def get_latest_dated_json_file(profile_name: str, prefix: str, verbose: bool = False) -> Optional[str]:
-    youtube_profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name))
+    youtube_profile_dir = get_youtube_profile_dir(profile_name)
     latest_json_path = None
     latest_date = None
 

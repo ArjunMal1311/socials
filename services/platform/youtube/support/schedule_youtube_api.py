@@ -11,6 +11,7 @@ from oauth2client.tools import run_flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from oauth2client.client import flow_from_clientsecrets
+from services.support.path_config import get_youtube_schedule_videos_dir
 
 console = Console()
 
@@ -56,7 +57,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 def get_authenticated_service(profile_name="Default", verbose: bool = False):
-    profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos', profile_name))
+    profile_dir = get_youtube_schedule_videos_dir(profile_name)
     
     if not os.path.exists(profile_dir):
         os.makedirs(profile_dir)

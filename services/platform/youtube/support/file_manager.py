@@ -7,6 +7,7 @@ from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 from typing import Optional, List, Dict, Any
+from services.support.path_config import get_youtube_profile_dir, get_youtube_videos_dir, get_youtube_captions_dir
 
 console = Console()
 
@@ -92,9 +93,9 @@ def _parse_video_length_to_seconds(length_str: str) -> int:
     return total_seconds
 
 def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verbose: bool = False) -> int:
-    youtube_profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name))
-    videos_dir = os.path.join(youtube_profile_dir, 'videos')
-    captions_dir = os.path.join(youtube_profile_dir, 'captions')
+    youtube_profile_dir = get_youtube_profile_dir(profile_name)
+    videos_dir = get_youtube_videos_dir(profile_name)
+    captions_dir = get_youtube_captions_dir(profile_name)
 
     deleted_count = 0
 
@@ -142,7 +143,7 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
     return deleted_count
 
 def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_filter: bool = False, today_filter: bool = False, max_duration_minutes: Optional[int] = None, status: Optional[Status] = None, verbose: bool = False) -> None:
-    youtube_profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name))
+    youtube_profile_dir = get_youtube_profile_dir(profile_name)
     
     latest_json_path = None
     latest_date = None

@@ -30,3 +30,6 @@ config.json
 processed_tweets.json
 .vscode
 logs
+scripts
+.venv
+.pytest_cache

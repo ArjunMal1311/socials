@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 from rich.console import Console
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
+from services.support.path_config import initialize_directories
+from services.support.path_config import get_youtube_videos_dir
 from services.platform.youtube.support.scraper_utils import run_youtube_scraper
 from services.platform.youtube.support.caption_downloader import download_captions_for_videos
 from services.platform.youtube.support.video_downloader import download_videos_for_youtube_scraper
 from services.platform.youtube.support.get_latest_dated_json_file import get_latest_dated_json_file
 from services.platform.youtube.support.file_manager import clear_youtube_files, clean_and_sort_videos
 from services.platform.youtube.support.content_analyzer import analyze_video_content_with_gemini, suggest_best_content_with_gemini
-from services.support.path_config import initialize_directories
 
 console = Console()
 
@@ -148,7 +149,7 @@ def main():
             json_filename_prefix = "videos_daily"
 
         videos_json_path = get_latest_dated_json_file(profile_name, json_filename_prefix, verbose=args.verbose)
-        videos_download_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'youtube', profile_name, 'videos'))
+        videos_download_dir = get_youtube_videos_dir(profile_name)
 
         if not videos_json_path:
             _log(f"No scraped videos found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True)

@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from typing import List, Dict, Any, Optional
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
+from services.support.path_config import get_youtube_profile_dir
 
 console = Console()
 
@@ -48,7 +49,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
         status.update(message)
 
 def _ensure_scrape_folder(profile_name: str) -> str:
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name))
+    base_dir = get_youtube_profile_dir(profile_name)
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 

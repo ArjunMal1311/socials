@@ -12,6 +12,7 @@ from rich.status import Status
 from rich.console import Console
 from typing import Optional, Dict, Any
 from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_browser_data_dir, get_youtube_profile_dir
 from services.platform.youtube.support.review_server import start_youtube_review_server
 from services.platform.youtube.support.replies_utils import scrape_youtube_shorts_comments, generate_youtube_replies, download_youtube_short, post_youtube_reply_api, post_youtube_reply, move_to_next_short, save_youtube_reply_for_review, load_approved_youtube_replies, mark_youtube_reply_as_posted
 
@@ -82,7 +83,7 @@ def main():
         driver = None
         video_path = None
         try:
-            user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'browser-data', profile_name))
+            user_data_dir = get_browser_data_dir(profile_name)
             with Status(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]", spinner="dots", console=console) as status:
                 driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
                 for msg in setup_messages:
@@ -233,7 +234,7 @@ def main():
 
     elif args.clear:
         profile_name = args.profile
-        profile_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'youtube', profile_name))
+        profile_base_dir = get_youtube_profile_dir(profile_name)
         
         shorts_dir = os.path.join(profile_base_dir, "shorts")
         if os.path.exists(shorts_dir):

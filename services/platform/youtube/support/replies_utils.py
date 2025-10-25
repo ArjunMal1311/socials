@@ -20,6 +20,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from oauth2client.client import flow_from_clientsecrets
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from services.support.path_config import get_youtube_schedule_videos_dir, get_youtube_shorts_dir, get_youtube_replies_for_review_dir
 
 console = Console()
 
@@ -65,7 +66,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 def get_authenticated_youtube_service(profile_name="Default", verbose: bool = False):
-    profile_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos', profile_name))
+    profile_dir = get_youtube_schedule_videos_dir(profile_name)
     
     if not os.path.exists(profile_dir):
         os.makedirs(profile_dir)
@@ -201,7 +202,7 @@ def move_to_next_short(driver, verbose: bool = False) -> bool:
         return False
 
 def download_youtube_short(video_url: str, profile_name: str, status: Status = None, verbose: bool = False) -> Optional[str]:
-    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'shorts'))
+    output_dir = get_youtube_shorts_dir(profile_name)
     os.makedirs(output_dir, exist_ok=True)
     
     video_id = video_url.split('v=')[1].split('&')[0] if 'v=' in video_url else video_url.split('/')[-1]
@@ -387,7 +388,7 @@ def post_youtube_reply_api(profile_name: str, video_url: str, reply_text: str, s
         return False
 
 def save_youtube_reply_for_review(profile_name: str, video_url: str, generated_reply: str, scraped_comments: List[Dict], video_path: str, verbose: bool = False):
-    review_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'replies_for_review'))
+    review_dir = get_youtube_replies_for_review_dir(profile_name)
     os.makedirs(review_dir, exist_ok=True)
 
     reply_id = f"yt_reply_{int(time.time())}"
@@ -407,7 +408,7 @@ def save_youtube_reply_for_review(profile_name: str, video_url: str, generated_r
     _log(f"Reply for '{video_url}' saved for review to {file_path}", verbose)
 
 def load_approved_youtube_replies(profile_name: str, verbose: bool = False) -> List[Dict]:
-    review_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'replies_for_review'))
+    review_dir = get_youtube_replies_for_review_dir(profile_name)
     approved_replies = []
     if not os.path.exists(review_dir):
         return approved_replies
@@ -422,7 +423,7 @@ def load_approved_youtube_replies(profile_name: str, verbose: bool = False) -> L
     return approved_replies
 
 def mark_youtube_reply_as_posted(profile_name: str, reply_id: str, verbose: bool = False):
-    review_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'youtube', profile_name, 'replies_for_review'))
+    review_dir = get_youtube_replies_for_review_dir(profile_name)
     file_path = os.path.join(review_dir, f"{reply_id}.json")
     if os.path.exists(file_path):
         with open(file_path, 'r+', encoding='utf-8') as f:

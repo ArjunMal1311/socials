@@ -7,6 +7,7 @@ from rich.status import Status
 from rich.console import Console
 from typing import Optional, Dict, Any
 from services.support.gemini_util import generate_gemini
+from services.support.path_config import get_youtube_schedule_videos_dir
 from services.platform.youtube.support.save_youtube_schedules import save_youtube_schedules
 
 console = Console()
@@ -49,7 +50,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
 def generate_titles_for_youtube_schedule(profile_name, api_key, title_prompt, tags_prompt=None, description_prompt=None, verbose: bool = False):
     _log(f"[Gemini Analysis] Starting title generation for profile: {profile_name}", verbose)
     
-    schedule_file_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos')), profile_name, 'youtube_schedule.json')
+    schedule_file_path = os.path.join(get_youtube_schedule_videos_dir(profile_name), 'youtube_schedule.json')
     if not os.path.exists(schedule_file_path):
         _log(f"Schedule file not found at {schedule_file_path}.", verbose)
         return
@@ -57,7 +58,7 @@ def generate_titles_for_youtube_schedule(profile_name, api_key, title_prompt, ta
     with open(schedule_file_path, "r") as f:
         schedules = json.load(f)
     
-    schedule_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos', profile_name))
+    schedule_folder = get_youtube_schedule_videos_dir(profile_name)
     
     with Status("[white]Generating titles...[/white]", spinner="dots", console=console) as status:
         for i, video_item in enumerate(schedules):

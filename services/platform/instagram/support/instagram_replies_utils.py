@@ -14,6 +14,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from typing import Optional, List, Dict, Tuple, Any
 from selenium.webdriver.support.ui import WebDriverWait
+from services.support.path_config import get_instagram_reels_dir
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -37,7 +38,8 @@ def _log(message: str, verbose: bool = False, is_error: bool = False, status: Op
         if api_message:
             formatted_message += f" | API: {api_message}"
     
-    console.print(formatted_message, style=style)
+    if is_error or verbose:
+        console.print(formatted_message, style=style)
     
     if status:
         status.update(formatted_message)
@@ -326,7 +328,7 @@ def move_to_next_reel(driver, verbose: bool = False) -> bool:
         return False
 
 def download_instagram_reel(reel_url: str, profile_name: str, status: Status = None, verbose: bool = False) -> Optional[str]:
-    output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'instagram', profile_name, 'reels'))
+    output_dir = get_instagram_reels_dir(profile_name)
     os.makedirs(output_dir, exist_ok=True)
 
     if status:

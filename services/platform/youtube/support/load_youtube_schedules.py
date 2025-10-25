@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from rich.console import Console
 from typing import Optional, Dict, Any
+from services.support.path_config import get_youtube_schedule_videos_dir
 
 console = Console()
 
@@ -44,7 +45,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
         status.update(message)
 
 def load_youtube_schedules(profile_name="Default", verbose: bool = False):
-    schedule_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos', profile_name))
+    schedule_dir = get_youtube_schedule_videos_dir(profile_name)
     schedule_file = os.path.join(schedule_dir, 'youtube_schedule.json')
 
     if not os.path.exists(schedule_dir):

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from typing import Optional, Dict, Any
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from services.platform.youtube.support.review_html import build_youtube_review_html
+from services.support.path_config import get_youtube_replies_for_review_dir, get_youtube_shorts_dir
 
 console = Console()
 
@@ -79,9 +80,9 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
             safe_path = os.path.normpath(path).lstrip('/')
             if safe_path.startswith("media/"):
                 filename = safe_path[len("media/"):]
-                shorts_dir = os.path.abspath(os.path.join(self.root_dir, '..', 'shorts'))
+                shorts_dir = get_youtube_shorts_dir(self.profile_name)
                 if os.path.exists(os.path.join(shorts_dir, filename)):
-                    return self._serve_path(os.path.join('..', 'shorts', filename))
+                    return self._serve_path(os.path.join(get_youtube_shorts_dir(self.profile_name), filename))
                 else:
                     self.send_response(404)
                     self.end_headers()
@@ -119,7 +120,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
     def _serve_path(self, rel_path: str):
         full_path = os.path.join(self.root_dir, rel_path)
         full_path = os.path.abspath(full_path)
-        if not full_path.startswith(os.path.abspath(self.root_dir)) and not (os.path.abspath(os.path.join(self.root_dir, '..', 'shorts')) in full_path):
+        if not full_path.startswith(os.path.abspath(self.root_dir)) and not (get_youtube_shorts_dir(self.profile_name) in full_path):
             self.send_response(403)
             self.end_headers()
             return
@@ -159,7 +160,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
         self.wfile.write(payload)
 
     def _replies_dir(self):
-        return os.path.abspath(os.path.join(self.root_dir, '..', 'replies_for_review'))
+        return get_youtube_replies_for_review_dir(self.profile_name)
 
     def _load_replies(self):
         replies = []
@@ -240,7 +241,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
     @staticmethod
     def _load_static_replies(root_dir: str):
         replies = []
-        replies_path = os.path.abspath(os.path.join(root_dir, '..', 'replies_for_review'))
+        replies_path = get_youtube_replies_for_review_dir(root_dir)
         if not os.path.exists(replies_path):
             return []
         for filename in os.listdir(replies_path):
@@ -254,7 +255,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
 def start_youtube_review_server(profile_name: str, port: int = 8767, verbose: bool = False):
     script_dir = os.path.dirname(__file__)
     
-    review_data_dir = os.path.abspath(os.path.join(script_dir, '..', '..', 'youtube', profile_name, 'replies_for_review'))
+    review_data_dir = get_youtube_replies_for_review_dir(profile_name)
     os.makedirs(review_data_dir, exist_ok=True)
     
     replies_to_review = YoutubeReviewRequestHandler._load_static_replies(review_data_dir)

@@ -6,6 +6,7 @@ from datetime import datetime
 from rich.console import Console
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from services.support.path_config import get_schedule_dir
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -39,7 +40,7 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
             if isinstance(media_urls, str) and media_urls.startswith('http'):
                 local_media_paths = [media_urls]
             else:
-                schedule_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule', profile_name))
+                schedule_folder = get_schedule_dir(profile_name)
                 if isinstance(media_urls, str):
                     candidate_path = os.path.join(schedule_folder, media_urls)
                     if status:

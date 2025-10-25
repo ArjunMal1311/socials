@@ -1,6 +1,8 @@
 import os
 import sys
 
+from services.support.path_config import get_profiles_file_path
+
 def add_specific_target_profiles():
     if len(sys.argv) < 3:
         print("Usage: python add_profiles.py <startup_name> <profile1> [profile2 ...]")
@@ -18,8 +20,7 @@ def add_specific_target_profiles():
         print("No profiles provided. Exiting.")
         return
 
-    profiles_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'profiles.py')
-    profiles_file_path = os.path.abspath(profiles_file_path)
+    profiles_file_path = get_profiles_file_path()
 
     try:
         with open(profiles_file_path, 'r') as f:

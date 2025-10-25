@@ -6,6 +6,7 @@ from rich.status import Status
 from rich.console import Console
 from typing import Optional, Dict, Any
 from googleapiclient.errors import HttpError
+from services.support.path_config import get_youtube_schedule_videos_dir
 from services.platform.youtube.support.load_youtube_schedules import load_youtube_schedules
 from services.platform.youtube.support.schedule_youtube_api import get_authenticated_service, initialize_upload
 
@@ -49,7 +50,7 @@ def process_scheduled_youtube_uploads(profile_name="Default", verbose: bool = Fa
             _log("YouTube API authenticated.", verbose, status=status)
             time.sleep(0.5)
 
-        schedule_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'schedule-videos', profile_name))
+        schedule_folder = get_youtube_schedule_videos_dir(profile_name)
         with Status("[white]Scheduling YouTube uploads...[/white]", spinner="dots", console=console) as status:
             for upload_item in scheduled_uploads:
                 _log(f"Attempting to upload video: {upload_item['title']}", verbose, status=status)
