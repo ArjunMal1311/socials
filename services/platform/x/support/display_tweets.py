@@ -20,6 +20,10 @@ def _log(message: str, verbose: bool, is_error: bool = False):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         color = "bold red" if is_error else "white"
         console.print(f"[display_tweets.py] {timestamp}|[{color}]{log_message}[/{color}]")
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[display_tweets.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def display_scheduled_tweets(profile_name="Default", verbose: bool = False):
     _log(f"Displaying scheduled tweets for profile: {profile_name}", verbose)

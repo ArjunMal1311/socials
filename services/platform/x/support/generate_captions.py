@@ -34,13 +34,17 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
             status.start()
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[generate_captions.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False):
     _log(f"[Gemini Analysis] Starting caption generation for profile: {profile_name}", verbose)
     
     schedule_file_path = get_schedule_file_path(profile_name)
     if not os.path.exists(schedule_file_path):
-        _log(f"Schedule file not found at {schedule_file_path}.", verbose, is_error=True)
+        _log(f"Schedule file not found at {schedule_file_path}.", verbose, status=status, is_error=True)
         return
 
     with open(schedule_file_path, "r") as f:
@@ -61,7 +65,7 @@ def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False)
                 status.update(f"[white][Gemini Analysis] Skipping item {i+1}: Local media file not found: {media_path}[/white]")
                 continue
 
-            _log(f"[DEBUG] Processing media file: {media_file}", verbose) 
+            _log(f"[DEBUG] Processing media file: {media_file}", verbose, status) 
             ext = os.path.splitext(media_file)[1].lower()
             try:
                 if ext in [".png", ".jpg", ".jpeg"]:
@@ -76,13 +80,13 @@ def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False)
 
                 if profile_name == "akg":
                     username_match = re.search(r'\d+_([a-zA-Z0-9]+)\.', media_file)
-                    _log(f"[DEBUG] Regex match object: {username_match}", verbose) 
+                    _log(f"[DEBUG] Regex match object: {username_match}", verbose, status) 
                     if username_match:
                         username = username_match.group(1)
-                        _log(f"[DEBUG] Extracted username: {username}", verbose) 
+                        _log(f"[DEBUG] Extracted username: {username}", verbose, status) 
                         caption_before = caption
                         caption += f"\n\n@{username}"
-                        _log(f"[DEBUG] Caption before: {caption_before}, Caption after: {caption}", verbose) 
+                        _log(f"[DEBUG] Caption before: {caption_before}, Caption after: {caption}", verbose, status) 
                         status.update(f"[white][Gemini Analysis] Appended @{username} to caption.[/white]")
                 
                 tweet["scheduled_tweet"] = caption

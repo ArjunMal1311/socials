@@ -9,7 +9,6 @@ from rich.console import Console
 from typing import Optional, Dict, Any
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_gemini_log_file_path
-from services.support.sheets_util import get_google_sheets_service, sanitize_sheet_name
 
 console = Console()
 api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())

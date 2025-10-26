@@ -1,4 +1,3 @@
-import os
 import time
 import re
 
@@ -38,6 +37,10 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
             status.start()
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[process_scheduled_tweets.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def process_scheduled_tweets(profile_name="Default", verbose: bool = False, headless: bool = True):
     _log(f"Processing scheduled tweets for profile: {profile_name}", verbose)
@@ -45,7 +48,7 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
     driver = None
     try:
         with Status("[white]Initializing WebDriver...[/white]", spinner="dots", console=console) as status:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless)
+            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless, verbose=verbose)
             for msg in setup_messages:
                 status.update(Text(f"[white]{msg}[/white]"))
                 time.sleep(0.1)
@@ -67,7 +70,7 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
                 status.update(Text("Not redirected to login page or already logged in.", style="white"))
             time.sleep(1) 
 
-        scheduled_tweets = load_tweet_schedules(profile_name)
+        scheduled_tweets = load_tweet_schedules(profile_name, verbose=verbose)
 
         if not scheduled_tweets:
             _log("No tweets scheduled yet.", verbose)
@@ -81,7 +84,7 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
                 
                 status.update(f"[white]Attempting to schedule tweet for {scheduled_time} with text '{tweet_text}'[/white]")
 
-                schedule_tweet(driver, tweet_text, media_file, scheduled_time, profile_name, status)
+                schedule_tweet(driver, tweet_text, media_file, scheduled_time, profile_name, status, verbose=verbose)
                 time.sleep(5)
         _log("All scheduled tweets processed!", verbose)
 

@@ -32,6 +32,10 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
         console.print(f"[schedule_tweet.py] {timestamp}|[{color}]{message}[/{color}]")
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[schedule_tweet.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name, status=None, verbose: bool = False):
     try:
@@ -43,10 +47,7 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
                 schedule_folder = get_schedule_dir(profile_name)
                 if isinstance(media_urls, str):
                     candidate_path = os.path.join(schedule_folder, media_urls)
-                    if status:
-                        _log(f"Looking for media file at: {candidate_path}", verbose, status)
-                    else:
-                        _log(f"Looking for media file at: {candidate_path}", verbose)
+                    _log(f"Looking for media file at: {candidate_path}", verbose, status)
                     if os.path.exists(candidate_path):
                         local_media_paths = [os.path.abspath(candidate_path)]
                     else:
@@ -55,19 +56,13 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
                     local_media_paths = []
                     for fname in media_urls:
                         candidate_path = os.path.join(schedule_folder, fname)
-                        if status:
-                            _log(f"Looking for media file at: {candidate_path}", verbose, status)
-                        else:
-                            _log(f"Looking for media file at: {candidate_path}", verbose)
+                        _log(f"Looking for media file at: {candidate_path}", verbose, status)
                         if os.path.exists(candidate_path):
                             local_media_paths.append(os.path.abspath(candidate_path))
                         else:
                             local_media_paths.append(fname)
 
-        if status:
-            _log("Navigating to tweet compose page...", verbose, status)
-        else:
-            _log("Navigating to tweet compose page...", verbose)
+        _log("Navigating to tweet compose page...", verbose, status)
         driver.get('https://x.com/compose/tweet')
         time.sleep(3)
         tweet_input = WebDriverWait(driver, 10).until(
@@ -79,40 +74,25 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
 
         if profile_name == "akg":
             tweet_input.send_keys(Keys.ENTER)
-            if status:
-                _log("Pressed Enter for akg profile.", verbose, status)
-            else:
-                _log("Pressed Enter for akg profile.", verbose)
+            _log("Pressed Enter for akg profile.", verbose, status)
             time.sleep(1)
         
         if local_media_paths:
             try:
-                if status:
-                    _log("Uploading media...", verbose, status)
-                else:
-                    _log("Uploading media...", verbose)
+                _log("Uploading media...", verbose, status)
                 media_button = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="file"]'))
                 )
                 for local_path in local_media_paths:
-                    if status:
-                        _log(f"Uploading media: {local_path}", verbose, status)
-                    else:
-                        _log(f"Uploading media: {local_path}", verbose)
+                    _log(f"Uploading media: {local_path}", verbose, status)
                     media_button.send_keys(local_path)
                     time.sleep(5)
-                if status:
-                    _log("Media uploaded.", verbose, status)
-                else:
-                    _log("Media uploaded.", verbose)
+                _log("Media uploaded.", verbose, status)
             except Exception as e:
                 _log(f"Failed to upload media: {e}", verbose, is_error=True)
                 raise
 
-        if status:
-            _log("Clicking schedule option...", verbose, status)
-        else:
-            _log("Clicking schedule option...", verbose)
+        _log("Clicking schedule option...", verbose, status)
         schedule_option = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="scheduleOption"]'))
         )
@@ -121,10 +101,7 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
 
         scheduled_datetime = datetime.strptime(scheduled_time, '%Y-%m-%d %H:%M:%S')
         
-        if status:
-            _log("Selecting scheduled date and time...", verbose, status)
-        else:
-            _log("Selecting scheduled date and time...", verbose)
+        _log("Selecting scheduled date and time...", verbose, status)
         month_select = Select(WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.ID, 'SELECTOR_1'))
         ))
@@ -154,20 +131,14 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
         ampm_select.select_by_visible_text(ampm)
         time.sleep(2)
 
-        if status:
-            _log("Confirming scheduled time...", verbose, status)
-        else:
-            _log("Confirming scheduled time...", verbose)
+        _log("Confirming scheduled time...", verbose, status)
         confirm_time_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="scheduledConfirmationPrimaryAction"]'))
         )
         confirm_time_button.click()
         time.sleep(2)
 
-        if status:
-            _log("Clicking schedule button...", verbose, status)
-        else:
-            _log("Clicking schedule button...", verbose)
+        _log("Clicking schedule button...", verbose, status)
         schedule_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="tweetButton"]'))
         )
@@ -175,10 +146,7 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
         time.sleep(3)
         driver.get('https://x.com')
         time.sleep(3)
-        if status:
-            _log(f"Successfully scheduled tweet for {scheduled_time}", verbose, status)
-        else:
-            _log(f"Successfully scheduled tweet for {scheduled_time}", verbose)
+        _log(f"Successfully scheduled tweet for {scheduled_time}", verbose, status)
         return True
     except Exception as e:
         _log(f"Failed to schedule tweet: {e}", verbose, is_error=True)

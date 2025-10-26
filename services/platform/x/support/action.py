@@ -292,6 +292,8 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
             profile_suffix = profile_name
             reply_sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"
             all_replies = get_generated_replies(sheets_service, reply_sheet_name, verbose=verbose, status=status)
+            if verbose:
+                _log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status)
         except Exception as e:
             _log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True)
             all_replies = []
@@ -767,6 +769,8 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
             profile_suffix = profile_name
             reply_sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"
             all_replies = get_generated_replies(service, reply_sheet_name, verbose=verbose, status=status)
+            if verbose:
+                _log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status)
         except Exception as e:
             _log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True)
             all_replies = []

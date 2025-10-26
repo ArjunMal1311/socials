@@ -10,13 +10,13 @@ from typing import Optional, Dict, Any
 from profiles import PROFILES
 
 from services.support.path_config import initialize_directories
+from services.platform.x.support.post_watcher import run_watcher
 from services.platform.x.support.clear_media_files import clear_media
 from services.platform.x.support.display_tweets import display_scheduled_tweets
 from services.platform.x.support.generate_sample_posts import generate_sample_posts
 from services.platform.x.support.generate_captions import generate_captions_for_schedule
 from services.platform.x.support.process_scheduled_tweets import process_scheduled_tweets
 from services.platform.x.support.move_tomorrow_schedules import move_tomorrows_from_schedule2
-from services.platform.x.support.post_watcher import run_watcher
 
 console = Console()
 
@@ -54,6 +54,10 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
             status.start()
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[scheduler.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def main():
     load_dotenv()
@@ -117,7 +121,7 @@ def main():
         return
 
     if getattr(args, 'sched_tom', False) and not args.process_tweets and not args.display_tweets and not args.generate_sample and not args.generate_captions and not args.clear_media:
-        moved = move_tomorrows_from_schedule2(args.profile)
+        moved = move_tomorrows_from_schedule2(args.profile, verbose=args.verbose)
         if moved:
             _log(f"{moved} tweet(s) moved from schedule2.json to schedule.json for tomorrow.", args.verbose, status=None, api_info=None)
         else:
@@ -125,7 +129,7 @@ def main():
         return
 
     if args.display_tweets:
-        display_scheduled_tweets(args.profile)
+        display_scheduled_tweets(args.profile, verbose=args.verbose)
     elif args.generate_sample:
         if args.gap_type == "random":
             gap_minutes_min = args.min_gap_hours * 60 + args.min_gap_minutes
@@ -133,29 +137,26 @@ def main():
             if gap_minutes_min > gap_minutes_max:
                 _log("Minimum gap cannot be greater than maximum gap. Adjusting maximum to minimum.", args.verbose, status=None, api_info=None)
                 gap_minutes_max = gap_minutes_min
-            generate_sample_posts(gap_minutes_min=gap_minutes_min, gap_minutes_max=gap_minutes_max, 
-                                  scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, 
-                                  profile_name=args.profile, num_days=args.num_days, start_date=args.start_date)
+            generate_sample_posts(gap_minutes_min=gap_minutes_min, gap_minutes_max=gap_minutes_max, scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, profile_name=args.profile, num_days=args.num_days, start_date=args.start_date, verbose=args.verbose)
         else:
-            generate_sample_posts(fixed_gap_hours=args.fixed_gap_hours, fixed_gap_minutes=args.fixed_gap_minutes, 
-                                  scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, 
-                                  profile_name=args.profile, num_days=args.num_days, start_date=args.start_date)
+            generate_sample_posts(fixed_gap_hours=args.fixed_gap_hours, fixed_gap_minutes=args.fixed_gap_minutes, scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, profile_name=args.profile, num_days=args.num_days, start_date=args.start_date, verbose=args.verbose)
         _log("Sample posts generated and saved to schedule.json", args.verbose, status=None, api_info=None)
+        
     elif args.process_tweets:
         if args.sched_tom:
-            moved = move_tomorrows_from_schedule2(args.profile)
+            moved = move_tomorrows_from_schedule2(args.profile, verbose=args.verbose)
             if moved:
                 _log(f"{moved} tweet(s) moved from schedule2.json to schedule.json for tomorrow.", args.verbose, status=None, api_info=None)
             else:
                 _log("No tomorrow tweets found in schedule2.json.", args.verbose, status=None, api_info=None)
-        process_scheduled_tweets(args.profile, headless=not args.no_headless)
+        process_scheduled_tweets(args.profile, headless=not args.no_headless, verbose=args.verbose)
         _log("Processing complete.", args.verbose, status=None, api_info=None)
     elif args.generate_captions:
-        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API")
+        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API environment variable.", args.verbose, status=None, api_info=None)
-        else:
-            generate_captions_for_schedule(args.profile, gemini_api_key)
+            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, is_error=True, status=None, api_info=None)
+            return
+        generate_captions_for_schedule(args.profile, gemini_api_key, verbose=args.verbose)
     elif args.clear_media:
         clear_media(args.profile)
     else:

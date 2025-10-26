@@ -32,6 +32,10 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
             status.start()
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[move_tomorrow_schedules.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def _paths(profile_name: str) -> Tuple[str, str, str]:
     schedule_json = get_schedule_file_path(profile_name)

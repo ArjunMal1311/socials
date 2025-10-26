@@ -30,6 +30,10 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False):
             status.start()
     elif status:
         status.update(message)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        color = "white"
+        console.print(f"[generate_sample_posts.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def generate_sample_posts(gap_minutes_min=None, gap_minutes_max=None, fixed_gap_hours=None, fixed_gap_minutes=None, scheduled_tweet_text="This is a sample tweet!", start_image_number=1, profile_name="Default", num_days=1, start_date=None, verbose: bool = False):
     with Status("[white]Generating sample posts...[/white]", spinner="dots", console=console) as status:
