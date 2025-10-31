@@ -8,6 +8,7 @@ from rich.console import Console
 from typing import List, Dict, Any, Optional, Tuple
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
+from services.support.api_call_tracker import APICallTracker
 from services.support.gemini_util import generate_gemini
 
 console = Console()
@@ -50,6 +51,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
 def analyze_video_content_with_gemini(video_path: str, profile_name: str, status=None, api_key: Optional[str] = None, verbose: bool = False) -> Tuple[Optional[str], Optional[str]]:
     api_pool = APIKeyPool()
     rate_limiter = RateLimiter()
+    api_call_tracker = APICallTracker()
     if api_key:
         api_pool.set_explicit_key(api_key)
     
@@ -71,11 +73,11 @@ def analyze_video_content_with_gemini(video_path: str, profile_name: str, status
 
         if status:
             status.update(f"[white]Analyzing video content for summary (using API key ending in {gemini_api_key[-4:]})...[/white]")
-        summary = generate_gemini(video_path, gemini_api_key, summary_prompt_text, model_name='gemini-2.5-flash', status=status, verbose=verbose)
+        summary = generate_gemini(video_path, api_pool, api_call_tracker, rate_limiter, summary_prompt_text, model_name='gemini-2.5-flash', status=status, verbose=verbose)
 
         if status:
             status.update(f"[white]Analyzing video content for transcript (using API key ending in {gemini_api_key[-4:]})...[/white]")
-        transcript = generate_gemini(video_path, gemini_api_key, transcript_prompt_text, model_name='gemini-2.5-flash', status=status, verbose=verbose)
+        transcript = generate_gemini(video_path, api_pool, api_call_tracker, rate_limiter, transcript_prompt_text, model_name='gemini-2.5-flash', status=status, verbose=verbose)
 
         if summary and transcript:
             _log(f"Successfully analyzed video content for {os.path.basename(video_path)}.", verbose)
@@ -91,6 +93,7 @@ def analyze_video_content_with_gemini(video_path: str, profile_name: str, status
 def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_name: str, api_key: Optional[str] = None, status=None, verbose: bool = False) -> Optional[str]:
     api_pool = APIKeyPool()
     rate_limiter = RateLimiter()
+    api_call_tracker = APICallTracker()
     if api_key:
         api_pool.set_explicit_key(api_key)
     
@@ -117,7 +120,7 @@ def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_
         if status:
             status.update(f"[white]Generating content suggestions (using API key ending in {gemini_api_key[-4:]})...[/white]")
         
-        suggestions = generate_gemini(None, gemini_api_key, full_prompt, model_name='gemini-2.5-flash', status=status, verbose=verbose)
+        suggestions = generate_gemini(None, api_pool, api_call_tracker, rate_limiter, full_prompt, model_name='gemini-2.5-flash', status=status, verbose=verbose)
         
         if suggestions:
             _log("Successfully generated content suggestions.", verbose)

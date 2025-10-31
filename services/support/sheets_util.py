@@ -205,6 +205,133 @@ def append_to_sheet(service, sheet_name: str, headers: List[str], data_rows: Lis
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False
 
+def create_linkedin_messages_sheet(service, profile_name: str, verbose: bool = False, status=None) -> Optional[str]:
+    try:
+        sheet_name = f"{sanitize_sheet_name(profile_name)}_linkedin_texts"
+        
+        can_call, reason = api_call_tracker.can_make_call("sheets", "read")
+        if not can_call:
+            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            return None
+
+        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
+        api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
+        existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
+        
+        if sheet_name not in existing_sheets:
+            requests = [{
+                'addSheet': {
+                    'properties': {
+                        'title': sheet_name
+                    }
+                }
+            }]
+            body = {'requests': requests}
+
+            can_call, reason = api_call_tracker.can_make_call("sheets", "write")
+            if not can_call:
+                _log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status)
+                return None
+            
+            _log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            response = service.spreadsheets().batchUpdate(
+                spreadsheetId=SPREADSHEET_ID,
+                body=body
+            ).execute()
+            api_call_tracker.record_call("sheets", "write", success=True, response=response)
+
+            headers = [['Timestamp', 'Profile_Name', 'Profile_Job_Title', 'Profile_URL', 'Generated_Message', 'Status']]
+            
+            can_call, reason = api_call_tracker.can_make_call("sheets", "write")
+            if not can_call:
+                _log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status)
+                return None
+
+            _log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            response = service.spreadsheets().values().update(
+                spreadsheetId=SPREADSHEET_ID,
+                range=f'{sheet_name}!A1:F1',
+                valueInputOption='RAW',
+                body={'values': headers}
+            ).execute()
+            api_call_tracker.record_call("sheets", "write", success=True, response=response)
+            _log(f"Created new Google Sheet: {sheet_name}", verbose, status=status)
+        else:
+            _log(f"Sheet '{sheet_name}' already exists.", verbose, status=status)
+        return sheet_name
+    except Exception as e:
+        _log(f"Error creating LinkedIn messages sheet: {str(e)}", verbose, is_error=True, status=status)
+        api_call_tracker.record_call("sheets", "write", success=False, response=e)
+        return None
+
+def save_linkedin_message_to_sheet(service, profile_name: str, profile_url: str, job_title: str, generated_message: str, verbose: bool = False, status=None) -> bool:
+    try:
+        sheet_name = create_linkedin_messages_sheet(service, profile_name, verbose, status=status)
+        if not sheet_name:
+            return False
+
+        current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data_row = [
+            current_timestamp,
+            profile_name,
+            job_title,
+            profile_url,
+            generated_message,
+            "approved"
+        ]
+        
+        headers = ['Timestamp', 'Profile_Name', 'Profile_Job_Title', 'Profile_URL', 'Generated_Message', 'Status']
+        success = append_to_sheet(service, sheet_name, headers, [data_row], verbose, status)
+        
+        if success:
+            _log(f"Successfully saved approved message to Google Sheet '{sheet_name}'.", verbose, status=status)
+        return success
+
+    except Exception as e:
+        _log(f"Error saving LinkedIn message to sheet: {str(e)}", verbose, is_error=True, status=status)
+        api_call_tracker.record_call("sheets", "write", success=False, response=e)
+        return False
+
+def get_approved_linkedin_messages(service, profile_name: str, verbose: bool = False, status=None) -> List[Dict[str, str]]:
+    approved_messages = []
+    try:
+        sheet_name = create_linkedin_messages_sheet(service, profile_name, verbose, status=status)
+        if not sheet_name:
+            return []
+
+        can_call, reason = api_call_tracker.can_make_call("sheets", "read")
+        if not can_call:
+            _log(f"[RATE LIMIT] Cannot read sheet to fetch approved messages: {reason}", verbose, is_error=True, status=status)
+            return []
+
+        _log(f"[HITTING API] Reading sheet '{sheet_name}' for approved messages.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        result = service.spreadsheets().values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f'{sheet_name}!A2:F' 
+        ).execute()
+        api_call_tracker.record_call("sheets", "read", success=True, response=result)
+
+        values = result.get('values', [])
+        for row in values:
+            while len(row) < 6:
+                row.append('')
+            
+            if row[5].lower() == 'approved':
+                approved_messages.append({
+                    "timestamp": row[0],
+                    "profile_name": row[1],
+                    "profile_job_title": row[2],
+                    "profile_url": row[3],
+                    "generated_message": row[4],
+                    "status": row[5]
+                })
+        _log(f"Fetched {len(approved_messages)} approved LinkedIn messages from sheet '{sheet_name}'.", verbose, status=status)
+    except Exception as e:
+        _log(f"Error fetching approved LinkedIn messages: {str(e)}", verbose, is_error=True, status=status)
+        api_call_tracker.record_call("sheets", "read", success=False, response=e)
+    return approved_messages
+
 def create_reply_sheet(service, profile_suffix, verbose: bool = False, status=None):
     try:
         sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"

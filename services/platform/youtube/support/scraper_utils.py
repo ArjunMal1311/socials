@@ -74,76 +74,62 @@ def _save_scraped_videos(profile_name: str, videos_data: List[Dict[str, Any]], w
 def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[str, Any]]:
     try:
         video_data = {}
-        
-        title_element = video_element.find_element(By.CSS_SELECTOR, 'a#video-title-link, a#video-title')
-        video_data['title'] = title_element.get_attribute('title') or title_element.text or ''
+
+        # Extract title and URL
+        title_element = video_element.find_element(By.CSS_SELECTOR, '#video-title')
+        video_data['title'] = title_element.get_attribute('title')
         video_data['url'] = title_element.get_attribute('href')
-        
+
+        # Extract video ID
         video_id = ''
         if video_data['url'] and 'watch?v=' in video_data['url']:
             video_id = video_data['url'].split('/watch?v=')[1].split('&')[0]
         video_data['video_id'] = video_id
 
+        # Extract video length
         video_data['video_length'] = ''
         try:
-            time_status_overlay = video_element.find_element(By.CSS_SELECTOR, 'ytd-thumbnail-overlay-time-status-renderer')
-        
-            try:
-                length_element = time_status_overlay.find_element(By.CSS_SELECTOR, 'div.badge-shape-wiz__text')
-                video_data['video_length'] = length_element.text.strip()
-            except Exception:
-                pass
-    
-            if not video_data['video_length']:
-                try:
-                    badge_shape_element = time_status_overlay.find_element(By.CSS_SELECTOR, 'badge-shape.badge-shape-wiz')
-                    aria_label = badge_shape_element.get_attribute('aria-label')
-                    if aria_label and ('minutes' in aria_label or 'seconds' in aria_label):
-                        parts = []
-                        if 'minutes' in aria_label:
-                            minutes = aria_label.split('minutes')[0].strip()
-                            parts.append(minutes)
-                        if 'seconds' in aria_label:
-                            seconds = aria_label.split('seconds')[0].split(',')[-1].strip()
-                            parts.append(seconds.zfill(2))
-                        video_data['video_length'] = ':'.join(parts)
-                        if video_data['video_length'].startswith(':'):
-                             video_data['video_length'] = "0" + video_data['video_length']
-                except Exception:
-                    pass
-
-        except Exception as e:
+            badge_shape_element = video_element.find_element(By.CSS_SELECTOR, 'ytd-thumbnail-overlay-time-status-renderer badge-shape')
+            aria_label = badge_shape_element.get_attribute('aria-label')
+            if aria_label:
+                # Example: "7 minutes, 59 seconds"
+                minutes_match = re.search(r'(\d+)\s+minute', aria_label)
+                seconds_match = re.search(r'(\d+)\s+second', aria_label)
+                
+                minutes = minutes_match.group(1) if minutes_match else '0'
+                seconds = seconds_match.group(1) if seconds_match else '0'
+                
+                video_data['video_length'] = f"{int(minutes):02}:{int(seconds):02}"
+        except Exception:
             pass
 
+        # Extract published date and views
         published = ''
         views = ''
         try:
-            metadata_elements = video_element.find_elements(By.CSS_SELECTOR, 'span.inline-metadata-item')
-            for element in metadata_elements:
-                text = element.text.lower()
+            metadata_line_elements = video_element.find_elements(By.CSS_SELECTOR, '#metadata-line span.inline-metadata-item')
+            for item in metadata_line_elements:
+                text = item.text.lower()
                 if 'ago' in text:
-                    published = text
+                    published = item.text
                 elif 'views' in text:
-                    views = text.replace('views', '').strip().replace(',', '')
+                    views = item.text.replace(' views', '').strip().replace(',', '')
         except Exception:
             pass
         video_data['published'] = published
         video_data['views'] = views
 
+        # Extract channel name and URL
         try:
-            channel_element = video_element.find_element(By.CSS_SELECTOR, '#channel-name, ytd-channel-name')
-            video_data['channel_name'] = channel_element.text.strip()
-            try:
-                channel_link = channel_element.find_element(By.CSS_SELECTOR, 'a')
-                video_data['channel_url'] = channel_link.get_attribute('href')
-            except:
-                video_data['channel_url'] = ''
+            channel_name_element = video_element.find_element(By.CSS_SELECTOR, '#channel-name yt-formatted-string a')
+            video_data['channel_name'] = channel_name_element.text.strip()
+            video_data['channel_url'] = channel_name_element.get_attribute('href')
         except Exception:
             video_data['channel_name'] = ''
             video_data['channel_url'] = ''
 
         try:
-            thumbnail = video_element.find_element(By.CSS_SELECTOR, 'img')
+            thumbnail = video_element.find_element(By.CSS_SELECTOR, '#thumbnail img')
             video_data['thumbnail_url'] = thumbnail.get_attribute('src')
         except Exception:
             video_data['thumbnail_url'] = ''

@@ -109,6 +109,15 @@ def get_profiles_file_path() -> str:
 def get_community_output_file_path(profile_name: str, community_name: str, timestamp: str) -> str:
     return os.path.join(get_community_dir(profile_name), f"{community_name}_{timestamp}.json")
 
+def get_linkedin_output_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
+
+def get_linkedin_html_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "linkedin", profile_name, "html")
+
+def get_linkedin_data_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "linkedin", profile_name, "data")
+
 def initialize_directories() -> None:
     directories = [
         get_base_dir(),
