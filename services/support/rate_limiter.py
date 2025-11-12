@@ -37,6 +37,7 @@ class RateLimiter:
             minute_ago = now - 60
             key_requests = [req for req in key_requests if req > minute_ago]
             
+            sleep_time = 0
             if len(key_requests) >= self.rpm_limit:
                 _log(f"Rate limit reached for API key. Waiting...", self.verbose)
                 sleep_time = key_requests[0] - minute_ago
@@ -46,3 +47,4 @@ class RateLimiter:
             
             key_requests.append(time.time())
             self.requests_per_key[api_key] = key_requests
+            return max(0, sleep_time)

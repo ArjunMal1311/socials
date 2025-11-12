@@ -63,19 +63,16 @@ def parse_linkedin_html(raw_html: str, profile_name: str, verbose: bool = False,
         profile_name_extracted = "N/A"
         profile_job_title = "N/A"
 
-        # Extract Profile Name (usually in a prominent h1 tag or similar)
         name_tag = soup.find("h1")
         if name_tag:
             profile_name_extracted = name_tag.get_text(strip=True)
             _log(f"Extracted Profile Name: {profile_name_extracted}", verbose, status)
 
-        # Extract Job Title (often a p tag in the intro section)
         job_title_tag = soup.find("div", class_=lambda x: x and "text-body-medium" in x and "break-words" in x)
         if job_title_tag:
             profile_job_title = job_title_tag.get_text(strip=True)
             _log(f"Extracted Job Title: {profile_job_title}", verbose, status)
 
-        # Common section headings on LinkedIn profiles
         relevant_headings = ["About", "Experience", "Education", "Skills", "Licenses & certifications", "Honors & awards"]
 
         for section in soup.find_all("section"):

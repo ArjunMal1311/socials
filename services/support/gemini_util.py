@@ -50,11 +50,12 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
 def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_call_tracker: APICallTracker, rate_limiter: RateLimiter, prompt_text: str, model_name: str = 'gemini-2.5-flash-lite', status=None, verbose: bool = False):
     current_api_key = None
     uploaded_file = None
+    token_count = None
     try:
         current_api_key = api_key_pool.get_key()
         if not current_api_key:
             _log("No API key available in the pool.", verbose, status, is_error=True)
-            return None
+            return None, None
         
         api_key_suffix = current_api_key[-4:]
         
@@ -63,7 +64,7 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
             api_info = api_call_tracker.get_quot_info("gemini", "generate", model_name, api_key_suffix)
             _log(f"API call blocked: {reason}", verbose, status, is_error=True, api_info=api_info)
             api_key_pool.report_failure(current_api_key, reason)
-            return None
+            return None, None
 
         rate_limiter.wait_if_needed(current_api_key)
         genai.configure(api_key=current_api_key)
@@ -89,7 +90,7 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
                     message = f"Gemini file upload failed for {uploaded_file.display_name} ({file_status.name})."
                     _log(message, verbose, status, is_error=True)
                     api_call_tracker.record_call("gemini", "upload", model_name, api_key_suffix, False, message)
-                    return None
+                    return None, None
                 message = f"[Gemini] Waiting for file {uploaded_file.display_name} ({file_status.state.name}) to become ACTIVE (current state: {file_status.state})... This can take several minutes for large videos."
                 _log(message, verbose, status)
                 time.sleep(5)
@@ -97,7 +98,7 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
                 message = f"Gemini file {uploaded_file.display_name} ({uploaded_file.name}) did not become ACTIVE within {timeout_seconds} seconds. Aborting content generation."
                 _log(message, verbose, status, is_error=True)
                 api_call_tracker.record_call("gemini", "upload", model_name, api_key_suffix, False, message)
-                return None
+                return None, None
 
         content = [prompt_text]
         if uploaded_file:
@@ -129,19 +130,19 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
             
             _log(message, verbose, status, is_error=True, api_info=api_info)
             api_key_pool.report_failure(current_api_key, message)
-            return None
+            return None, None
 
         message = f"[Gemini] Generated content for {uploaded_file.display_name if uploaded_file else 'text-only'}"
         _log(message, verbose, status)
 
-        return caption
+        return caption, token_count
     except Exception as e:
         error_message = f"An unexpected error occurred during Gemini generation: {e}"
         api_info = api_call_tracker.get_quot_info("gemini", "generate", model_name, api_key_suffix)
         _log(error_message, verbose, status, is_error=True, api_info=api_info)
         api_call_tracker.record_call("gemini", "generate", model_name, api_key_suffix, False, error_message)
         api_key_pool.report_failure(current_api_key, error_message)
-        return None
+        return None, None
     finally:
         if uploaded_file:
             try:

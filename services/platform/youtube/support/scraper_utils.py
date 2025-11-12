@@ -75,24 +75,20 @@ def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[s
     try:
         video_data = {}
 
-        # Extract title and URL
         title_element = video_element.find_element(By.CSS_SELECTOR, '#video-title')
         video_data['title'] = title_element.get_attribute('title')
         video_data['url'] = title_element.get_attribute('href')
 
-        # Extract video ID
         video_id = ''
         if video_data['url'] and 'watch?v=' in video_data['url']:
             video_id = video_data['url'].split('/watch?v=')[1].split('&')[0]
         video_data['video_id'] = video_id
 
-        # Extract video length
         video_data['video_length'] = ''
         try:
             badge_shape_element = video_element.find_element(By.CSS_SELECTOR, 'ytd-thumbnail-overlay-time-status-renderer badge-shape')
             aria_label = badge_shape_element.get_attribute('aria-label')
             if aria_label:
-                # Example: "7 minutes, 59 seconds"
                 minutes_match = re.search(r'(\d+)\s+minute', aria_label)
                 seconds_match = re.search(r'(\d+)\s+second', aria_label)
                 
@@ -103,7 +99,6 @@ def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[s
         except Exception:
             pass
 
-        # Extract published date and views
         published = ''
         views = ''
         try:
@@ -119,7 +114,6 @@ def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[s
         video_data['published'] = published
         video_data['views'] = views
 
-        # Extract channel name and URL
         try:
             channel_name_element = video_element.find_element(By.CSS_SELECTOR, '#channel-name yt-formatted-string a')
             video_data['channel_name'] = channel_name_element.text.strip()

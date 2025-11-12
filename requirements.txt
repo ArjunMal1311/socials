@@ -11,3 +11,6 @@ pyperclip
 tweepy
 oauth2client
 pytest
+praw
+pillow
+youtube-transcript-api

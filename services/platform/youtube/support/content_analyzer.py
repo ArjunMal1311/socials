@@ -106,14 +106,17 @@ def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_
         rate_limiter.wait_if_needed(gemini_api_key)
 
         profile_config = PROFILES.get(profile_name, {})
-        content_suggestion_prompt = profile_config.get("youtube_best_content_prompt", "Based on the following video data (titles, summaries, views, etc.), suggest 5 to 10 best content ideas for a YouTube channel similar to the scraped content. Focus on trending topics, gaps, or unique angles that could attract viewers. Provide just the content ideas, one per line.")
+        youtube_scraper_config = profile_config.get("youtube_scraper", {})
+        content_suggestion_prompt = youtube_scraper_config.get("youtube_user_prompt", "Based on the following video data (titles, summaries, views, etc.), suggest 5 to 10 best content ideas for a YouTube channel similar to the scraped content. Focus on trending topics, gaps, or unique angles that could attract viewers. Provide just the content ideas, one per line.")
 
         video_info_for_prompt = []
         for video in videos_data:
             title = video.get('title', 'N/A')
             views = video.get('views', 'N/A')
             summary = video.get('summarized_content', 'N/A')
-            video_info_for_prompt.append(f"Title: {title}\nViews: {views}\nSummary: {summary}\n---")
+            subtitles = video.get('subtitles', 'N/A')
+            
+            video_info_for_prompt.append(f"Title: {title}\nViews: {views}\nSummary: {summary}\nSubtitles: {subtitles}\n---")
         
         full_prompt = f"{content_suggestion_prompt}\n\nScraped Video Data:\n\n{'\n'.join(video_info_for_prompt)}"
 

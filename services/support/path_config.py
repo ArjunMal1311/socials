@@ -45,7 +45,7 @@ def get_youtube_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "youtube", profile_name)
 
 def get_youtube_videos_dir(profile_name: str) -> str:
-    return os.path.join(get_youtube_profile_dir(profile_name), "videos")
+    return os.path.join(get_downloads_dir(), "youtube", profile_name, "videos")
 
 def get_youtube_captions_dir(profile_name: str) -> str:
     return os.path.join(get_youtube_profile_dir(profile_name), "captions")
@@ -89,6 +89,12 @@ def get_api_log_file_path() -> str:
 def get_gemini_log_file_path() -> str:
     return os.path.join(get_logs_dir(), "gemini_api_calls_log.json")
 
+def get_reddit_log_file_path(profile_name: str) -> str:
+    return os.path.join(get_logs_dir(), "reddit_api_calls_log.json")
+
+def get_youtube_log_file_path(profile_name: str) -> str:
+    return os.path.join(get_logs_dir(), "youtube_api_calls_log.json")
+
 def get_temp_media_dir(profile_name: str, mode: str = "action") -> str:
     if mode == "eternity":
         base_dir = get_eternity_dir(profile_name)
@@ -117,6 +123,21 @@ def get_linkedin_html_dir(profile_name: str) -> str:
 
 def get_linkedin_data_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name, "data")
+
+def get_reddit_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "reddit", profile_name)
+
+def get_reddit_analysis_dir(profile_name: str) -> str:
+    return os.path.join(get_reddit_profile_dir(profile_name), "analysis")
+
+def get_google_log_file_path(profile_name: str) -> str:
+    return os.path.join(get_logs_dir(), "google_api_calls_log.json")
+
+def get_google_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "google", profile_name)
+
+def get_google_analysis_dir(profile_name: str) -> str:
+    return os.path.join(get_google_profile_dir(profile_name), "analysis")
 
 def initialize_directories() -> None:
     directories = [

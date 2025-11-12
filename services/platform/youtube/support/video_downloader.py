@@ -44,8 +44,8 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
     elif status:
         status.update(message)
 
-def download_videos_for_youtube_scraper(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False) -> Dict[str, Any]:
-    results = {
+def download_videos_for_youtube_scraper(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False) -> List[Dict[str, Any]]:
+    download_results = {
         "success": [],
         "failed": []
     }
@@ -63,10 +63,11 @@ def download_videos_for_youtube_scraper(profile_name: str, videos_data: List[Dic
 
         if not video_url:
             _log(f"No URL found for video {i+1}/{total_videos}. Skipping.", verbose)
-            results["failed"].append({
+            download_results["failed"].append({
                 "video_id": video_id or "Unknown",
                 "title": video_title,
-                "reason": "No URL provided"
+                "reason": "No URL provided",
+                "video_filepath": None
             })
             continue
 
@@ -82,25 +83,43 @@ def download_videos_for_youtube_scraper(profile_name: str, videos_data: List[Dic
             
             process = subprocess.run(cmd, capture_output=True, text=True, check=True)
             _log(f"Successfully downloaded: {video_title}", verbose)
-            results["success"].append({
+            download_results["success"].append({
                 "video_id": video_id,
                 "title": video_title,
-                "output": process.stdout.strip()
-            })
+                "output": process.stdout.strip(),
+                "video_filepath": os.path.join(output_dir, f'{video_id}.mp4')
+            })  
+            video["video_filepath"] = os.path.join(output_dir, f'{video_id}.mp4')
+
         except subprocess.CalledProcessError as e:
             _log(f"Failed to download video {video_title}: {e.stderr.strip()}", verbose, is_error=True)
-            results["failed"].append({
+            download_results["failed"].append({
                 "video_id": video_id,
                 "title": video_title,
-                "reason": e.stderr.strip()
+                "reason": e.stderr.strip(),
+                "video_filepath": None
             })
+            video["video_filepath"] = None
         except Exception as e:
             _log(f"An unexpected error occurred while downloading {video_title}: {e}", verbose, is_error=True)
-            results["failed"].append({
+            download_results["failed"].append({
                 "video_id": video_id,
                 "title": video_title,
-                "reason": str(e)
+                "reason": str(e),
+                "video_filepath": None
             })
+            video["video_filepath"] = None
     
-    _log(f"Completed video download. Success: {len(results['success'])}, Failed: {len(results['failed'])}", verbose)
-    return results 
+    for success_item in download_results["success"]:
+        video_id = success_item.get("video_id")
+        for fname in os.listdir(output_dir):
+            if fname.startswith(video_id) and any(fname.endswith(ext) for ext in ['.mp4', '.webm', '.mkv', '.avi']):
+                success_item["video_filepath"] = os.path.join(output_dir, fname)
+                for video in videos_data:
+                    if video.get("video_id") == video_id:
+                        video["video_filepath"] = os.path.join(output_dir, fname)
+                        break
+                break
+
+    _log(f"Completed video download. Success: {len(download_results['success'])}, Failed: {len(download_results['failed'])}", verbose)
+    return videos_data 

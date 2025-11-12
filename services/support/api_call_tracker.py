@@ -28,6 +28,18 @@ class APICallTracker:
             "sheets": {
                 "read": {"rpm": 60, "tpm": -1, "rpd": -1},
                 "write": {"rpm": 60, "tpm": -1, "rpd": -1},
+            },
+            "reddit": {
+                "subreddit_hot": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "subreddit_new": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "subreddit_top": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "subreddit_rising": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "subreddit_week": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "subreddit_day": {"rpm": 60, "tpm": -1, "rpd": 1000},
+                "post_comments": {"rpm": 60, "tpm": -1, "rpd": 1000},
+            },
+            "google_search": {
+                "search_query": {"rpm": 100, "tpm": -1, "rpd": 10000}
             }
         }
         self._load_log()
@@ -99,38 +111,59 @@ class APICallTracker:
             if method not in self.service_quotas["sheets"]:
                 return False, f"Unknown Sheets method: {method}"
             quotas = self.service_quotas["sheets"][method]
+        elif service == "reddit":
+            if method not in self.service_quotas["reddit"]:
+                return False, f"Unknown Reddit method: {method}"
+            quotas = self.service_quotas["reddit"][method]
+        elif service == "google_search":
+            if method not in self.service_quotas["google_search"]:
+                return False, f"Unknown Google Search method: {method}"
+            quotas = self.service_quotas["google_search"][method]
         else:
             return False, f"Unknown service: {service}"
 
-        if rpm_count >= quotas["rpm"]:
+        if quotas.get("quota_type") == "rpm" and rpm_count >= quotas.get("limit", 0):
             return False, f"Rate limit (RPM) exceeded for {service}/{method} (model: {model})."
         
-        if quotas["rpd"] != -1 and rpd_count >= quotas["rpd"]:
+        if quotas.get("quota_type") == "rpd" and rpd_count >= quotas.get("limit", 0):
             return False, f"Rate limit (RPD) exceeded for {service}/{method} (model: {model})."
 
         return True, "Call allowed."
 
-    def get_quot_info(self, service: str, method: str, model: Optional[str] = None, api_key_suffix: Optional[str] = None) -> Dict[str, Any]:
-        rpm_count, rpd_count = self._get_current_counts(service, method, model, api_key_suffix)
+    def get_quot_info(self, service: str, method_name: str, model: Optional[str] = None, api_key_suffix: str = "") -> Dict[str, Any]:
+        rpm_count, rpd_count = self._get_current_counts(service, method_name, model, api_key_suffix)
         
         quotas = None
         if service == "gemini":
-            quotas = self.service_quotas["gemini"].get(model)
+            quotas = self.service_quotas["gemini"].get(method_name)
         elif service == "sheets":
-            quotas = self.service_quotas["sheets"].get(method)
+            quotas = self.service_quotas["sheets"].get(method_name)
+        elif service == "reddit":
+            quotas = self.service_quotas["reddit"].get(method_name)
+        elif service == "google_search":
+            quotas = self.service_quotas["google_search"].get(method_name)
+        else:
+            return {"error": "Quota information not found.", "message": "Unknown service.", "service": service, "method": method_name}
 
         if not quotas:
-            return {"error": "Unknown service/method/model"}
+            return {"error": "Quota information not found."}
 
         info = {
             "service": service,
-            "method": method,
-            "model": model,
-            "rpm_current": rpm_count,
-            "rpm_limit": quotas["rpm"],
-            "rpd_current": rpd_count,
-            "rpd_limit": quotas["rpd"],
-            "rpm_remaining": max(0, quotas["rpm"] - rpm_count),
-            "rpd_remaining": max(0, quotas["rpd"] - rpd_count) if quotas["rpd"] != -1 else "N/A"
+            "method": method_name,
+            "model": None,
+            "rpm_current": None,
+            "rpm_limit": None,
+            "rpd_current": None,
+            "rpd_limit": None,
+            "message": f"Quota for {service}.{method_name} reached."
         }
+
+        if quotas.get("quota_type") == "rpm":
+            info["rpm_current"] = rpm_count
+            info["rpm_limit"] = quotas.get("limit")
+        elif quotas.get("quota_type") == "rpd":
+            info["rpd_current"] = rpd_count
+            info["rpd_limit"] = quotas.get("limit")
+            
         return info

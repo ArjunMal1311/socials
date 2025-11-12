@@ -142,6 +142,21 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
 
     return deleted_count
 
+def get_latest_dated_json_file(directory: str, prefix: str = "youtube_scraped_data_") -> Optional[str]:
+    latest_file = None
+    latest_timestamp = None
+    for filename in os.listdir(directory):
+        if filename.startswith(prefix) and filename.endswith(".json"):
+            try:
+                timestamp_str = filename[len(prefix):-len(".json")]
+                current_timestamp = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
+                if latest_timestamp is None or current_timestamp > latest_timestamp:
+                    latest_timestamp = current_timestamp
+                    latest_file = os.path.join(directory, filename)
+            except ValueError:
+                continue
+    return latest_file
+
 def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_filter: bool = False, today_filter: bool = False, max_duration_minutes: Optional[int] = None, status: Optional[Status] = None, verbose: bool = False) -> None:
     youtube_profile_dir = get_youtube_profile_dir(profile_name)
     
