@@ -14,7 +14,6 @@ from services.support.gemini_util import generate_gemini
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_reddit_profile_dir
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file as get_latest_reddit_data
-from services.utils.ideas.support.clean import clean_reddit_data
 
 console = Console()
 

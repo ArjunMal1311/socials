@@ -39,10 +39,17 @@ def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Google Search Scraper CLI Tool")
     
+    # profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use from profiles.py")
-    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output.")
+
+    # scrape
     parser.add_argument("--scrape", action="store_true", help="Activate Google Search scraping mode.")
+
+    # analyze content
     parser.add_argument("--analyze-content", action="store_true", help="Analyze scraped Google Search data with Gemini to suggest content.")
+
+    # additional
+    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output.")
     parser.add_argument("--api-key", type=str, default=None, help="Specify a Gemini API key to use for the session, overriding environment variables.")
     
     args = parser.parse_args()
