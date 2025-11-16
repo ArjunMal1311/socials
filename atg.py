@@ -1,6 +1,7 @@
 import subprocess
 from typing import Dict, Any, List, Optional
 from rich.console import Console
+import shlex
 
 console = Console()
 
@@ -190,7 +191,8 @@ class CommandExecutor:
                         python_args.append(arg_name)
                 else:
                     python_args.append(arg_name)
-                    quoted_value = f"'{str(value).replace("'", "'\''")}'" if ' ' in str(value) else str(value)
+                    value_str = str(value)
+                    quoted_value = shlex.quote(value_str)
                     python_args.append(quoted_value)
             elif param_info["required"]:
                 _log(f"Error: Required parameter '{param_name}' for command '{cmd_name}' is missing.", verbose=False, is_error=True)
