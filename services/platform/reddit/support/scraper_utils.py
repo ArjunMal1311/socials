@@ -43,17 +43,17 @@ def run_reddit_scraper(profile_name: str, status: Optional[Status] = None, verbo
     load_dotenv()
     
     profile_config = PROFILES.get(profile_name, {})
-    reddit_config = profile_config.get("reddit", {})
+    reddit_config = profile_config.get("data", {}).get("reddit", {})
 
     if not reddit_config:
         _log(f"No Reddit configuration found for profile '{profile_name}'.", verbose, is_error=True, status=status)
         return []
 
-    subreddits = reddit_config.get("reddit_subreddits", [])
-    time_filters = reddit_config.get("reddit_time_filters", ["hot"])
-    min_comments = reddit_config.get("reddit_min_comments", 0)
-    include_comments = reddit_config.get("reddit_include_comments", False)
-    max_posts = reddit_config.get("max_posts", 25)
+    subreddits = reddit_config.get("subreddits", [])
+    time_filters = reddit_config.get("time_filter", ["hot"])
+    min_comments = reddit_config.get("min_comments", 0)
+    include_comments = reddit_config.get("include_comments", False)
+    max_posts = reddit_config.get("max_posts_per_sub", 25)
 
     if not subreddits:
         _log(f"No subreddits specified for profile '{profile_name}'.", verbose, is_error=True, status=status)

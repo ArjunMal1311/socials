@@ -12,9 +12,10 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.gemini_util import generate_gemini
 from services.support.api_call_tracker import APICallTracker
-from services.support.path_config import get_reddit_profile_dir
+from services.utils.ideas.support.clean import clean_reddit_data, clean_x_data
+from services.support.path_config import get_reddit_profile_dir, get_community_dir
+from services.platform.x.support.file_manager import get_latest_dated_json_file as get_latest_x_data
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file as get_latest_reddit_data
-from services.utils.ideas.support.clean import clean_reddit_data
 
 console = Console()
 
@@ -49,6 +50,9 @@ def get_latest_data(platform: str, profile_name: str, verbose: bool = False) -> 
     if platform == "reddit":
         profile_dir = get_reddit_profile_dir(profile_name)
         latest_file = get_latest_reddit_data(directory=profile_dir, prefix="reddit_scraped_data_")
+    elif platform == "x":
+        profile_dir = get_community_dir(profile_name)
+        latest_file = get_latest_x_data(directory=profile_dir, prefix="Build in Public_")
     else:
         _log(f"Unknown platform: {platform}", verbose, is_error=True)
         return None
@@ -74,6 +78,9 @@ def get_and_clean_aggregated_data(profile_name: str, platforms: List[str], statu
             if clean and platform == "reddit":
                 _log(f"Cleaning data for {platform}...", verbose, status=status)
                 data = clean_reddit_data(profile_name, verbose, status, data=data)
+            elif clean and platform == "x":
+                _log(f"Cleaning data for {platform}...", verbose, status=status)
+                data = clean_x_data(profile_name, verbose, status)
             aggregated_data[platform] = data
     
     if not aggregated_data:

@@ -65,10 +65,7 @@ def analyze_reddit_content_with_gemini(profile_name: str, api_key: Optional[str]
         return None
 
     profile_config = PROFILES.get(profile_name, {})
-    reddit_config = profile_config.get("reddit", {})
-
-    reddit_user_prompt = reddit_config.get("reddit_user_prompt", "Analyze these Reddit trends and suggest 5-10 content ideas for my [Your Channel Niche] channel focusing on engaging topics and unanswered questions from the discussions.")
-
+    reddit_user_prompt = profile_config.get("prompts", {}).get("reddit_user_prompt", "Analyze these Reddit trends and suggest 5-10 content ideas for my [Your Channel Niche] channel focusing on engaging topics and unanswered questions from the discussions.")
     latest_scraped_data_path = get_latest_dated_json_file(profile_name, "reddit_scraped_data", verbose=verbose)
 
     if not latest_scraped_data_path:

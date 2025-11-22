@@ -65,6 +65,7 @@ def main():
                 _log(f"Comments: {sample_post.get('num_comments', 0)}", args.verbose)
             else:
                 _log("No Reddit data scraped.", args.verbose, is_error=True, status=status)
+                
     elif args.analyze_content:
         profile_name = args.profile
         with Status(f"[white]Analyzing Reddit content for profile '{profile_name}' ...[/white]", spinner="dots", console=console) as status:

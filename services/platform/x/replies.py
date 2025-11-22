@@ -19,9 +19,7 @@ from services.platform.x.support.profile_analyzer import analyze_profile
 from services.platform.x.support.eternity_server import start_eternity_review_server 
 from services.support.path_config import get_browser_data_dir, initialize_directories
 from services.platform.x.support.action_server import start_action_mode_review_server
-from services.platform.x.support.community_scraper_utils import scrape_community_tweets
 from services.platform.x.support.eternity import run_eternity_mode, clear_eternity_files 
-from services.platform.x.support.tweet_analyzer import analyze_community_tweets_for_engagement
 from services.platform.x.support.post_to_community import post_to_community_tweet, post_regular_tweet
 from services.platform.x.support.post_approved_tweets import post_approved_replies, check_profile_credentials
 from services.platform.x.support.action import run_action_mode, run_action_mode_with_review, post_approved_action_mode_replies, run_action_mode_online, post_approved_action_mode_replies_online
@@ -107,12 +105,8 @@ def main():
     parser.add_argument("--specific-target-profiles", type=str, default=None, help="Target specific profiles for scraping and analysis. Must match a profile name from the SPECIFIC_TARGET_PROFILES configuration.")
 
     # Community
-    parser.add_argument("--max-tweets", type=int, default=1000, help="Maximum number of tweets to scrape in community mode. Set to 0 for no limit. Default is 1000 tweets.")
     parser.add_argument("--community-name", type=str, help="Name of the X community to scrape tweets from. This is required when using --community-scrape mode.")
-    parser.add_argument("--browser-profile", type=str, default=None, help="Browser profile to use for community scraping. Useful for different authentication contexts. Defaults to the main profile if not specified.")
-    parser.add_argument("--community-scrape", action="store_true", help="Activate community scraping mode to collect tweets from specific X communities. Requires --community-name to be specified.")
-    parser.add_argument("--suggest-engaging-tweets", action="store_true", help="Analyze scraped community tweets using AI to identify the most engaging content and suggest optimal tweets for interaction. Requires --community-name.")
-
+    
     # Additional
     parser.add_argument("--check", action="store_true", help="Verify that all required API keys and credentials exist in the environment for the specified profile. Checks for authentication tokens and API access.")
     parser.add_argument("--api-key", type=str, default=None, help="Override the default Gemini API key from environment variables. Provide a specific API key for this session only.")
@@ -178,50 +172,6 @@ def main():
         _log(f"All present: {result['ok']}", args.verbose, status=None, api_info=None)
         return
     
-    if args.community_scrape:
-        profile = args.profile
-        if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
-            sys.exit(1)
-        profile_name = PROFILES[profile]['name']
-
-        if not args.community_name:
-            _log("--community-name is required for community scraping.", args.verbose, is_error=True, status=None, api_info=None)
-            parser.print_help()
-            sys.exit(1)
-
-        with Status(f"[white]Scraping community '{args.community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            scraped_tweets = scrape_community_tweets(community_name=args.community_name, profile_name=profile_name, browser_profile=args.browser_profile, max_tweets=args.max_tweets, headless=not args.no_headless, status=status, verbose=args.verbose)
-            status.stop()
-            _log(f"Community scraping complete. Scraped {len(scraped_tweets)} tweets.", args.verbose, status=status, api_info=None)
-        return
-
-    if args.suggest_engaging_tweets:
-        profile = args.profile
-        if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
-            sys.exit(1)
-        profile_name = PROFILES[profile]['name']
-
-        if not args.community_name:
-            _log("--community-name is required for suggesting engaging tweets.", args.verbose, is_error=True, status=None, api_info=None)
-            parser.print_help()
-            sys.exit(1)
-        
-        with Status(f"[white]Analyzing tweets from '{args.community_name}' for engagement for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            suggestions = analyze_community_tweets_for_engagement(profile_key=args.profile, community_name=args.community_name, api_key=args.api_key, verbose=args.verbose)
-            status.stop()
-
-            if suggestions:
-                _log("Engagement Suggestions:", args.verbose, status=status, api_info=None)
-                for suggestion in suggestions:
-                    _log(f"- {suggestion.get('suggestion', 'N/A')}", args.verbose, status=status, api_info=None)
-            else:
-                _log("No engagement suggestions generated.", args.verbose, is_error=False, status=status, api_info=None)
-        return
-
     if args.eternity_mode:
         profile = args.profile
         if profile not in PROFILES:

@@ -51,7 +51,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
 def generate_reply_with_key(args, status=None, verbose: bool = False):
     tweet_text, media_urls, profile_name, api_key, rate_limiter, custom_prompt, tweet_id, all_replies = args
     
-    model_name = 'gemini-2.0-flash-lite'
+    model_name = 'gemini-2.5-flash-lite'
 
     try:
         rate_limiter.wait_if_needed(api_key)

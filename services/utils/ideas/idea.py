@@ -6,10 +6,10 @@ from datetime import datetime
 from rich.status import Status
 from dotenv import load_dotenv
 from rich.console import Console
-from services.utils.ideas.support.clean import clean_reddit_data
-from services.utils.ideas.support.token_counter import calculate_reddit_tokens
+from services.utils.ideas.support.clean import clean_reddit_data, clean_x_data
+from services.utils.ideas.support.token_counter import calculate_reddit_tokens, calculate_x_tokens
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file
-from services.support.path_config import get_titles_output_dir, get_scripts_output_dir
+from services.support.path_config import get_titles_output_dir, get_scripts_output_dir, get_reddit_profile_dir, get_community_dir
 from services.utils.ideas.support.idea_utils import _log, get_and_clean_aggregated_data, generate_content_titles, generate_video_scripts
 
 console = Console()
@@ -21,8 +21,8 @@ def main():
     # profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use from profiles.py")
 
-    # platforms (currently reddit only)
-    parser.add_argument("--platforms", nargs='+', default=[], choices=["reddit"], help="Specify platforms to pull data from (e.g., --platforms reddit).")
+    # platforms (currently reddit, x only)
+    parser.add_argument("--platforms", nargs='+', default=[], choices=["reddit", "x"], help="Specify platforms to pull data from (e.g., --platforms reddit x).")
 
     # clean
     parser.add_argument("--clean", action="store_true", help="Clean Reddit data by removing items with score 1 and 0 replies.")
@@ -37,8 +37,30 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output.")
     parser.add_argument("--tokens", action="store_true", help="Print the number of tokens in the latest Reddit JSON file.")
     parser.add_argument("--api-key", type=str, default=None, help="Specify a Gemini API key to use for the session, overriding environment variables.")
+    parser.add_argument("--clear", action="store_true", help="Delete all files under the Reddit and X community folders for the specified profile.")
 
     args = parser.parse_args()
+
+    if args.clear:
+        profile_name = args.profile
+        reddit_dir = get_reddit_profile_dir(profile_name)
+        x_community_dir = get_community_dir(profile_name)
+
+        _log(f"Clearing data for profile '{profile_name}'", args.verbose)
+
+        for directory in [reddit_dir, x_community_dir]:
+            if os.path.exists(directory):
+                with Status(f"[white]Deleting files in {directory}...[/white]", spinner="dots", console=console) as status:
+                    for filename in os.listdir(directory):
+                        file_path = os.path.join(directory, filename)
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
+                            _log(f"Deleted {filename}", args.verbose, status=status)
+                _log(f"Cleared directory: {directory}", args.verbose)
+            else:
+                _log(f"Directory does not exist, skipping: {directory}", args.verbose)
+        _log("Clearing completed.", args.verbose)
+        return
 
     if not args.platforms:
         _log("Please specify at least one platform to pull data from using --platforms.", is_error=True)
@@ -46,19 +68,32 @@ def main():
         return
 
     if args.tokens:
+        token_count = None
         with Status(f"[white]Calculating tokens for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
-            token_count = calculate_reddit_tokens(args.profile, args.verbose, status)
+            if "reddit" in args.platforms:
+                token_count = calculate_reddit_tokens(args.profile, args.verbose, status)
+                if token_count is not None:
+                    _log(f"Total tokens in latest Reddit JSON file: {token_count}", args.verbose)
+                else:
+                    _log("Failed to calculate Reddit tokens.", args.verbose, is_error=True)
+            
+            if "x" in args.platforms:
+                x_token_count = calculate_x_tokens(args.profile, args.verbose, status)
+                if x_token_count is not None:
+                    _log(f"Total tokens in latest X JSON file: {x_token_count}", args.verbose)
+                else:
+                    _log("Failed to calculate X tokens.", args.verbose, is_error=True)
             status.stop()
-        
-        if token_count is not None:
-            _log(f"Total tokens in latest Reddit JSON file: {token_count}", args.verbose)
-        else:
-            _log("Failed to calculate Reddit tokens.", args.verbose, is_error=True)
         return
 
     if args.clean:
-        with Status(f"[white]Cleaning Reddit data for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
-            clean_reddit_data(args.profile, args.verbose, status)
+        with Status(f"[white]Cleaning data for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
+            if "reddit" in args.platforms:
+                _log("Cleaning Reddit data...", args.verbose, status=status)
+                clean_reddit_data(args.profile, args.verbose, status)
+            if "x" in args.platforms:
+                _log("Cleaning X data...", args.verbose, status=status)
+                clean_x_data(args.profile, args.verbose, status)
             status.stop()
         _log("Cleaning completed.", args.verbose)
         

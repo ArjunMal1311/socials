@@ -4,8 +4,8 @@ import json
 import time
 
 from typing import Optional
-from datetime import datetime
 from rich.console import Console
+from datetime import datetime, timezone
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.web_driver_handler import setup_driver
@@ -37,6 +37,36 @@ def _log(message: str, verbose: bool, is_error: bool = False, status=None):
         console.print(f"[community_scraper_utils.py] {timestamp}|[{color}]{message}[/{color}]")
     elif status:
         status.update(message)
+
+def _format_tweet_data(raw_tweet_data: dict) -> dict:
+    scraped_at_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+    likes = int(raw_tweet_data.get('likes', 0) * 1000) if isinstance(raw_tweet_data.get('likes'), float) and raw_tweet_data.get('likes') < 100 else int(raw_tweet_data.get('likes', 0))
+
+    tweet_date_str = raw_tweet_data.get('tweet_date', '')
+    try:
+        tweet_date_iso = datetime.strptime(tweet_date_str, '%Y-%m-%d %H:%M:%S').isoformat() + 'Z'
+    except ValueError:
+        tweet_date_iso = tweet_date_str if tweet_date_str else datetime.now(timezone.utc).isoformat() # Fallback to current UTC if parsing fails
+
+    return {
+        "source": "x",
+        "scraped_at": scraped_at_str,
+        "engagement": {
+            "likes": likes,
+            "retweets": int(raw_tweet_data.get('retweets', 0)),
+            "replies": int(raw_tweet_data.get('replies', 0)),
+            "bookmarks": int(raw_tweet_data.get('bookmarks', 0)),
+            "views": int(raw_tweet_data.get('views', 0)),
+        },
+        "data": {
+            "tweet_id": raw_tweet_data.get('tweet_id', ''),
+            "text": raw_tweet_data.get('tweet_text', ''),
+            "tweet_url": raw_tweet_data.get('tweet_url', ''),
+            "media_urls": raw_tweet_data.get('media_urls', ''),
+            "tweet_date": tweet_date_iso,
+            "profile_image_url": raw_tweet_data.get('profile_image_url', ''),
+        }
+    }
 
 def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, community_name: Optional[str] = None, verbose: bool = False, status=None):
     all_tweets_data = []
@@ -120,10 +150,11 @@ def scrape_community_tweets(community_name: str, profile_name: str, browser_prof
         all_tweets_data = fetch_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name, verbose=verbose, status=status)
 
         if all_tweets_data:
+            formatted_for_saving = [_format_tweet_data(tweet) for tweet in all_tweets_data]
             ensure_dir_exists(os.path.dirname(output_filename))
             with open(output_filename, 'w', encoding='utf-8') as f:
-                json.dump(all_tweets_data, f, ensure_ascii=False, indent=4)
-            _log(f"Successfully saved {len(all_tweets_data)} tweets to {output_filename}", verbose, status=status)
+                json.dump(formatted_for_saving, f, ensure_ascii=False, indent=4)
+            _log(f"Successfully saved {len(formatted_for_saving)} tweets to {output_filename}", verbose, status=status)
         else:
             _log("No tweets to save.", verbose, is_error=False, status=status)
 

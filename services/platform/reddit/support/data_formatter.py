@@ -1,29 +1,31 @@
+import datetime
+
 from typing import List, Dict, Any, Optional
 
 def format_reddit_post(post: Dict[str, Any], time_filter: str, include_comments: bool = False, comments: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-    engagement_ratio = 0.0
-    if post.get('score', 0) > 0:
-        engagement_ratio = post.get('num_comments', 0) / post.get('score', 0)
-        
     formatted_post = {
         "source": "reddit",
-        "subreddit": post.get('subreddit', 'N/A'),
-        "time_filter": time_filter,
-        "title": post.get('title', 'N/A'),
-        "content": post.get('selftext', post.get('url', 'N/A')), 
-        "url": post.get('url', 'N/A'),
-        "score": post.get('score', 0),
-        "upvote_ratio": post.get('upvote_ratio', 0.0),
-        "num_comments": post.get('num_comments', 0),
-        "engagement_ratio": round(engagement_ratio, 4),
-        "created_utc": post.get('created_utc', 0),
-        "flair": post.get('link_flair_text', ''),
-        "is_video": post.get('is_video', False),
-        "awards_count": post.get('total_awards_received', 0)
+        "scraped_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "engagement": {
+            "score": post.get('score', 0),
+            "upvote_ratio": post.get('upvote_ratio', 0.0),
+            "num_comments": post.get('num_comments', 0),
+        },
+        "data": {
+            "subreddit": post.get('subreddit', 'N/A'),
+            "time_filter": time_filter,
+            "title": post.get('title', 'N/A'),
+            "content": post.get('selftext', post.get('url', 'N/A')), 
+            "url": post.get('url', 'N/A'),
+            "created_utc": post.get('created_utc', 0),
+            "flair": post.get('link_flair_text', ''),
+            "is_video": post.get('is_video', False),
+            "awards_count": post.get('total_awards_received', 0)
+        }
     }
 
     if include_comments and comments is not None:
-        formatted_post["comments"] = [
+        formatted_post["data"]["comments"] = [
             {
                 "body": comment.get('body', 'N/A'),
                 "score": comment.get('score', 0),
@@ -32,7 +34,7 @@ def format_reddit_post(post: Dict[str, Any], time_filter: str, include_comments:
             } for comment in comments
         ]
     else:
-        formatted_post["comments"] = []
+        formatted_post["data"]["comments"] = []
 
     return formatted_post
 
