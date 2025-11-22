@@ -1,6 +1,8 @@
 import os
 import json
 
+from profiles import PROFILES
+
 from datetime import datetime
 from rich.status import Status
 from rich.console import Console
@@ -8,8 +10,6 @@ from typing import Optional, List, Dict, Any
 from services.support.path_config import get_reddit_profile_dir, get_community_dir
 from services.platform.x.support.file_manager import get_latest_dated_json_file as get_latest_x_data
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file as get_latest_reddit_data
-
-from profiles import PROFILES
 
 console = Console()
 

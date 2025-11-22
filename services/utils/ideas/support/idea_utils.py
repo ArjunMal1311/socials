@@ -1,13 +1,12 @@
 import os
 import json
 
+from profiles import PROFILES
+
 from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 from typing import Dict, Any, List, Optional
-
-from profiles import PROFILES
-
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.gemini_util import generate_gemini

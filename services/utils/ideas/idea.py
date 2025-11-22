@@ -6,10 +6,12 @@ from datetime import datetime
 from rich.status import Status
 from dotenv import load_dotenv
 from rich.console import Console
+from services.utils.ideas.support.aggregator import aggregate_platform_data
+from services.utils.ideas.support.composite_scorer import add_composite_scores
 from services.utils.ideas.support.clean import clean_reddit_data, clean_x_data
-from services.utils.ideas.support.token_counter import calculate_reddit_tokens, calculate_x_tokens
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file
-from services.support.path_config import get_titles_output_dir, get_scripts_output_dir, get_reddit_profile_dir, get_community_dir
+from services.utils.ideas.support.token_counter import calculate_reddit_tokens, calculate_x_tokens, calculate_aggregated_tokens
+from services.support.path_config import get_titles_output_dir, get_scripts_output_dir, get_reddit_profile_dir, get_community_dir, get_ideas_aggregated_dir
 from services.utils.ideas.support.idea_utils import _log, get_and_clean_aggregated_data, generate_content_titles, generate_video_scripts
 
 console = Console()
@@ -38,6 +40,8 @@ def main():
     parser.add_argument("--tokens", action="store_true", help="Print the number of tokens in the latest Reddit JSON file.")
     parser.add_argument("--api-key", type=str, default=None, help="Specify a Gemini API key to use for the session, overriding environment variables.")
     parser.add_argument("--clear", action="store_true", help="Delete all files under the Reddit and X community folders for the specified profile.")
+    parser.add_argument("--composite", action="store_true", help="Calculate and add composite scores to Reddit and X data.")
+    parser.add_argument("--aggregate", action="store_true", help="Aggregate data from specified platforms into a single JSON file.")
 
     args = parser.parse_args()
 
@@ -62,18 +66,33 @@ def main():
         _log("Clearing completed.", args.verbose)
         return
 
+    if args.composite:
+        with Status(f"[white]Calculating composite scores for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
+            add_composite_scores(args.profile, args.verbose, status)
+            status.stop()
+        _log("Composite score calculation completed.", args.verbose)
+        return
+
+    if args.aggregate:
+        with Status(f"[white]Aggregating data for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
+            aggregate_platform_data(args.profile, args.verbose, status)
+            status.stop()
+        _log("Data aggregation completed.", args.verbose)
+        return
+
     if not args.platforms:
         _log("Please specify at least one platform to pull data from using --platforms.", is_error=True)
         parser.print_help()
         return
 
     if args.tokens:
-        token_count = None
+        token_count_output = False
         with Status(f"[white]Calculating tokens for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
             if "reddit" in args.platforms:
-                token_count = calculate_reddit_tokens(args.profile, args.verbose, status)
-                if token_count is not None:
-                    _log(f"Total tokens in latest Reddit JSON file: {token_count}", args.verbose)
+                reddit_token_count = calculate_reddit_tokens(args.profile, args.verbose, status)
+                if reddit_token_count is not None:
+                    _log(f"Total tokens in latest Reddit JSON file: {reddit_token_count}", args.verbose)
+                    token_count_output = True
                 else:
                     _log("Failed to calculate Reddit tokens.", args.verbose, is_error=True)
             
@@ -81,8 +100,22 @@ def main():
                 x_token_count = calculate_x_tokens(args.profile, args.verbose, status)
                 if x_token_count is not None:
                     _log(f"Total tokens in latest X JSON file: {x_token_count}", args.verbose)
+                    token_count_output = True
                 else:
                     _log("Failed to calculate X tokens.", args.verbose, is_error=True)
+
+            aggregated_dir = get_ideas_aggregated_dir(args.profile)
+            aggregated_file = os.path.join(aggregated_dir, "aggregate.json")
+            if os.path.exists(aggregated_file):
+                aggregated_token_count = calculate_aggregated_tokens(args.profile, args.verbose, status)
+                if aggregated_token_count is not None:
+                    _log(f"Total tokens in aggregated JSON file: {aggregated_token_count}", args.verbose)
+                    token_count_output = True
+                else:
+                    _log("Failed to calculate aggregated tokens.", args.verbose, is_error=True)
+            elif token_count_output:
+                _log("No aggregated data found to calculate tokens.", args.verbose, is_error=False)
+
             status.stop()
         return
 
