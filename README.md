@@ -1,183 +1,255 @@
 # socials
 
-## Project Overview
+**tl;dr:** I was spending 3 hours daily on social media just to stay visible while building. So I'm building AI agents to handle it. Open sourcing everything.
 
-`socials` is a project exploring the integration of AI agent capabilities with social media platforms. This repository stands as a dynamic personal learning experiment, pushing the boundaries to understand the intricate capabilities and transformative potential of AI-powered tools in social media management. My goal is to build intelligent agents that not only streamline but also elevate social media presence, driving authentic engagement and strategic growth.
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-building%20in%20public-yellow)](https://github.com/arjumal1311/socials)
 
-**Disclaimer**: This project is developed purely for educational and experimental purposes. Using tools on social media platforms may violate their respective Terms of Service, which could lead to temporary or permanent suspension of your accounts. Users are solely responsible for adhering to platform policies and bear all risks associated with the use of these tools. This project is **not intended for commercial use** or to circumvent platform rules, but rather to learn about the underlying mechanisms and potential of AI agents. Use at your own risk.
+---
 
-## Features
+## The Problem
 
-The project currently includes AI agents designed for social media management across several platforms:
+You're building something cool. But if you're not active on social media, nobody knows you exist.
 
-### 1. X/Twitter Management
+So you spend hours daily:
+- Scrolling X/Twitter for engagement opportunities
+- Replying to Reddit posts in your niche
+- Coming up with content ideas
+- Scheduling posts across platforms
+- Trying to stay consistent
 
-This section details the various AI-powered tools available for managing your X/Twitter presence.
+**This is backwards.** You should be building, not managing social media.
 
-#### **Important: Initial Login**
-Before using any `x/replies.py` or `x/scheduler.py` commands, you need to log in once with `--no-headless` to authenticate your session:
+---
+
+## The Solution
+
+AI agents that handle your social media while you focus on building.
+
+**Not another scheduling tool.** Not another analytics dashboard.
+
+An actual AI agent that:
+- Reads posts across platforms
+- Decides what's worth engaging with
+- Generates replies in YOUR voice
+- Suggests content ideas from trending topics
+- Posts at optimal times
+- Learns what works and improves
+
+**Think of it as hiring a social media manager who knows your voice, works 24/7, and costs $20/month (high usage) in AI API fees.**
+
+---
+
+## What's Built (Right Now)
+
+### Content Intelligence Engine ✅
+Scrapes content from X, Reddit, YouTube, Google → Scores by engagement → AI analyzes for content ideas
+
+**Why it matters:** Never run out of content ideas. AI finds what's trending and suggests what to make.
+
+### X/Twitter Automation ✅
+- **Action Mode:** AI reads your timeline, generates replies, you approve
+- **Eternity Mode:** Monitors specific profiles, auto-engages when they post
+- **Community Tracker:** Scrapes communities, finds high-value posts
+- **Smart Scheduler:** Posts at optimal times based on your audience
+
+**Why it matters:** Stay active on Twitter without being glued to it.
+
+### Reddit Automation ✅
+- Scrapes subreddits for trending posts
+- AI suggests where to comment
+- Generates contextual replies
+- Auto-posts approved content
+
+**Why it matters:** Reddit drives traffic if you engage consistently. This does it for you.
+
+### YouTube/Instagram/Linkedin 🧪
+Basic automation working, still testing.
+
+---
+
+## What's Next (The AI Agent)
+
+Right now, you run commands and approve suggestions. That works, but it's not autonomous.
+
+**v1.0 goal:** One AI agent that handles everything.
+
+**How it'll work:**
+
+1. **Style Learning**
+   - Analyzes your past posts/replies
+   - Learns your tone, topics, patterns
+   - Generates content that sounds like you
+
+2. **Autonomous Decisions**
+   - Scrapes all platforms daily
+   - Scores opportunities (engagement potential)
+   - Decides: reply, create content, or ignore
+   - Queues everything for your approval
+
+3. **Cross-Platform Intelligence**
+   - Same idea, adapted for each platform
+   - Tweet → LinkedIn post → Reddit comment
+   - One piece of content → maximum distribution
+
+4. **Continuous Learning**
+   - Tracks what performs well
+   - Adjusts strategy based on data
+   - Gets better over time
+
+**Timeline:** Building this publicly over next 6-8 weeks. Follow along.
+
+---
+
+## Why Open Source?
+
+Because the alternative sucks.
+
+**SaaS tools:**
+- Cost $100+/month
+- Lock you into their platform
+- Generic AI that doesn't sound like you
+- Can't customize prompts
+- Your data on their servers
+
+**Socials:**
+- Free forever (just AI API costs)
+- Runs locally, you own your data
+- Customize everything (code + prompts)
+- No vendor lock-in
+- Transparent (read the code)
+
+Plus, I'm learning by building this publicly. If it helps others, even better.
+
+---
+
+## Quick Start
 ```bash
-source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --no-headless
-# or
-source venv/bin/activate && PYTHONPATH=. python services/platform/x/scheduler.py --profile flytdev --no-headless
+# Clone & setup
+git clone https://github.com/arjumal1311/socials.git
+cd socials
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# Configure
+cp profiles.sample.py profiles.py
+# Edit profiles.py with your accounts and AI API keys
+
+# Run interactive command generator
+python atg.py
+
+# Or jump straight in (example: Twitter replies)
+python services/platform/x/replies.py --profile YOUR_PROFILE --action-review
 ```
 
-#### **Action Mode**
-This mode allows for generating and posting replies to tweets using AI analysis, scraping recent tweets, analyzing them with Gemini AI, and generating contextual replies.
+**Full docs:** [Setup Guide](docs/SETUP.md) • [Commands](docs/COMMANDS.md) • [Platform Guides](docs/PLATFORMS.md)
 
-**Commands:**
--   **Review Replies**: Generate and review replies without posting.
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --action-review
-    ```
-    *Additional Options:*
-    -   `--online`, `--run-number`: For online integration with Google Sheets.
-    -   `--ignore-video-tweets`, `--verbose`, `--no-headless`, `--reply-max-tweets`, `--action-port`, `--community-name`
+---
 
--   **Generate and Post Replies**: Use API keys to generate replies, then post approved ones.
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --action-generate
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --post-action-approved
-    ```
+## Real Talk
 
-#### **Eternity Mode**
-Focuses on collecting tweets from specific target profiles, analyzing them with Gemini AI, and saving generated replies for approval, enabling targeted profile monitoring.
+**This is a work in progress.** The core automation works. The AI agent is being built.
 
-**Commands:**
--   **Run Eternity Mode**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --eternity-mode
-    ```
-    *Additional Options:*
-    -   `--eternity-browser {profile}`: Use another profile's browser (fake) instead of the current profile.
-    -   `--ignore-video-tweets`, `--verbose`, `--no-headless`, `--reply-max-tweets`, `--port`
+**It's not perfect.** There are bugs. Some features are experimental. I'm learning as I go.
 
--   **Review Eternity Replies**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --eternity-review
-    ```
--   **Clear Eternity Data**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --clear-eternity
-    ```
--   **Post Approved Eternity Replies**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --post-approved
-    ```
-    *Additional Option:*
-    -   `--limit`: If there's a posting limit.
+**But it's useful.** I'm using it daily to manage my own social media. It saves me 10+ hours per week.
 
-#### **Community Analysis**
-Features to collect tweets from specific X communities based on provided community names and suggest engaging content.
+**And it's getting better.** Every week I ship improvements based on what I learn.
 
-**Commands:**
--   **Scrape Community Tweets**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --community-scrape --community-name "Software Engineering"
-    ```
-    *Additional Option:*
-    -   `--browser-profile {profile}`: Use another profile's browser.
-    -   `--ignore-video-tweets`, `--verbose`, `--no-headless`
+If you're a developer who wants to build in public but hates managing social media, this might help.
 
--   **Suggest Engaging Tweets from Community**: AI-driven analysis of scraped community tweets to identify the most engaging content.
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/replies.py --profile flytdev --suggest-engaging-tweets
-    ```
-    *Additional Option:*
-    -   `--verbose`: To show output.
+---
 
-#### **Scheduled Posting (Scheduler)**
-Tools for planning and publishing tweets at specified times.
+## Use Cases
 
-**Commands:**
--   **Process Tweets for Scheduling**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/scheduler.py --profile flytdev --process-tweets
-    ```
-    *Additional Options:*
-    -   `--no-headless`, `--verbose`
+**For indie hackers:**
+- Launch a product → Socials keeps you visible while you build
+- Engage with communities without spending hours scrolling
 
--   **Schedule Tomorrow's Tweets**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/scheduler.py --profile flytdev --sched-tom
-    ```
+**For developers:**
+- Build in public without context-switching constantly
+- Stay active on X/Reddit/LinkedIn consistently
 
--   **Generate Sample Schedule**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/scheduler.py --profile flytdev --generate-sample
-    ```
-    *Additional Options:*
-    -   `--min-gap-hours`, `--min-gap-minutes`, `--max-gap-hours`, `--max-gap-minutes`, `--fixed-gap-hours`, `--fixed-gap-minutes`, `--tweet-text`, `--start-image-number`, `--num-days`, `--start-date`, `--verbose`
+**For small startups:**
+- Automate community engagement
+- Generate content from trending topics
+- Distribute updates across all platforms
 
--   **Monitor and Post Scheduled Tweets**:
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python services/platform/x/scheduler.py --profile flytdev --post-watch --post-watch-profiles flytdev
-    ```
+**Not for:**
+- Spamming (please don't)
+- Fake engagement (sounds like you because it learns from you)
+- Replacing authentic relationships (it's a tool, not a replacement)
 
-### 2. YouTube Management (Under Testing)
--   **Comment Replies**: AI-powered responses to comments on YouTube videos, maintaining context and tone.
--   **Video Scheduling**: Tools for scheduling video uploads and publications.
--   **Metadata Scraping**: Tools for extracting video metadata for analysis or content optimization.
+---
 
-### 3. Instagram Management (Under Testing)
--   **Post Scheduling**: Tools for scheduling and publishing of Instagram posts.
--   **Auto-replies**: AI-generated responses to comments and direct messages on Instagram.
--   **Engagement Tracking**: Features to monitor and analyze engagement metrics for posts.
+## The Stack
 
-## Future Enhancements & Vision
+- **Python 3.8+** - CLI tool, runs anywhere
+- **Gemini API** - AI for analysis and generation
+- **Playwright/Selenium** - Browser automation
+- **Local storage** - Your data stays on your machine
+- **Google Sheets** - Easy Visualization of Data
 
-I'm working to expand the capabilities of `socials`.
+No database. No cloud service. Just Python scripts and AI APIs.
 
--   **Unified AI Agent for All Social Media**: My goal is to develop a single, intelligent AI agent capable of seamlessly managing all your social media platforms.
--   **LinkedIn Integration**: LinkedIn management features are coming soon, allowing for professional networking and content scheduling.
--   **Enhanced AI Capabilities**: Further advancements in AI models for more nuanced understanding of engagement, content generation, and audience growth.
--   **Smart Platform Mapping**: An upcoming AI agent will intelligently map and manage all your social media accounts, streamlining your online presence (X-tested & working, YouTube and Instagram under testing).
+---
 
-## Setup and Installation
+## Roadmap
 
-To get started with `socials`, follow these general steps:
+**Phase 1: Automation** ✅
+- [x] Multi-platform scraping
+- [x] Content scoring
+- [x] Reply generation
+- [x] Basic scheduling
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/arjumal1311/socials.git
-    cd socials
-    ```
+**Phase 2: Intelligence** 🔄 (current)
+- [x] Content idea generation
+- [ ] Style learning from your posts
+- [ ] Approval queue system
+- [ ] Autonomous posting
 
-2.  **Initialize a virtual environment**:
-    It is highly recommended to use a virtual environment to manage dependencies.
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-    ```
+**Phase 3: Agent** 📅 (next)
+- [ ] One unified agent for all platforms
+- [ ] Cross-platform content adaptation
+- [ ] Performance tracking & learning
+- [ ] Self-improvement from data
 
-3.  **Install dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Configure Profiles**:
-    Rename `profiles.sample.py` to `profiles.py` and populate it with your specific social media profiles. This file is crucial for the AI agents to function.
-    ```bash
-    mv profiles.sample.py profiles.py
-    # Edit profiles.py with your configurations
-    ```
-
-5.  **Browser Configuration**:
-    The project uses `chromium` for browser interaction by default. If you wish to use a different browser (e.g., Chrome, Firefox), you can adjust the settings in `services/support/web_driver_handler.py`.
-
-6.  **Generate Commands with `atg.py`**:
-    Use the interactive `atg.py` script to easily generate and understand CLI commands for various tasks.
-    ```bash
-    source venv/bin/activate && PYTHONPATH=. python atg.py
-    ```
-    Follow the prompts to select your desired action and configure its parameters. The script will then display the full command for review.
+---
 
 ## Contributing
 
-Contributions are welcome! If you have suggestions for improvements, new features, or bug fixes, please feel free to open an issue or submit a pull request.
+Building this in public. Contributions welcome.
 
-## License
+**Ways to help:**
+- Try it, report bugs
+- Suggest features
+- Improve docs
+- Submit PRs
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
-As an open-source educational project, I encourage collaboration and learning. If you create a derivative work or copy of this project, I kindly request that you also maintain its open-source nature to further foster a collaborative learning environment.
+---
+
+## Disclaimer
+
+This is an educational project. Using automation on social platforms may violate their Terms of Service. You're responsible for following platform rules. Use at your own risk.
+
+I built this to solve my own problem. Sharing it because others might find it useful.
+
+---
+
+## Follow Along
+
+Building v1.0 publicly:
+- **Twitter:** [@flytdev](https://twitter.com/flytdev)
+- **Updates:** Watch this repo
+- **Weekly progress:** Committed to shipping weekly
+
+If this resonates with you, star the repo ⭐
+
+---
+
+**Built by developers, for everyone who'd rather be building.**
+
+MIT License • [Read the code](https://github.com/arjumal1311/socials) • [Report issues](https://github.com/arjumal1311/socials/issues)
