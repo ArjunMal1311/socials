@@ -1,4 +1,3 @@
-import re
 import os
 import sys
 import time
@@ -8,12 +7,13 @@ import threading
 from dotenv import load_dotenv
 from rich.status import Status
 from rich.console import Console
-from typing import Optional, Dict, Any
+
 from profiles import PROFILES, SPECIFIC_TARGET_PROFILES
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, timedelta
+from services.support.logger_util import _log as log
 from services.platform.x.support.action import setup_driver
 from services.platform.x.support.profile_analyzer import analyze_profile
 from services.platform.x.support.eternity_server import start_eternity_review_server 
@@ -25,39 +25,6 @@ from services.platform.x.support.post_approved_tweets import post_approved_repli
 from services.platform.x.support.action import run_action_mode, run_action_mode_with_review, post_approved_action_mode_replies, run_action_mode_online, post_approved_action_mode_replies_online
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[x-replies.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[x-replies.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
 
 def main():
     load_dotenv()
@@ -97,13 +64,13 @@ def main():
     
     # Normal posting
     parser.add_argument("--post-tweet", type=str, default=None, help="The exact tweet text to post as a regular tweet. Use this instead of --post-to-community-tweet when not posting to a community.")
-
+    
     # Analyze Accounts
     parser.add_argument("--analyze-account", type=str, help="Analyze a specific X account by scraping their tweets and storing them in a Google Sheet. Requires the target profile's username.")
 
     # Specific Target Profiles
     parser.add_argument("--specific-target-profiles", type=str, default=None, help="Target specific profiles for scraping and analysis. Must match a profile name from the SPECIFIC_TARGET_PROFILES configuration.")
-
+    
     # Community
     parser.add_argument("--community-name", type=str, help="Name of the X community to scrape tweets from. This is required when using --community-scrape mode.")
     
@@ -121,21 +88,21 @@ def main():
     if args.clear_eternity:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
         with Status(f"[white]Clearing Eternity files for {profile_name}...[/white]", spinner="dots", console=console) as status:
             deleted = clear_eternity_files(profile_name, status=status, verbose=args.verbose)
             status.stop()
-            _log(f"Done. Deleted items: {deleted}", args.verbose, status=status, api_info=None)
+            log(f"Done. Deleted items: {deleted}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         return
 
     if args.eternity_review:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
         port = args.port if args.port != 8765 else 8766
@@ -146,62 +113,62 @@ def main():
     if args.post_approved:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
         with Status(f"[white]Posting approved replies for {profile_name} from {args.post_mode} schedule...[/white]", spinner="dots", console=console) as status:
             summary = post_approved_replies(profile_name, limit=args.limit, mode=args.post_mode, verbose=args.verbose)
             status.stop()
-            _log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None)
+            log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         return
 
     if args.check:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
         result = check_profile_credentials(profile_name)
-        _log(f"Profile: {result['profile']}", args.verbose, status=None, api_info=None)
+        log(f"Profile: {result['profile']}", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
         for var, info in result['vars'].items():
             status_text = 'OK' if info['present'] else 'MISSING'
             tail = f" (…{info['last4']})" if info['present'] and info['last4'] else ''
-            _log(f"- {var}: {status_text}{tail}", args.verbose, status=None, api_info=None)
-        _log(f"All present: {result['ok']}", args.verbose, status=None, api_info=None)
+            log(f"- {var}: {status_text}{tail}", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
+        log(f"All present: {result['ok']}", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
         return
     
     if args.eternity_mode:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompt']
+        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
 
         with Status(f"[white]Running Eternity Mode: Scraping and analyzing tweets for {profile_name}...[/white]", spinner="dots", console=console) as status:
             results = run_eternity_mode(profile_name, custom_prompt, args.eternity_browser, max_tweets=args.eternity_max_tweets, status=status, headless=not args.no_headless, verbose=args.verbose, ignore_video_tweets=args.ignore_video_tweets)
             status.stop()
-            _log("Eternity Mode Summary:", args.verbose, status=status, api_info=None)
-            _log(f"Processed: {len(results)}", args.verbose, status=status, api_info=None)
+            log("Eternity Mode Summary:", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+            log(f"Processed: {len(results)}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             ready = sum(1 for r in results if r.get('status') == 'ready_for_approval')
-            _log(f"Ready for approval: {ready}", args.verbose, status=status, api_info=None)
+            log(f"Ready for approval: {ready}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             if results:
-                _log("  Sample:", args.verbose, status=status, api_info=None)
+                log("  Sample:", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
                 sample = results[0]
-                _log(f"Tweet: {sample.get('tweet_text', '')[:70]}...", args.verbose, status=status, api_info=None)
-                _log(f"Reply: {sample.get('generated_reply', '')[:70]}...", args.verbose, status=status, api_info=None)
-                _log(f"Media: {', '.join(sample.get('media_files', []))}", args.verbose, status=status, api_info=None)
+                log(f"Tweet: {sample.get('tweet_text', '')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log(f"Reply: {sample.get('generated_reply', '')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log(f"Media: {', '.join(sample.get('media_files', []))}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         return
 
     if args.analyze_account:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
@@ -212,12 +179,12 @@ def main():
         try:
             driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
             for msg in setup_messages:
-                _log(msg, args.verbose, status=None, api_info=None)
+                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
             with Status(f"[white]Analyzing profile {target_profile_name}...[/white]", spinner="dots", console=console) as status:
                 analyze_profile(driver, profile_name, target_profile_name, verbose=args.verbose, status=status)
             status.stop()
         except Exception as e:
-            _log(f"Error during profile analysis: {e}", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Error during profile analysis: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
         finally:
             if driver:
                 driver.quit()
@@ -226,38 +193,38 @@ def main():
     if args.action_generate:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompt']
+        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
 
         with Status(f"[white]Running Action Mode Generation: Scraping and analyzing tweets for {profile_name}...[/white]", spinner="dots", console=console) as status:
             driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             if driver:
                 driver.quit()
-            _log(f"Action mode generation finished for {profile_name}. Replies saved to Google Sheet: {profile_name}_online_replies", verbose=args.verbose, status=None, api_info=None)
+            log(f"Action mode generation finished for {profile_name}. Replies saved to Google Sheet: {profile_name}_online_replies", verbose=args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         return
 
     if args.action_review:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompt']
+        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
         
         specific_search_url = None
         target_profile_name = None
         if args.specific_target_profiles:
             profile_key = args.specific_target_profiles
             if profile_key not in SPECIFIC_TARGET_PROFILES:
-                _log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-                _log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None)
+                log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+                log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
                 sys.exit(1)
             
             target_profiles_list = SPECIFIC_TARGET_PROFILES[profile_key]
@@ -276,8 +243,8 @@ def main():
             if args.online:
                 driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, specific_search_url=specific_search_url, target_profile_name=target_profile_name, verbose=args.verbose, headless=not args.no_headless)
                 status.stop()
-                _log(f"Action mode with online review finished. Review generated replies in Google Sheet: {profile_name}_online_replies", args.verbose, status=None, api_info=None)
-                _log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None)
+                log(f"Action mode with online review finished. Review generated replies in Google Sheet: {profile_name}_online_replies", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
                 input()
             else:
                 driver = run_action_mode_with_review(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
@@ -288,14 +255,14 @@ def main():
                 httpd_server = None
                 def run_server():
                     nonlocal httpd_server
-                    httpd_server = start_action_mode_review_server(profile_name, port=args.action_port)
+                    httpd_server = start_action_mode_review_server(profile_name, port=args.action_port, verbose=args.verbose)
                 
                 server_thread = threading.Thread(target=run_server)
                 server_thread.daemon = True
                 server_thread.start()
                 time.sleep(1)
 
-                _log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None)
+                log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
                 input()
             
                 if httpd_server and hasattr(httpd_server, 'shutdown_server'):
@@ -311,7 +278,7 @@ def main():
                 else:
                     summary = post_approved_action_mode_replies(driver, profile_name, verbose=args.verbose)
                 status.stop()
-                _log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None)
+                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             
             if driver:
                 driver.quit()
@@ -320,8 +287,8 @@ def main():
     if args.post_action_approved_sequential:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
@@ -332,15 +299,15 @@ def main():
             try:
                 driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
                 for msg in setup_messages:
-                    _log(msg, args.verbose, status=None, api_info=None)
+                    log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
             except Exception as e:
-                _log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None)
+                log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
                 sys.exit(1)
 
         with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
             summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose)
             status.stop()
-            _log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None)
+            log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         
         if driver:
             driver.quit()
@@ -349,8 +316,8 @@ def main():
     if args.post_action_approved:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
@@ -359,23 +326,23 @@ def main():
         try:
             driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
             for msg in setup_messages:
-                _log(msg, args.verbose, status=None, api_info=None)
+                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
         except Exception as e:
-            _log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
             summary = post_approved_action_mode_replies(driver, profile_name, verbose=args.verbose)
             status.stop()
-            _log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None)
+            log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         driver.quit()
         return
 
     if args.post_to_community:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
@@ -383,12 +350,12 @@ def main():
         community_name = args.community_name
 
         if not tweet_text:
-            _log("--post-to-community-tweet is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None)
+            log("--post-to-community-tweet is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             parser.print_help()
             sys.exit(1)
 
         if not community_name:
-            _log("--community-name is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None)
+            log("--community-name is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             parser.print_help()
             sys.exit(1)
         
@@ -397,26 +364,26 @@ def main():
         try:
             driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=False)
             for msg in setup_messages:
-                _log(msg, args.verbose, status=None, api_info=None)
+                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
         except Exception as e:
-            _log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         with Status(f"[white]Posting tweet to community '{community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
             success = post_to_community_tweet(driver, tweet_text, community_name, status=status, verbose=args.verbose)
             status.stop()
             if success:
-                _log(f"Successfully posted tweet to community '{community_name}'.", args.verbose, status=status, api_info=None)
+                log(f"Successfully posted tweet to community '{community_name}'.", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             else:
-                _log(f"Failed to post tweet to community '{community_name}'.", args.verbose, is_error=True, status=status, api_info=None)
+                log(f"Failed to post tweet to community '{community_name}'.", args.verbose, is_error=True, status=status, api_info=None, log_caller_file="replies.py")
         driver.quit()
         return
 
     if args.post_tweet:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         
         profile_name = PROFILES[profile]['name']
@@ -427,26 +394,26 @@ def main():
         try:
             driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=False)
             for msg in setup_messages:
-                _log(msg, args.verbose, status=None, api_info=None)
+                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
         except Exception as e:
-            _log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         with Status(f"[white]Posting regular tweet for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
             success = post_regular_tweet(driver, tweet_text, status=status, verbose=args.verbose)
             status.stop()
             if success:
-                _log(f"Successfully posted regular tweet.", args.verbose, status=status, api_info=None)
+                log(f"Successfully posted regular tweet.", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             else:
-                _log(f"Failed to post regular tweet.", args.verbose, is_error=True, status=status, api_info=None)
+                log(f"Failed to post regular tweet.", args.verbose, is_error=True, status=status, api_info=None, log_caller_file="replies.py")
         driver.quit()
         return
 
     if args.specific_target_profiles:
         profile_key = args.specific_target_profiles
         if profile_key not in SPECIFIC_TARGET_PROFILES:
-            _log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
         
         target_profiles_list = SPECIFIC_TARGET_PROFILES[profile_key]
@@ -461,35 +428,35 @@ def main():
         search_url = f"https://x.com/search?q=(({query_string}))%20until%3A{until_date}%20since%3A{since_date}&src=typed_query"
         
         login_profile_name = args.profile
-        custom_prompt = PROFILES[login_profile_name]['prompt']
+        custom_prompt = PROFILES[login_profile_name]['prompts']['reply_generation']
         
         with Status(f"[white]Running Action Mode for specific profiles: Scraping and analyzing tweets for {profile_names_for_query} using login profile {login_profile_name}...[/white]", spinner="dots", console=console) as status:
             driver = run_action_mode_online(login_profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, specific_search_url=search_url, target_profile_name=profile_key, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             if driver:
                 driver.quit()
-            _log(f"Action mode generation for specific profiles finished. Replies saved to Google Sheet: {login_profile_name}_online_replies", args.verbose, status=None, api_info=None)
+            log(f"Action mode generation for specific profiles finished. Replies saved to Google Sheet: {login_profile_name}_online_replies", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
         return
 
     if args.action_mode:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompt']
+        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
         
         with Status(f'[white]Running Action Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
             result = run_action_mode(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
-            _log("Action Mode Results:", args.verbose, status=status, api_info=None)
+            log("Action Mode Results:", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             for res in result:
-                _log(f"Tweet: {res.get('tweet_text', 'N/A')[:70]}...", args.verbose, status=status, api_info=None)
-                _log(f"Reply: {res.get('generated_reply', 'N/A')[:70]}...", args.verbose, status=status, api_info=None)
-                _log(f"Status: {res.get('status', 'N/A')}", args.verbose, status=status, api_info=None)
-                _log("\n", args.verbose, status=status, api_info=None)
+                log(f"Tweet: {res.get('tweet_text', 'N/A')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log(f"Reply: {res.get('generated_reply', 'N/A')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log(f"Status: {res.get('status', 'N/A')}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log("\n", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
 
     else:
         parser.print_help()

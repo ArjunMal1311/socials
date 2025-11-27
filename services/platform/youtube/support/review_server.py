@@ -1,53 +1,15 @@
 import os
-import re
 import json
 
-from datetime import datetime
 from tabnanny import verbose
 from rich.console import Console
 from urllib.parse import urlparse
-from typing import Optional, Dict, Any
+from services.support.logger_util import _log as log
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from services.platform.youtube.support.review_html import build_youtube_review_html
 from services.support.path_config import get_youtube_replies_for_review_dir, get_youtube_shorts_dir
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if is_error:
-        if status:
-            status.stop()
-        
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[review_server.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        if status:
-            status.update(message)
-        else:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            color = "white"
-            console.print(f"[review_server.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
 
 class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, root_dir=None, profile_name='Default', verbose=False, **kwargs):
@@ -57,7 +19,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
-        _log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose)
+        log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose, log_caller_file="review_server.py")
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -196,10 +158,10 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
                 f.seek(0)
                 json.dump(reply_data, f, ensure_ascii=False, indent=4)
                 f.truncate()
-            _log(f"Reply '{reply_id}' status updated to '{status}'.", True, verbose=self.verbose)
+            log(f"Reply '{reply_id}' status updated to '{status}'.", True, verbose=self.verbose, log_caller_file="review_server.py")
             return True
         else:
-            _log(f"Reply file not found for ID: {reply_id}", True, is_error=True, verbose=self.verbose)
+            log(f"Reply file not found for ID: {reply_id}", True, is_error=True, verbose=self.verbose, log_caller_file="review_server.py")
             return False
 
     def _handle_update(self, data):
@@ -236,7 +198,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
         file_path = os.path.join(replies_path, f"{reply_id}.json")
         if os.path.exists(file_path):
             os.remove(file_path)
-            _log(f"Reply file '{reply_id}.json' deleted.", True, verbose=self.verbose)
+            log(f"Reply file '{reply_id}.json' deleted.", True, verbose=self.verbose, log_caller_file="review_server.py")
             return self._json_response({'ok': True})
         else:
             return self._json_response({'ok': False, 'error': 'not_found'}, status=404)
@@ -248,7 +210,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
         if not os.path.exists(replies_path):
             return []
         
-        _log(replies_path, verbose=verbose)
+        log(replies_path, verbose=verbose, log_caller_file="review_server.py")
         
         for filename in os.listdir(replies_path):
             if filename.endswith('.json'):
@@ -256,7 +218,7 @@ class YoutubeReviewRequestHandler(SimpleHTTPRequestHandler):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     reply_data = json.load(f)
                     replies.append(reply_data)
-        _log(f"[DEBUG] Loaded {len(replies)} replies from {replies_path}", True, verbose=True)
+        log(f"[DEBUG] Loaded {len(replies)} replies from {replies_path}", True, verbose=True, log_caller_file="review_server.py")
         return sorted(replies, key=lambda x: x.get('id', ''))
 
 def start_youtube_review_server(profile_name: str, port: int = 8767, verbose: bool = False):
@@ -270,12 +232,12 @@ def start_youtube_review_server(profile_name: str, port: int = 8767, verbose: bo
     target_html_path = os.path.join(review_data_dir, 'index.html')
     with open(target_html_path, 'w', encoding='utf-8') as f:
         f.write(generated_html)
-    _log(f"Generated index.html to {target_html_path}", verbose)
+    log(f"Generated index.html to {target_html_path}", verbose, log_caller_file="review_server.py")
 
     handler_factory = lambda *args, **kwargs: YoutubeReviewRequestHandler(*args, root_dir=review_data_dir, profile_name=profile_name, verbose=verbose, **kwargs)
     httpd = HTTPServer(('127.0.0.1', port), handler_factory)
-    _log(f"Serving YouTube reply review for '{profile_name}' at http://127.0.0.1:{port}", verbose)
-    _log("Press Ctrl+C to stop.", verbose)
+    log(f"Serving YouTube reply review for '{profile_name}' at http://127.0.0.1:{port}", verbose, log_caller_file="review_server.py")
+    log("Press Ctrl+C to stop.", verbose, log_caller_file="review_server.py")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

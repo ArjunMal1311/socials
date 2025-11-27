@@ -1,41 +1,14 @@
 import os
 import json
-import re
 
 from rich.console import Console
 from typing import List, Dict, Tuple
 from datetime import datetime, timedelta
+from services.support.logger_util import _log as log
 from services.platform.x.support.save_tweet_schedules import save_tweet_schedules
 from services.support.path_config import get_schedule_file_path, get_schedule2_file_path
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if is_error:
-        if status:
-            status.stop()
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[move_tomorrow_schedules.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[move_tomorrow_schedules.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-    else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[move_tomorrow_schedules.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def _paths(profile_name: str) -> Tuple[str, str, str]:
     schedule_json = get_schedule_file_path(profile_name)
@@ -68,7 +41,7 @@ def move_tomorrows_from_schedule2(profile_name: str = "Default", verbose: bool =
     save_tweet_schedules([], profile_name)
 
     if not schedule2_items:
-        _log(f"Cleared schedule.json. No schedule2.json items found for profile '{profile_name}'.", verbose, status=status)
+        log(f"Cleared schedule.json. No schedule2.json items found for profile '{profile_name}'.", verbose, status=status, log_caller_file="move_tomorrow_schedules.py")
         return 0
 
     tomorrow_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -87,7 +60,7 @@ def move_tomorrows_from_schedule2(profile_name: str = "Default", verbose: bool =
             to_move.append(item)
 
     if not to_move:
-        _log(f"Cleared schedule.json. No tweets for tomorrow found in schedule2.json for profile '{profile_name}'. schedule2.json left unchanged.", verbose, status=status)
+        log(f"Cleared schedule.json. No tweets for tomorrow found in schedule2.json for profile '{profile_name}'. schedule2.json left unchanged.", verbose, status=status, log_caller_file="move_tomorrow_schedules.py")
         return 0
 
     merged = list(to_move)
@@ -98,7 +71,7 @@ def move_tomorrows_from_schedule2(profile_name: str = "Default", verbose: bool =
 
     save_tweet_schedules(merged, profile_name)
 
-    _log(f"Cleared current schedule and copied {len(to_move)} tweet(s) for {tomorrow_date} from schedule2.json to schedule.json for profile '{profile_name}'. schedule2.json left unchanged.", verbose, status=status)
+    log(f"Cleared current schedule and copied {len(to_move)} tweet(s) for {tomorrow_date} from schedule2.json to schedule.json for profile '{profile_name}'. schedule2.json left unchanged.", verbose, status=status, log_caller_file="move_tomorrow_schedules.py")
     return len(to_move)
 
 

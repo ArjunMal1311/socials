@@ -3,24 +3,11 @@ import re
 import time
 import threading
 
-from datetime import datetime
 from collections import deque
 from rich.console import Console
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[api_key_pool.py] {timestamp}|[{color}]{log_message}[/{color}]")
 
 class APIKeyPool:
     def __init__(self, api_keys_string: str = None, rpm: int = 60, verbose: bool = False):
@@ -53,7 +40,7 @@ class APIKeyPool:
                 keys_to_load = [key.strip() for key in os.getenv('GEMINI_API').split(',') if key.strip()]
 
             if not keys_to_load:
-                _log("Warning: No API keys provided or found in GEMINI_API environment variable. Pool is empty.", verbose, is_error=False)
+                log("Warning: No API keys provided or found in GEMINI_API environment variable. Pool is empty.", verbose, is_error=False, log_caller_file="api_key_pool.py")
                 return
 
             self.api_keys.extend(keys_to_load)
@@ -89,7 +76,7 @@ class APIKeyPool:
         with self.lock:
             if api_key:
                 self._cooldowns[api_key] = time.time() + max(1.0, seconds)
-                _log(f"Key ending with {api_key[-4:]} put on cooldown for {int(seconds)}s", self.verbose)
+                log(f"Key ending with {api_key[-4:]} put on cooldown for {int(seconds)}s", self.verbose, log_caller_file="api_key_pool.py")
 
     def report_failure(self, api_key: str, error: Exception | str):
         message = str(error) if error is not None else ""

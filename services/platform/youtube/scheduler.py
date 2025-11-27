@@ -1,41 +1,17 @@
 import os
 import argparse
 
-from datetime import datetime
-from typing import Optional, Dict, Any
 from rich.status import Status
 from rich.console import Console
 
 from profiles import PROFILES
 
-from services.platform.youtube.support.load_youtube_schedules import load_youtube_schedules
+from services.support.logger_util import _log as log
 from services.platform.youtube.support.generate_sample_youtube_posts import generate_sample_youtube_posts
 from services.platform.youtube.support.generate_youtube_titles import generate_titles_for_youtube_schedule
 from services.platform.youtube.support.process_scheduled_youtube_uploads import process_scheduled_youtube_uploads
 
 console = Console()
-
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def main():
     parser = argparse.ArgumentParser(description="YouTube Scheduler CLI Tool")
@@ -67,28 +43,28 @@ def main():
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
-        _log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True)
-        _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True)
+        log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="scheduler.py")
+        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, log_caller_file="scheduler.py")
         return
 
     if args.process_youtube_uploads:
         process_scheduled_youtube_uploads(args.profile, verbose=args.verbose)
-        _log("YouTube processing complete.", args.verbose)
+        log("YouTube processing complete.", args.verbose, log_caller_file="scheduler.py")
     elif args.generate_sample:
         if args.gap_type == "random":
             gap_minutes_min = args.min_gap_hours * 60 + args.min_gap_minutes
             gap_minutes_max = args.max_gap_hours * 60 + args.max_gap_minutes
             if gap_minutes_min > gap_minutes_max:
-                _log("Minimum gap cannot be greater than maximum gap. Adjusting maximum to minimum.", args.verbose)
+                log("Minimum gap cannot be greater than maximum gap. Adjusting maximum to minimum.", args.verbose, log_caller_file="scheduler.py")
                 gap_minutes_max = gap_minutes_min
             generate_sample_youtube_posts(scheduled_title_prefix=args.video_title_prefix, description=args.video_description, tags=args.video_tags, privacyStatus=args.video_privacy_status, start_video_number=args.start_video_number, num_days=args.num_days, profile_name=args.profile, start_date=args.start_date, gap_minutes_min=gap_minutes_min, gap_minutes_max=gap_minutes_max, verbose=args.verbose)
         else:
             generate_sample_youtube_posts(scheduled_title_prefix=args.video_title_prefix, description=args.video_description, tags=args.video_tags, privacyStatus=args.video_privacy_status, start_video_number=args.start_video_number, num_days=args.num_days, profile_name=args.profile, start_date=args.start_date, fixed_gap_hours=args.fixed_gap_hours, fixed_gap_minutes=args.fixed_gap_minutes, verbose=args.verbose)
-        _log("Sample YouTube posts generated and saved to youtube_schedule.json", args.verbose)
+        log("Sample YouTube posts generated and saved to youtube_schedule.json", args.verbose, log_caller_file="scheduler.py")
     elif args.generate_titles:
         gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            _log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, is_error=True)
+            log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, is_error=True, log_caller_file="scheduler.py")
         else:
             title_prompt = args.gemini_title_prompt or PROFILES[args.profile].get("youtube_title_prompt", "Generate a concise and engaging YouTube video title based on the video content. Return only the title.")
             tags_prompt = args.gemini_tags_prompt or PROFILES[args.profile].get("youtube_tags_prompt")

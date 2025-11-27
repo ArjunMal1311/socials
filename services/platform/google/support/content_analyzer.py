@@ -1,12 +1,12 @@
 import os
-import re
 import json
 
 from profiles import PROFILES
 
+from typing import Optional
 from datetime import datetime
 from rich.console import Console
-from typing import Dict, Any, Optional
+from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.gemini_util import generate_gemini
@@ -15,42 +15,6 @@ from services.support.path_config import get_google_analysis_dir, ensure_dir_exi
 from services.platform.google.support.file_manager import get_latest_dated_json_file
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})"
-            )
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[google_content_analyzer.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[google_content_analyzer.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str] = None, status=None, verbose: bool = False) -> Optional[str]:
     api_pool = APIKeyPool()
@@ -61,7 +25,7 @@ def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str]
 
     gemini_api_key = api_pool.get_key()
     if not gemini_api_key:
-        _log("No Gemini API key available.", verbose, is_error=True)
+        log("No Gemini API key available.", verbose, is_error=True, log_caller_file="content_analyzer.py")
         return None
 
     profile_config = PROFILES.get(profile_name, {})
@@ -71,18 +35,18 @@ def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str]
     latest_scraped_data_path = get_latest_dated_json_file(profile_name, "google_scraped_data", verbose=verbose)
 
     if not latest_scraped_data_path:
-        _log(f"No latest scraped Google Search data found for profile '{profile_name}'. Please run Google Search scraper first.", verbose, is_error=True, status=status)
+        log(f"No latest scraped Google Search data found for profile '{profile_name}'. Please run Google Search scraper first.", verbose, is_error=True, status=status, log_caller_file="content_analyzer.py")
         return None
 
     try:
         with open(latest_scraped_data_path, 'r', encoding='utf-8') as f:
             scraped_google_data = json.load(f)
     except Exception as e:
-        _log(f"Error loading scraped Google Search data from {latest_scraped_data_path}: {e}", verbose, is_error=True, status=status)
+        log(f"Error loading scraped Google Search data from {latest_scraped_data_path}: {e}", verbose, is_error=True, status=status, log_caller_file="content_analyzer.py")
         return None
 
     if not scraped_google_data:
-        _log("No Google Search data found in the latest scraped file. Cannot generate content suggestions.", verbose, status=status)
+        log("No Google Search data found in the latest scraped file. Cannot generate content suggestions.", verbose, status=status, log_caller_file="content_analyzer.py")
         return None
 
     google_data_for_prompt = []
@@ -107,7 +71,7 @@ def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str]
     )
 
     if suggestions:
-        _log("Successfully generated content suggestions from Google Search data.", verbose, status=status)
+        log("Successfully generated content suggestions from Google Search data.", verbose, status=status, log_caller_file="content_analyzer.py")
         analysis_output_dir = get_google_analysis_dir(profile_name)
         ensure_dir_exists(analysis_output_dir)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -115,10 +79,10 @@ def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str]
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(suggestions)
-            _log(f"Google content suggestions saved to {output_file}", verbose, status=status)
+            log(f"Google content suggestions saved to {output_file}", verbose, status=status, log_caller_file="content_analyzer.py")
         except Exception as e:
-            _log(f"Error saving Google content suggestions to {output_file}: {e}", verbose, is_error=True, status=status)
+            log(f"Error saving Google content suggestions to {output_file}: {e}", verbose, is_error=True, status=status, log_caller_file="content_analyzer.py")
         return suggestions
     else:
-        _log("Failed to generate content suggestions from Google Search data.", verbose, is_error=True, status=status)
+        log("Failed to generate content suggestions from Google Search data.", verbose, is_error=True, status=status, log_caller_file="content_analyzer.py")
         return None

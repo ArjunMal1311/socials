@@ -1,10 +1,9 @@
-import re
 import os
 import time
 
-from datetime import datetime
 from rich.console import Console
 from selenium.webdriver.common.by import By
+from services.support.logger_util import _log as log
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.web_driver_handler import setup_driver
@@ -13,24 +12,11 @@ from services.support.path_config import get_browser_data_dir, get_downloads_dir
 
 console = Console()
 
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[video_download.py] {timestamp}|[{color}]{log_message}[/{color}]")
-
 def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, verbose: bool = False):
     user_data_dir = get_browser_data_dir(profile_name)
     driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless, verbose=verbose)
     for msg in setup_messages:
-        _log(msg, verbose)
+        log(msg, verbose, log_caller_file="video_download.py")
         time.sleep(0.1)
 
     time.sleep(10)
@@ -44,8 +30,8 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
     new_file = None
     
     for url in tweet_urls:
-        _log(f"Processing Downloads for URL: {url}", verbose)
-        _log(f"Downloading video from: {url}", verbose)
+        log(f"Processing Downloads for URL: {url}", verbose, log_caller_file="video_download.py")
+        log(f"Downloading video from: {url}", verbose, log_caller_file="video_download.py")
         try:
             driver.execute_script("window.open('');")
             new_tab = driver.window_handles[-1]
@@ -66,7 +52,7 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
                 error_div = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'error')]//p[contains(text(), 'Video not found')]" ))
                 )
-                _log(f"Video not found for URL: {url}, skipping to next URL", verbose, is_error=False)
+                log(f"Video not found for URL: {url}, skipping to next URL", verbose, is_error=False, log_caller_file="video_download.py")
                 continue
             except TimeoutException:
                 try:
@@ -76,7 +62,7 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
                     best_quality_link.click()
                     time.sleep(2)
                 except TimeoutException:
-                    _log(f"Download already initiated for {url}, continuing to next URL", verbose)
+                    log(f"Download already initiated for {url}, continuing to next URL", verbose, log_caller_file="video_download.py")
             
             max_wait_time = 20
             wait_interval = 2
@@ -89,7 +75,7 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
                 downloading_files = [f for f in new_files if f.endswith('.crdownload') or f.endswith('.tmp')]
                 
                 if downloading_files:
-                    _log(f"Download still in progress: {downloading_files}", verbose)
+                    log(f"Download still in progress: {downloading_files}", verbose, log_caller_file="video_download.py")
                     time.sleep(wait_interval)
                     waited_time += wait_interval
                     continue
@@ -103,10 +89,10 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
                 waited_time += wait_interval
             
             if new_file is None:
-                _log(f"Download timed out for URL: {url}", verbose, is_error=False)
+                log(f"Download timed out for URL: {url}", verbose, is_error=False, log_caller_file="video_download.py")
                 continue
                 
-            _log(f"New file downloaded: {new_file}", verbose)
+            log(f"New file downloaded: {new_file}", verbose, log_caller_file="video_download.py")
             
             initial_files.add(new_file)
             
@@ -115,10 +101,10 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
 
             with open('tmp/downloaded_videos.txt', 'a') as f:
                 f.write(mapping)
-            _log(f"Video downloaded and mapped: {mapping.strip()}", verbose)
+            log(f"Video downloaded and mapped: {mapping.strip()}", verbose, log_caller_file="video_download.py")
 
         except Exception as e:
-            _log(f"Error processing URL {url}: {str(e)}", verbose, is_error=True)
+            log(f"Error processing URL {url}: {str(e)}", verbose, is_error=True, log_caller_file="video_download.py")
         finally:
             try:
                 driver.close()

@@ -1,37 +1,17 @@
 import sys
 import argparse
 
-from datetime import datetime
 from dotenv import load_dotenv
 from rich.status import Status
 from rich.console import Console
-from typing import Optional, Dict, Any
 
 from profiles import PROFILES
 
+from services.support.logger_util import _log as log
 from services.platform.x.support.community_scraper_utils import scrape_community_tweets
 from services.platform.x.support.tweet_analyzer import analyze_community_tweets_for_engagement
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            log_message = f"Error: {message.split('\n')[0].strip()}"
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[x-scraper.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[x-scraper.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
 
 def main():
     load_dotenv()
@@ -60,32 +40,32 @@ def main():
     if args.community_scrape:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="scraper.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
 
         if not args.community_name:
-            _log("--community-name is required for community scraping.", args.verbose, is_error=True)
+            log("--community-name is required for community scraping.", args.verbose, is_error=True, log_caller_file="scraper.py")
             parser.print_help()
             sys.exit(1)
 
         with Status(f"[white]Scraping community '{args.community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
             scraped_tweets = scrape_community_tweets(community_name=args.community_name, profile_name=profile_name, browser_profile=args.browser_profile, max_tweets=args.max_tweets, headless=not args.no_headless, status=status, verbose=args.verbose)
             status.stop()
-            _log(f"Community scraping complete. Scraped {len(scraped_tweets)} tweets.", args.verbose)
+            log(f"Community scraping complete. Scraped {len(scraped_tweets)} tweets.", args.verbose, log_caller_file="scraper.py")
         return
 
     if args.suggest_engaging_tweets:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True)
-            _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="scraper.py")
+            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
 
         if not args.community_name:
-            _log("--community-name is required for suggesting engaging tweets.", args.verbose, is_error=True)
+            log("--community-name is required for suggesting engaging tweets.", args.verbose, is_error=True, log_caller_file="scraper.py")
             parser.print_help()
             sys.exit(1)
         
@@ -94,11 +74,11 @@ def main():
             status.stop()
 
             if suggestions:
-                _log("Engagement Suggestions:", args.verbose)
+                log("Engagement Suggestions:", args.verbose, log_caller_file="scraper.py")
                 for suggestion in suggestions:
-                    _log(f"- {suggestion.get('suggestion', 'N/A')}", args.verbose)
+                    log(f"- {suggestion.get('suggestion', 'N/A')}", args.verbose, log_caller_file="scraper.py")
             else:
-                _log("No engagement suggestions generated.", args.verbose, is_error=False)
+                log("No engagement suggestions generated.", args.verbose, is_error=False, log_caller_file="scraper.py")
         return
 
     parser.print_help()

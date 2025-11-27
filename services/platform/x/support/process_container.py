@@ -1,23 +1,9 @@
-import re
-
 from bs4 import BeautifulSoup
 from datetime import datetime
 from rich.console import Console
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[process_container.py] {timestamp}|[{color}]{log_message}[/{color}]")
 
 def process_container(container, verbose: bool = False):
     try:
@@ -26,7 +12,7 @@ def process_container(container, verbose: bool = False):
         replying_to_divs = soup.find_all('div', {'dir': 'ltr'})
         for div in replying_to_divs:
             if div.get_text().strip().startswith('Replying to'):
-                _log(f"Skipping reply tweet (contains 'Replying to')", verbose, is_error=False)
+                log(f"Skipping reply tweet (contains 'Replying to')", verbose, is_error=False, log_caller_file="process_container.py")
                 return None
         
         tweet_text_elem = soup.select_one('[data-testid="tweetText"]')
@@ -83,7 +69,7 @@ def process_container(container, verbose: bool = False):
                     elif 'bookmark' in part:
                         metrics['bookmarks'] = int(value)
             except Exception as e:
-                _log(f"Error processing metrics: {str(e)}", verbose, is_error=True)
+                log(f"Error processing metrics: {str(e)}", verbose, is_error=True, log_caller_file="process_container.py")
                 continue
         
         media_urls_str = ';'.join(media_urls) if media_urls else ''
@@ -110,5 +96,5 @@ def process_container(container, verbose: bool = False):
         return tweet_data
         
     except Exception as e:
-        _log(f"Error processing container: {str(e)}", verbose, is_error=True)
+        log(f"Error processing container: {str(e)}", verbose, is_error=True, log_caller_file="process_container.py")
         return None

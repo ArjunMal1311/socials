@@ -1,36 +1,13 @@
-import re
 import os
 import json
 
-from datetime import datetime
 from rich.console import Console
 from urllib.parse import urlparse
+from services.support.logger_util import _log as log
 from services.support.path_config import get_eternity_dir
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False, status=None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[eternity_server.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[eternity_server.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
 
 
 class EternityRequestHandler(SimpleHTTPRequestHandler):
@@ -41,7 +18,7 @@ class EternityRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
-        _log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose, status=self.status)
+        log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose, status=self.status, log_caller_file="eternity_server.py")
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -185,11 +162,11 @@ class EternityRequestHandler(SimpleHTTPRequestHandler):
 def start_eternity_review_server(profile_name: str, port: int = 8766, verbose: bool = False, status=None):
     root_dir = get_eternity_dir(profile_name)
     if not os.path.exists(os.path.join(root_dir, 'review.html')):
-        _log(f"review.html not found under {root_dir}. Generate it first.", verbose, is_error=False, status=status)
+        log(f"review.html not found under {root_dir}. Generate it first.", verbose, is_error=False, status=status, log_caller_file="eternity_server.py")
     handler_factory = lambda *args, **kwargs: EternityRequestHandler(*args, root_dir=root_dir, verbose=verbose, status=status, **kwargs)
     httpd = HTTPServer(('127.0.0.1', port), handler_factory)
-    _log(f"Serving Eternity review for '{profile_name}' at http://127.0.0.1:{port}", verbose, status=status)
-    _log("Press Ctrl+C to stop.", verbose, status=status)
+    log(f"Serving Eternity review for '{profile_name}' at http://127.0.0.1:{port}", verbose, status=status, log_caller_file="eternity_server.py")
+    log("Press Ctrl+C to stop.", verbose, status=status, log_caller_file="eternity_server.py")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

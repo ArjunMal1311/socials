@@ -7,46 +7,12 @@ from datetime import datetime
 from rich.console import Console
 from selenium.webdriver.common.by import By
 from typing import List, Dict, Any, Optional
+from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
 from services.support.path_config import get_youtube_profile_dir
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[scraper_utils.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[scraper_utils.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def _ensure_scrape_folder(profile_name: str) -> str:
     base_dir = get_youtube_profile_dir(profile_name)
@@ -67,9 +33,9 @@ def _save_scraped_videos(profile_name: str, videos_data: List[Dict[str, Any]], w
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(videos_data, f, indent=2, ensure_ascii=False)
-        _log(f"Saved {len(videos_data)} videos to {output_path}", verbose)
+        log(f"Saved {len(videos_data)} videos to {output_path}", verbose, log_caller_file="scraper_utils.py")
     except Exception as e:
-        _log(f"Error saving videos to {output_path}: {e}", verbose, is_error=True)
+        log(f"Error saving videos to {output_path}: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
 
 def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[str, Any]]:
     try:
@@ -132,7 +98,7 @@ def _extract_video_data(video_element, verbose: bool = False) -> Optional[Dict[s
 
         return video_data
     except Exception as e:
-        _log(f"Error extracting video data: {e}", verbose, is_error=True)
+        log(f"Error extracting video data: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
         return None
 
 def _scroll_page(driver, verbose: bool = False):
@@ -147,7 +113,7 @@ def _scroll_page(driver, verbose: bool = False):
             break
         last_height = new_height
         scroll_attempts += 1
-    _log(f"Scrolled {scroll_attempts} times.", verbose)
+    log(f"Scrolled {scroll_attempts} times.", verbose, log_caller_file="scraper_utils.py")
 
 
 def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, max_videos: int = 50, weekly_filter: bool = False, today_filter: bool = False, status=None, verbose: bool = False, headless: bool = True) -> List[Dict[str, Any]]:
@@ -156,11 +122,11 @@ def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, m
     try:
         driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         for msg in setup_messages:
-            _log(msg, verbose)
+            log(msg, verbose, log_caller_file="scraper_utils.py")
         if status:
             status.update("[white]WebDriver setup complete.[/white]")
     except Exception as e:
-        _log(f"Error setting up WebDriver: {e}", verbose, is_error=True)
+        log(f"Error setting up WebDriver: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
         return []
 
     videos_data: List[Dict[str, Any]] = []
@@ -179,10 +145,10 @@ def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, m
             else:
                 search_url = f"{base_search_url}&sp=EgIIAw%253D%253D"
             driver.get(search_url)
-            _log(f"Searching YouTube for: '{search_query}' with filter: {'Weekly' if weekly_filter else ('Today' if today_filter else 'None')}", verbose)
+            log(f"Searching YouTube for: '{search_query}' with filter: {'Weekly' if weekly_filter else ('Today' if today_filter else 'None')}", verbose, log_caller_file="scraper_utils.py")
         else:
             driver.get("https://www.youtube.com/feed/trending")
-            _log("Scraping trending videos on YouTube.", verbose)
+            log("Scraping trending videos on YouTube.", verbose, log_caller_file="scraper_utils.py")
         
         time.sleep(3)
 
@@ -208,19 +174,19 @@ def run_youtube_scraper(profile_name: str, search_query: Optional[str] = None, m
             
             current_videos_count = len(videos_data)
             if new_videos_found == 0 and current_videos_count > 0:
-                _log("No new videos loaded after scroll. Stopping collection.", verbose)
+                log("No new videos loaded after scroll. Stopping collection.", verbose, log_caller_file="scraper_utils.py")
                 break
             elif new_videos_found == 0 and current_videos_count == 0 and search_query:
-                _log("No videos found for the given search query. Consider a different query.", verbose)
+                log("No videos found for the given search query. Consider a different query.", verbose, log_caller_file="scraper_utils.py")
                 break
             elif new_videos_found == 0 and current_videos_count == 0 and not search_query:
-                _log("No trending videos found. YouTube page might be empty or layout changed.", verbose)
+                log("No trending videos found. YouTube page might be empty or layout changed.", verbose, log_caller_file="scraper_utils.py")
                 break
 
             time.sleep(1)
 
     except Exception as e:
-        _log(f"Error during YouTube scraping: {e}", verbose, is_error=True)
+        log(f"Error during YouTube scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
     finally:
         try:
             driver.quit()

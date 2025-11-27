@@ -3,45 +3,27 @@ import json
 
 from profiles import PROFILES
 
-from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 from typing import Optional, List, Dict, Any
+from services.support.logger_util import _log as log
 from services.support.path_config import get_reddit_profile_dir, get_community_dir
 from services.platform.x.support.file_manager import get_latest_dated_json_file as get_latest_x_data
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file as get_latest_reddit_data
 
 console = Console()
 
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None) -> None:
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if verbose or is_error:
-        console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
-
 def clean_reddit_data(profile_name: str, verbose: bool = False, status: Optional[Status] = None) -> None:
-    _log("Cleaning Reddit data...", verbose, status=status)
+    log("Cleaning Reddit data...", verbose, status=status, log_caller_file="clean.py")
 
     profile_dir = get_reddit_profile_dir(profile_name)
     latest_file = get_latest_reddit_data(directory=profile_dir, prefix="reddit_scraped_data_")
 
     if not latest_file or not os.path.exists(latest_file):
-        _log(f"No latest Reddit data file found for profile {profile_name}. Skipping cleaning.", verbose, is_error=True, status=status)
+        log(f"No latest Reddit data file found for profile {profile_name}. Skipping cleaning.", verbose, is_error=True, status=status, log_caller_file="clean.py")
         return
 
-    _log(f"Loading data from {latest_file} for cleaning.", verbose, status=status)
+    log(f"Loading data from {latest_file} for cleaning.", verbose, status=status, log_caller_file="clean.py")
     with open(latest_file, 'r', encoding='utf-8') as f:
         reddit_data = json.load(f)
 
@@ -59,32 +41,32 @@ def clean_reddit_data(profile_name: str, verbose: bool = False, status: Optional
         total_removed_comments += removed_comments_in_post
         
         if removed_comments_in_post > 0 and verbose:
-            _log(f"  Removed {removed_comments_in_post} comments from post '{post.get("data", {}).get("title", "N/A")}'", verbose, status=status)
+            log(f"  Removed {removed_comments_in_post} comments from post '{post.get("data", {}).get("title", "N/A")}'", verbose, status=status, log_caller_file="clean.py")
         
         post["data"]["comments"] = cleaned_comments
         cleaned_posts.append(post)
     
-    _log(f"Processed {original_post_count} posts. No posts were removed based on score in this function.", verbose, status=status)
-    _log(f"Cleaned {total_removed_comments} comments from {len(cleaned_posts)} posts.", verbose, status=status)
+    log(f"Processed {original_post_count} posts. No posts were removed based on score in this function.", verbose, status=status, log_caller_file="clean.py")
+    log(f"Cleaned {total_removed_comments} comments from {len(cleaned_posts)} posts.", verbose, status=status, log_caller_file="clean.py")
 
     if total_removed_comments > 0:
-        _log(f"Updating latest Reddit data file: {latest_file}", verbose, status=status)
+        log(f"Updating latest Reddit data file: {latest_file}", verbose, status=status, log_caller_file="clean.py")
         with open(latest_file, 'w', encoding='utf-8') as f:
             json.dump(cleaned_posts, f, indent=2, ensure_ascii=False)
-        _log("Reddit data cleaning complete and file updated.", verbose, status=status)
+        log("Reddit data cleaning complete and file updated.", verbose, status=status, log_caller_file="clean.py")
     else:
-        _log("No comments or posts to remove. Reddit data file not updated.", verbose, status=status)
+        log("No comments or posts to remove. Reddit data file not updated.", verbose, status=status, log_caller_file="clean.py")
     return cleaned_posts
 
 def clean_x_data(profile_name: str, verbose: bool = False, status: Optional[Status] = None) -> List[Dict[str, Any]]:
-    _log("Cleaning X data...", verbose, status=status)
+    log("Cleaning X data...", verbose, status=status, log_caller_file="clean.py")
 
     profile_config = PROFILES.get(profile_name, {})
     x_config = profile_config.get("data", {}).get("x", {})
     communities = x_config.get("communities", [])
     
     if not communities:
-        _log(f"No communities specified for X platform in profile '{profile_name}'. Cannot clean X data.", verbose, is_error=True, status=status)
+        log(f"No communities specified for X platform in profile '{profile_name}'. Cannot clean X data.", verbose, is_error=True, status=status, log_caller_file="clean.py")
         return []
 
     all_cleaned_x_data = []
@@ -95,36 +77,36 @@ def clean_x_data(profile_name: str, verbose: bool = False, status: Optional[Stat
         latest_file = get_latest_x_data(directory=profile_dir, prefix=community_prefix + "_")
 
         if not latest_file or not os.path.exists(latest_file):
-            _log(f"No latest X data file found for profile {profile_name} with prefix '{community_prefix}'. Skipping cleaning for this community.", verbose, is_error=True, status=status)
+            log(f"No latest X data file found for profile {profile_name} with prefix '{community_prefix}'. Skipping cleaning for this community.", verbose, is_error=True, status=status, log_caller_file="clean.py")
             continue
 
-        _log(f"Loading data from {latest_file} for cleaning (community: {community_name}).", verbose, status=status)
+        log(f"Loading data from {latest_file} for cleaning (community: {community_name}).", verbose, status=status, log_caller_file="clean.py")
         with open(latest_file, 'r', encoding='utf-8') as f:
             x_data = json.load(f)
 
         original_tweet_count = len(x_data)
-        _log(f"Original tweet count for community '{community_name}': {original_tweet_count}", verbose, status=status)
+        log(f"Original tweet count for community '{community_name}': {original_tweet_count}", verbose, status=status, log_caller_file="clean.py")
         
         cleaned_tweets = []
         for tweet in x_data:
             likes = tweet.get("engagement", {}).get("likes", 0)
-            _log(f"  Processing tweet ID '{tweet.get("data", {}).get("tweet_id", "N/A")}' with {likes} likes.", verbose, status=status)
+            log(f"  Processing tweet ID '{tweet.get("data", {}).get("tweet_id", "N/A")}' with {likes} likes.", verbose, status=status, log_caller_file="clean.py")
             if likes >= 20:
                 cleaned_tweets.append(tweet)
             else:
-                _log(f"  Removing tweet ID '{tweet.get("data", {}).get("tweet_id", "N/A")}' due to {likes} likes (less than 20).", verbose, status=status)
+                log(f"  Removing tweet ID '{tweet.get("data", {}).get("tweet_id", "N/A")}' due to {likes} likes (less than 20).", verbose, status=status, log_caller_file="clean.py")
 
         removed_tweet_count = original_tweet_count - len(cleaned_tweets)
 
-        _log(f"Processed {original_tweet_count} tweets for community '{community_name}'. Removed {removed_tweet_count} tweets with less than 20 likes.", verbose, status=status)
+        log(f"Processed {original_tweet_count} tweets for community '{community_name}'. Removed {removed_tweet_count} tweets with less than 20 likes.", verbose, status=status, log_caller_file="clean.py")
 
         if removed_tweet_count > 0:
-            _log(f"Updating latest X data file: {latest_file} (community: {community_name})", verbose, status=status)
+            log(f"Updating latest X data file: {latest_file} (community: {community_name})", verbose, status=status, log_caller_file="clean.py")
             with open(latest_file, 'w', encoding='utf-8') as f:
                 json.dump(cleaned_tweets, f, indent=2, ensure_ascii=False)
-            _log(f"X data cleaning complete and file updated for community '{community_name}'.", verbose, status=status)
+            log(f"X data cleaning complete and file updated for community '{community_name}'.", verbose, status=status, log_caller_file="clean.py")
         else:
-            _log(f"No tweets to remove for community '{community_name}'. X data file not updated.", verbose, status=status)
+            log(f"No tweets to remove for community '{community_name}'. X data file not updated.", verbose, status=status, log_caller_file="clean.py")
         
         all_cleaned_x_data.extend(cleaned_tweets)
 

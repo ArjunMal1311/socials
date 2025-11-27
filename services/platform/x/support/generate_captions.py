@@ -3,48 +3,21 @@ import os
 import json
 
 from profiles import PROFILES
-from datetime import datetime
 
 from rich.status import Status
 from rich.console import Console
+from services.support.logger_util import _log as log
 from services.support.gemini_util import generate_gemini
 from services.support.path_config import get_schedule_file_path
 
 console = Console()
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if is_error:
-        if status:
-            status.stop()
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[generate_captions.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[generate_captions.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-    else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[generate_captions.py] {timestamp}|[{color}]{message}[/{color}]")
-
 def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False):
-    _log(f"[Gemini Analysis] Starting caption generation for profile: {profile_name}", verbose)
+    log(f"[Gemini Analysis] Starting caption generation for profile: {profile_name}", verbose, log_caller_file="generate_captions.py")
     
     schedule_file_path = get_schedule_file_path(profile_name)
     if not os.path.exists(schedule_file_path):
-        _log(f"Schedule file not found at {schedule_file_path}.", verbose, status=status, is_error=True)
+        log(f"Schedule file not found at {schedule_file_path}.", verbose, is_error=True, log_caller_file="generate_captions.py")
         return
 
     with open(schedule_file_path, "r") as f:
@@ -65,7 +38,7 @@ def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False)
                 status.update(f"[white][Gemini Analysis] Skipping item {i+1}: Local media file not found: {media_path}[/white]")
                 continue
 
-            _log(f"[DEBUG] Processing media file: {media_file}", verbose, status) 
+            log(f"[DEBUG] Processing media file: {media_file}", verbose, status, log_caller_file="generate_captions.py") 
             ext = os.path.splitext(media_file)[1].lower()
             try:
                 if ext in [".png", ".jpg", ".jpeg"]:
@@ -80,13 +53,13 @@ def generate_captions_for_schedule(profile_name, api_key, verbose: bool = False)
 
                 if profile_name == "akg":
                     username_match = re.search(r'\d+_([a-zA-Z0-9]+)\.', media_file)
-                    _log(f"[DEBUG] Regex match object: {username_match}", verbose, status) 
+                    log(f"[DEBUG] Regex match object: {username_match}", verbose, status, log_caller_file="generate_captions.py") 
                     if username_match:
                         username = username_match.group(1)
-                        _log(f"[DEBUG] Extracted username: {username}", verbose, status) 
+                        log(f"[DEBUG] Extracted username: {username}", verbose, status, log_caller_file="generate_captions.py") 
                         caption_before = caption
                         caption += f"\n\n@{username}"
-                        _log(f"[DEBUG] Caption before: {caption_before}, Caption after: {caption}", verbose, status) 
+                        log(f"[DEBUG] Caption before: {caption_before}, Caption after: {caption}", verbose, status, log_caller_file="generate_captions.py") 
                         status.update(f"[white][Gemini Analysis] Appended @{username} to caption.[/white]")
                 
                 tweet["scheduled_tweet"] = caption

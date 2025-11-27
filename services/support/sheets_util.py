@@ -2,13 +2,14 @@ import re
 import os
 import warnings
 
+from dotenv import load_dotenv
 from datetime import datetime
 from rich.console import Console
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from typing import List, Dict, Any, Optional, Tuple
+from services.support.logger_util import _log as log
 from services.support.api_call_tracker import APICallTracker
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -18,45 +19,10 @@ SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
 console = Console()
 api_call_tracker = APICallTracker(log_file="logs/sheets_api_calls_log.json")
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[sheets_util.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[sheets_util.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-
 def get_google_sheets_service(verbose: bool = False, status=None):
     try:
         if not os.path.exists('credentials/service_account.json'):
-            _log("service_account.json file not found", verbose, is_error=True, status=status)
+            log("service_account.json file not found", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
             
         try:
@@ -64,37 +30,37 @@ def get_google_sheets_service(verbose: bool = False, status=None):
                 'credentials/service_account.json',
                 scopes=SCOPES
             )
-            _log("Successfully loaded credentials", verbose, status=status)
+            log("Successfully loaded credentials", verbose, status=status, log_caller_file="sheets_util.py")
             api_key_suffix = credentials.service_account_email[-4:] if credentials.service_account_email else None
         except Exception as cred_err:
-            _log(f"Failed to load credentials: {cred_err}", verbose, is_error=True, status=status)
+            log(f"Failed to load credentials: {cred_err}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
     
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
-            _log("Successfully built sheets service", verbose, status=status)
+            log("Successfully built sheets service", verbose, status=status, log_caller_file="sheets_util.py")
             
 
             can_call, reason = api_call_tracker.can_make_call("sheets", "read", api_key_suffix=api_key_suffix)
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot test connection to sheets API: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot test connection to sheets API: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
 
-            _log("[HITTING API] Testing connection to sheets API.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status)
+            log("[HITTING API] Testing connection to sheets API.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID, fields='spreadsheetId').execute()
             api_call_tracker.record_call("sheets", "read", success=True, response=response)
-            _log("Successfully tested connection to sheets API", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status)
+            log("Successfully tested connection to sheets API", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status, log_caller_file="sheets_util.py")
             
             return service
         except Exception as build_err:
             api_call_tracker.record_call("sheets", "read", success=False, response=build_err)
-            _log(f"Failed to build or test service: {build_err}", verbose, is_error=True, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status)
+            log(f"Failed to build or test service: {build_err}", verbose, is_error=True, api_info=api_call_tracker.get_quot_info("sheets", "read", api_key_suffix=api_key_suffix), status=status, log_caller_file="sheets_util.py")
             return None
             
     except Exception as e:
-        _log(f"Error creating Google Sheets service: {e}", verbose, is_error=True, status=status)
+        log(f"Error creating Google Sheets service: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         return None
 
 def sanitize_sheet_name(name):
@@ -108,10 +74,10 @@ def create_new_sheet(service, sheet_name: str, verbose: bool = False, status=Non
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
@@ -128,23 +94,23 @@ def create_new_sheet(service, sheet_name: str, verbose: bool = False, status=Non
 
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
             
-            _log(f"[HITTING API] Adding new sheet: {sanitized_sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Adding new sheet: {sanitized_sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().batchUpdate(
                 spreadsheetId=SPREADSHEET_ID,
                 body=body
             ).execute()
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
-            _log(f"Created new Google Sheet: {sanitized_sheet_name}", verbose, status=status)
+            log(f"Created new Google Sheet: {sanitized_sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
         else:
-            _log(f"Sheet '{sanitized_sheet_name}' already exists.", verbose, status=status)
+            log(f"Sheet '{sanitized_sheet_name}' already exists.", verbose, status=status, log_caller_file="sheets_util.py")
 
         return sanitized_sheet_name
 
     except Exception as e:
-        _log(f"Error creating new sheet: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error creating new sheet: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return None
 
@@ -154,10 +120,10 @@ def append_to_sheet(service, sheet_name: str, headers: List[str], data_rows: Lis
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot read sheet to check for headers: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot read sheet to check for headers: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return False
 
-        _log(f"[HITTING API] Reading sheet '{sanitized_sheet_name}' to check for headers.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log(f"[HITTING API] Reading sheet '{sanitized_sheet_name}' to check for headers.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID,
             range=f'{sanitized_sheet_name}!A1:Z1'
@@ -169,10 +135,10 @@ def append_to_sheet(service, sheet_name: str, headers: List[str], data_rows: Lis
         if not existing_headers:
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot write headers to sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot write headers to sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return False
 
-            _log(f"[HITTING API] Writing headers to sheet '{sanitized_sheet_name}'.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Writing headers to sheet '{sanitized_sheet_name}'.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().update(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sanitized_sheet_name}!A1',
@@ -184,10 +150,10 @@ def append_to_sheet(service, sheet_name: str, headers: List[str], data_rows: Lis
         if data_rows:
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot append data to sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot append data to sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return False
 
-            _log(f"[HITTING API] Appending {len(data_rows)} rows to sheet '{sanitized_sheet_name}'.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Appending {len(data_rows)} rows to sheet '{sanitized_sheet_name}'.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().append(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sanitized_sheet_name}!A:Z',
@@ -196,12 +162,12 @@ def append_to_sheet(service, sheet_name: str, headers: List[str], data_rows: Lis
                 body={'values': data_rows}
             ).execute()
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
-            _log(f"Successfully appended {len(data_rows)} rows to sheet '{sanitized_sheet_name}'.", verbose, status=status)
+            log(f"Successfully appended {len(data_rows)} rows to sheet '{sanitized_sheet_name}'.", verbose, status=status, log_caller_file="sheets_util.py")
         
         return True
 
     except Exception as e:
-        _log(f"Error appending to sheet: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error appending to sheet: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False
 
@@ -211,10 +177,10 @@ def create_linkedin_messages_sheet(service, profile_name: str, verbose: bool = F
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
@@ -231,10 +197,10 @@ def create_linkedin_messages_sheet(service, profile_name: str, verbose: bool = F
 
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
             
-            _log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().batchUpdate(
                 spreadsheetId=SPREADSHEET_ID,
                 body=body
@@ -245,10 +211,10 @@ def create_linkedin_messages_sheet(service, profile_name: str, verbose: bool = F
             
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
 
-            _log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().update(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sheet_name}!A1:F1',
@@ -256,12 +222,12 @@ def create_linkedin_messages_sheet(service, profile_name: str, verbose: bool = F
                 body={'values': headers}
             ).execute()
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
-            _log(f"Created new Google Sheet: {sheet_name}", verbose, status=status)
+            log(f"Created new Google Sheet: {sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
         else:
-            _log(f"Sheet '{sheet_name}' already exists.", verbose, status=status)
+            log(f"Sheet '{sheet_name}' already exists.", verbose, status=status, log_caller_file="sheets_util.py")
         return sheet_name
     except Exception as e:
-        _log(f"Error creating LinkedIn messages sheet: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error creating LinkedIn messages sheet: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return None
 
@@ -285,11 +251,11 @@ def save_linkedin_message_to_sheet(service, profile_name: str, profile_url: str,
         success = append_to_sheet(service, sheet_name, headers, [data_row], verbose, status)
         
         if success:
-            _log(f"Successfully saved approved message to Google Sheet '{sheet_name}'.", verbose, status=status)
+            log(f"Successfully saved approved message to Google Sheet '{sheet_name}'.", verbose, status=status, log_caller_file="sheets_util.py")
         return success
 
     except Exception as e:
-        _log(f"Error saving LinkedIn message to sheet: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error saving LinkedIn message to sheet: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False
 
@@ -302,10 +268,10 @@ def get_approved_linkedin_messages(service, profile_name: str, verbose: bool = F
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot read sheet to fetch approved messages: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot read sheet to fetch approved messages: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
-        _log(f"[HITTING API] Reading sheet '{sheet_name}' for approved messages.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log(f"[HITTING API] Reading sheet '{sheet_name}' for approved messages.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID,
             range=f'{sheet_name}!A2:F' 
@@ -326,9 +292,9 @@ def get_approved_linkedin_messages(service, profile_name: str, verbose: bool = F
                     "generated_message": row[4],
                     "status": row[5]
                 })
-        _log(f"Fetched {len(approved_messages)} approved LinkedIn messages from sheet '{sheet_name}'.", verbose, status=status)
+        log(f"Fetched {len(approved_messages)} approved LinkedIn messages from sheet '{sheet_name}'.", verbose, status=status, log_caller_file="sheets_util.py")
     except Exception as e:
-        _log(f"Error fetching approved LinkedIn messages: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error fetching approved LinkedIn messages: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "read", success=False, response=e)
     return approved_messages
 
@@ -338,10 +304,10 @@ def create_reply_sheet(service, profile_suffix, verbose: bool = False, status=No
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
@@ -358,10 +324,10 @@ def create_reply_sheet(service, profile_suffix, verbose: bool = False, status=No
 
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
             
-            _log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().batchUpdate(
                 spreadsheetId=SPREADSHEET_ID,
                 body=body
@@ -372,10 +338,10 @@ def create_reply_sheet(service, profile_suffix, verbose: bool = False, status=No
             
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
 
-            _log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().update(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sheet_name}!A1:L1',
@@ -385,20 +351,20 @@ def create_reply_sheet(service, profile_suffix, verbose: bool = False, status=No
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
         return sheet_name
     except Exception as e:
-        _log(f"Error creating reply sheet: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error creating reply sheet: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return None
 
 def get_generated_replies(service, sheet_name, verbose: bool = False, status=None):
     try:
-        _log(f"Fetching replies from sheet: {sheet_name}", verbose, status=status)
+        log(f"Fetching replies from sheet: {sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
@@ -408,10 +374,10 @@ def get_generated_replies(service, sheet_name, verbose: bool = False, status=Non
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get values from sheet: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get values from sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
-        _log(f"[HITTING API] Getting values from sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log(f"[HITTING API] Getting values from sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID,
             range=f'{sheet_name}!A2:L'
@@ -440,7 +406,7 @@ def get_generated_replies(service, sheet_name, verbose: bool = False, status=Non
             return replies
         return []
     except Exception as e:
-        _log(f"Error fetching replies: {str(e)}", verbose, is_error=True, status=status)
+        log(f"Error fetching replies: {str(e)}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "read", success=False, response=e)
         return []
 
@@ -451,10 +417,10 @@ def create_online_action_mode_sheet(service, profile_name: str, verbose: bool = 
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return None
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
@@ -472,10 +438,10 @@ def create_online_action_mode_sheet(service, profile_name: str, verbose: bool = 
 
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot add new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
 
-            _log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Adding new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().batchUpdate(
                 spreadsheetId=SPREADSHEET_ID,
                 body=body
@@ -486,10 +452,10 @@ def create_online_action_mode_sheet(service, profile_name: str, verbose: bool = 
             
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot update headers for new sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return None
 
-            _log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Updating headers for new sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().update(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sheet_name}!A1:Q1',
@@ -497,12 +463,12 @@ def create_online_action_mode_sheet(service, profile_name: str, verbose: bool = 
                 body={'values': headers}
             ).execute()
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
-            _log(f"Created new Google Sheet: {sheet_name}", verbose, status=status)
+            log(f"Created new Google Sheet: {sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
 
         return sheet_name
 
     except Exception as e:
-        _log(f"Error creating online action mode sheet: {e}", verbose, is_error=True, status=status)
+        log(f"Error creating online action mode sheet: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return None
 
@@ -521,7 +487,7 @@ def save_action_mode_replies_to_sheet(service, profile_name: str, replies_data: 
         for reply_item in replies_data:
             tweet_id = reply_item.get('tweet_id')
             if not tweet_id:
-                _log(f"Skipping reply item with no tweet_id: {reply_item}", verbose, is_error=True, status=status)
+                log(f"Skipping reply item with no tweet_id: {reply_item}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 continue
 
             row = [
@@ -560,10 +526,10 @@ def save_action_mode_replies_to_sheet(service, profile_name: str, replies_data: 
             }
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot batch update replies: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot batch update replies: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return False
 
-            _log(f"[HITTING API] Batch updating {len(update_operations)} replies in sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Batch updating {len(update_operations)} replies in sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().batchUpdate(
                 spreadsheetId=SPREADSHEET_ID,
                 body=body
@@ -576,10 +542,10 @@ def save_action_mode_replies_to_sheet(service, profile_name: str, replies_data: 
             }
             can_call, reason = api_call_tracker.can_make_call("sheets", "write")
             if not can_call:
-                _log(f"[RATE LIMIT] Cannot append new replies: {reason}", verbose, is_error=True, status=status)
+                log(f"[RATE LIMIT] Cannot append new replies: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
                 return False
 
-            _log(f"[HITTING API] Appending {len(new_rows)} new replies to sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+            log(f"[HITTING API] Appending {len(new_rows)} new replies to sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
             response = service.spreadsheets().values().append(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f'{sheet_name}!A2:Q',
@@ -588,11 +554,11 @@ def save_action_mode_replies_to_sheet(service, profile_name: str, replies_data: 
             ).execute()
             api_call_tracker.record_call("sheets", "write", success=True, response=response)
         
-        _log(f"Successfully saved/updated {len(replies_data)} replies to sheet: {sheet_name}", verbose, status=status)
+        log(f"Successfully saved/updated {len(replies_data)} replies to sheet: {sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
         return True
 
     except Exception as e:
-        _log(f"Error saving action mode replies to sheet: {e}", verbose, is_error=True, status=status)
+        log(f"Error saving action mode replies to sheet: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False
 
@@ -602,24 +568,24 @@ def get_online_action_mode_replies(service, profile_name: str, target_date: Opti
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
 
         if sheet_name not in existing_sheets:
-            _log(f"Sheet {sheet_name} not found. Returning empty list.", verbose, is_error=True, status=status)
+            log(f"Sheet {sheet_name} not found. Returning empty list.", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get values from sheet: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get values from sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return []
 
-        _log(f"[HITTING API] Getting values from sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log(f"[HITTING API] Getting values from sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID,
             range=f'{sheet_name}!A2:Q'
@@ -663,7 +629,7 @@ def get_online_action_mode_replies(service, profile_name: str, target_date: Opti
         return replies_with_indices
 
     except Exception as e:
-        _log(f"Error fetching online action mode replies: {e}", verbose, is_error=True, status=status)
+        log(f"Error fetching online action mode replies: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "read", success=False, response=e)
         return []
 
@@ -673,20 +639,20 @@ def batch_update_online_action_mode_replies(service, profile_name: str, updates:
         
         can_call, reason = api_call_tracker.can_make_call("sheets", "read")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot get spreadsheet properties to check for existing sheets: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return False
 
-        _log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status)
+        log("[HITTING API] Getting spreadsheet properties to check for existing sheets.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "read"), status=status, log_caller_file="sheets_util.py")
         spreadsheet_metadata = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
         api_call_tracker.record_call("sheets", "read", success=True, response=spreadsheet_metadata)
         existing_sheets = [sheet['properties']['title'] for sheet in spreadsheet_metadata['sheets']]
 
         if sheet_name not in existing_sheets:
-            _log(f"Sheet {sheet_name} not found. Cannot perform batch update.", verbose, is_error=True, status=status)
+            log(f"Sheet {sheet_name} not found. Cannot perform batch update.", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return False
 
         if not updates:
-            _log("No updates to perform for batch update.", verbose, status=status)
+            log("No updates to perform for batch update.", verbose, status=status, log_caller_file="sheets_util.py")
             return True
 
         body = {
@@ -696,21 +662,21 @@ def batch_update_online_action_mode_replies(service, profile_name: str, updates:
 
         can_call, reason = api_call_tracker.can_make_call("sheets", "write")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot perform batch update: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot perform batch update: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return False
 
-        _log(f"[HITTING API] Batch updating {len(updates)} replies in sheet {sheet_name}.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+        log(f"[HITTING API] Batch updating {len(updates)} replies in sheet {sheet_name}.", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
         response = service.spreadsheets().values().batchUpdate(
             spreadsheetId=SPREADSHEET_ID,
             body=body
         ).execute()
         api_call_tracker.record_call("sheets", "write", success=True, response=response)
         
-        _log(f"Successfully performed batch update for {len(updates)} replies in sheet {sheet_name}.", verbose, status=status)
+        log(f"Successfully performed batch update for {len(updates)} replies in sheet {sheet_name}.", verbose, status=status, log_caller_file="sheets_util.py")
         return True
 
     except Exception as e:
-        _log(f"Error performing batch update for online action mode replies: {e}", verbose, is_error=True, status=status)
+        log(f"Error performing batch update for online action mode replies: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False 
 
@@ -739,10 +705,10 @@ def save_posted_reply_to_replied_tweets_sheet(service, profile_name: str, reply_
         }
         can_call, reason = api_call_tracker.can_make_call("sheets", "write")
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot append posted reply to sheet: {reason}", verbose, is_error=True, status=status)
+            log(f"[RATE LIMIT] Cannot append posted reply to sheet: {reason}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
             return False
 
-        _log(f"[HITTING API] Appending posted reply to sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status)
+        log(f"[HITTING API] Appending posted reply to sheet: {sheet_name}", verbose, api_info=api_call_tracker.get_quot_info("sheets", "write"), status=status, log_caller_file="sheets_util.py")
         response = service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID,
             range=f'{sheet_name}!A2:L',
@@ -751,10 +717,10 @@ def save_posted_reply_to_replied_tweets_sheet(service, profile_name: str, reply_
         ).execute()
         api_call_tracker.record_call("sheets", "write", success=True, response=response)
         
-        _log(f"Successfully saved posted reply to sheet: {sheet_name}", verbose, status=status)
+        log(f"Successfully saved posted reply to sheet: {sheet_name}", verbose, status=status, log_caller_file="sheets_util.py")
         return True
 
     except Exception as e:
-        _log(f"Error saving posted reply to replied tweets sheet: {e}", verbose, is_error=True, status=status)
+        log(f"Error saving posted reply to replied tweets sheet: {e}", verbose, is_error=True, status=status, log_caller_file="sheets_util.py")
         api_call_tracker.record_call("sheets", "write", success=False, response=e)
         return False 

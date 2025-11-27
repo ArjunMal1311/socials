@@ -1,4 +1,3 @@
-import re
 import os
 import json
 import time
@@ -7,6 +6,7 @@ from typing import Optional
 from rich.console import Console
 from datetime import datetime, timezone
 from selenium.webdriver.common.by import By
+from services.support.logger_util import _log as log
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.web_driver_handler import setup_driver
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,28 +16,6 @@ from services.support.path_config import get_browser_data_dir, get_community_out
 
 console = Console()
 
-def _log(message: str, verbose: bool, is_error: bool = False, status=None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[community_scraper_utils.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[community_scraper_utils.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
-
 def _format_tweet_data(raw_tweet_data: dict) -> dict:
     scraped_at_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
     likes = int(raw_tweet_data.get('likes', 0) * 1000) if isinstance(raw_tweet_data.get('likes'), float) and raw_tweet_data.get('likes') < 100 else int(raw_tweet_data.get('likes', 0))
@@ -46,7 +24,7 @@ def _format_tweet_data(raw_tweet_data: dict) -> dict:
     try:
         tweet_date_iso = datetime.strptime(tweet_date_str, '%Y-%m-%d %H:%M:%S').isoformat() + 'Z'
     except ValueError:
-        tweet_date_iso = tweet_date_str if tweet_date_str else datetime.now(timezone.utc).isoformat() # Fallback to current UTC if parsing fails
+        tweet_date_iso = tweet_date_str if tweet_date_str else datetime.now(timezone.utc).isoformat()
 
     return {
         "source": "x",
@@ -75,23 +53,21 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
     max_retries = 5
     scroll_count = 0
 
-    _log("Navigating to X.com home page...", verbose, status=status)
+    log("Navigating to X.com home page...", verbose, status=status, log_caller_file="community_scraper_utils.py")
     driver.get("https://x.com/home")
     time.sleep(5)
 
     if community_name:
-        _log(f"Attempting to navigate to community: {community_name}...", verbose, status=status)
-        try:
-            community_tab_selector = f'a[role="tab"][href*="/home"] div[dir="ltr"] span.css-1jxf684.r-bcqeeo.r-1ttztb7.r-qvutc0.r-poiln3:text("{community_name}")'
-            
+        log(f"Attempting to navigate to community: {community_name}...", verbose, status=status, log_caller_file="community_scraper_utils.py")
+        try:            
             community_tab = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, f"//a[@role='tab']//span[contains(text(), '{community_name}')]"))
             )
             community_tab.click()
-            _log(f"Successfully clicked on '{community_name}' community tab.", verbose, status=status)
+            log(f"Successfully clicked on '{community_name}' community tab.", verbose, status=status, log_caller_file="community_scraper_utils.py")
             time.sleep(5)
         except Exception as e:
-            _log(f"Could not find or click community tab '{community_name}': {e}. Proceeding with general home feed scraping.", verbose, is_error=False, status=status)
+            log(f"Could not find or click community tab '{community_name}': {e}. Proceeding with general home feed scraping.", verbose, is_error=False, status=status, log_caller_file="community_scraper_utils.py")
             driver.get("https://x.com/home")
             time.sleep(5)
 
@@ -111,18 +87,18 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
 
             all_tweets_data.extend(newly_processed_tweets)
             
-            _log(f"Collected tweets: {len(all_tweets_data)} collected...", verbose, status=status)
+            log(f"Collected tweets: {len(all_tweets_data)} collected...", verbose, status=status, log_caller_file="community_scraper_utils.py")
             time.sleep(1)
 
             if len(all_tweets_data) >= max_tweets:
-                _log(f"Reached target tweet count ({len(all_tweets_data)})!", verbose, status=status)
+                log(f"Reached target tweet count ({len(all_tweets_data)})!", verbose, status=status, log_caller_file="community_scraper_utils.py")
                 break
             if no_new_content_count >= max_retries:
-                _log("No new content after multiple attempts, stopping collection.", verbose, is_error=False, status=status)
+                log("No new content after multiple attempts, stopping collection.", verbose, is_error=False, status=status, log_caller_file="community_scraper_utils.py")
                 break
 
     except KeyboardInterrupt:
-        _log(f"Collection stopped manually.", verbose, status=status)
+        log(f"Collection stopped manually.", verbose, status=status, log_caller_file="community_scraper_utils.py")
     
     return all_tweets_data
 
@@ -136,16 +112,16 @@ def scrape_community_tweets(community_name: str, profile_name: str, browser_prof
         user_data_dir = get_browser_data_dir(browser_profile or profile_name)
         driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile or profile_name, verbose=verbose, headless=headless, status=status)
         for msg in setup_messages:
-            _log(msg, verbose, status=status)
+            log(msg, verbose, status=status, log_caller_file="community_scraper_utils.py")
         
-        _log("Proceeding with browser profile. Assuming pre-existing login session.", verbose, status=status)
+        log("Proceeding with browser profile. Assuming pre-existing login session.", verbose, status=status, log_caller_file="community_scraper_utils.py")
 
-        _log("Starting tweet scraping...", verbose, status=status)
+        log("Starting tweet scraping...", verbose, status=status, log_caller_file="community_scraper_utils.py")
         for i in range(3, 0, -1):
-            _log(f"{i} seconds left...", verbose, status=status)
+            log(f"{i} seconds left...", verbose, status=status, log_caller_file="community_scraper_utils.py")
             time.sleep(1)
 
-        _log(f"Starting {community_name} tweet scraping (target: {max_tweets} tweets)...", verbose, status=status)
+        log(f"Starting {community_name} tweet scraping (target: {max_tweets} tweets)...", verbose, status=status, log_caller_file="community_scraper_utils.py")
         
         all_tweets_data = fetch_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name, verbose=verbose, status=status)
 
@@ -154,12 +130,12 @@ def scrape_community_tweets(community_name: str, profile_name: str, browser_prof
             ensure_dir_exists(os.path.dirname(output_filename))
             with open(output_filename, 'w', encoding='utf-8') as f:
                 json.dump(formatted_for_saving, f, ensure_ascii=False, indent=4)
-            _log(f"Successfully saved {len(formatted_for_saving)} tweets to {output_filename}", verbose, status=status)
+            log(f"Successfully saved {len(formatted_for_saving)} tweets to {output_filename}", verbose, status=status, log_caller_file="community_scraper_utils.py")
         else:
-            _log("No tweets to save.", verbose, is_error=False, status=status)
+            log("No tweets to save.", verbose, is_error=False, status=status, log_caller_file="community_scraper_utils.py")
 
     except Exception as e:
-        _log(f"An error occurred during {community_name} scraping: {e}", verbose, is_error=True, status=status)
+        log(f"An error occurred during {community_name} scraping: {e}", verbose, is_error=True, status=status, log_caller_file="community_scraper_utils.py")
     finally:
         if driver:
             driver.quit()

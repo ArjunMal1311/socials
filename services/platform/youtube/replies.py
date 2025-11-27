@@ -1,16 +1,14 @@
 import os
-import re
 import sys
 import time
 import argparse
 
 from profiles import PROFILES
 
-from datetime import datetime
 from dotenv import load_dotenv
 from rich.status import Status
 from rich.console import Console
-from typing import Optional, Dict, Any
+from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
@@ -20,41 +18,6 @@ from services.platform.youtube.support.review_server import start_youtube_review
 from services.platform.youtube.support.replies_utils import scrape_youtube_shorts_comments, generate_youtube_replies, download_youtube_short, post_youtube_reply_api, post_youtube_reply, move_to_next_short, save_youtube_reply_for_review, load_approved_youtube_replies, mark_youtube_reply_as_posted
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[replies.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[replies.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def main():
     load_dotenv()
@@ -86,8 +49,8 @@ def main():
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
-        _log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None)
-        _log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None)
+        log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
         sys.exit(1)
     
     api_key_pool = APIKeyPool(api_keys_string=args.gemini_api_key, verbose=args.verbose)
@@ -109,7 +72,7 @@ def main():
             status.stop()
 
             if not driver:
-                _log("WebDriver could not be initialized. Aborting.", args.verbose, is_error=True)
+                log("WebDriver could not be initialized. Aborting.", args.verbose, is_error=True, log_caller_file="replies.py")
                 sys.exit(1) 
 
             with Status("[white]Navigating to YouTube Shorts...[/white]", spinner="dots", console=console) as status:
@@ -119,24 +82,24 @@ def main():
 
             for i in range(args.number_of_shorts):
                 video_path = None
-                _log(f"--- Processing Short {i+1}/{args.number_of_shorts} ---", args.verbose)
+                log(f"--- Processing Short {i+1}/{args.number_of_shorts} ---", args.verbose, log_caller_file="replies.py")
                 
                 with Status(f"[white]Running YouTube Replies: Scraping comments for {profile_name}...[/white]", spinner="dots", console=console) as status:
                     scraped_comments, _, video_url = scrape_youtube_shorts_comments(profile_name=profile_name, driver=driver, max_comments=args.max_comments, status=status, verbose=args.verbose)
                 status.stop()
 
                 if video_url and scraped_comments:
-                    _log(f"Scraped {len(scraped_comments)} comments from {video_url}.", args.verbose)
+                    log(f"Scraped {len(scraped_comments)} comments from {video_url}.", args.verbose, log_caller_file="replies.py")
                     
                     with Status("[white]Downloading video...[/white]", spinner="dots", console=console) as status:
                         video_path = download_youtube_short(video_url, profile_name, status, verbose=args.verbose)
                     status.stop()
 
                     if not video_path:
-                        _log("Failed to download video. Cannot generate reply.", args.verbose, is_error=True)
+                        log("Failed to download video. Cannot generate reply.", args.verbose, is_error=True, log_caller_file="replies.py")
                         if i < args.number_of_shorts - 1:
                             if not move_to_next_short(driver, verbose=args.verbose):
-                                _log("Could not move to the next short. Ending process.", args.verbose, is_error=True)
+                                log("Could not move to the next short. Ending process.", args.verbose, is_error=True, log_caller_file="replies.py")
                                 break
                         continue
 
@@ -147,36 +110,36 @@ def main():
                         status.stop()
                         
                         if generated_reply and not generated_reply.startswith("Error"):
-                            _log("Generated Reply:", args.verbose)
-                            _log(generated_reply, args.verbose)
+                            log("Generated Reply:", args.verbose, log_caller_file="replies.py")
+                            log(generated_reply, args.verbose, log_caller_file="replies.py")
                             
                             with Status("[white]Saving reply for review...[/white]", spinner="dots", console=console) as status:
                                 save_youtube_reply_for_review(profile_name=profile_name, video_url=video_url, generated_reply=generated_reply, scraped_comments=scraped_comments, video_path=video_path, verbose=args.verbose)
                             status.stop()
-                            _log("Reply saved for review.", args.verbose)
+                            log("Reply saved for review.", args.verbose, log_caller_file="replies.py")
                         else:
-                            _log(f"Failed to generate reply: {generated_reply}", args.verbose, is_error=True)
+                            log(f"Failed to generate reply: {generated_reply}", args.verbose, is_error=True, log_caller_file="replies.py")
                 else:
-                    _log("No comments scraped or no video URL found to generate replies for.", args.verbose, is_error=True)
+                    log("No comments scraped or no video URL found to generate replies for.", args.verbose, is_error=True, log_caller_file="replies.py")
 
                 if i < args.number_of_shorts - 1:
                     if not move_to_next_short(driver, verbose=args.verbose):
-                        _log("Could not move to the next short. Ending process.", args.verbose, is_error=True)
+                        log("Could not move to the next short. Ending process.", args.verbose, is_error=True, log_caller_file="replies.py")
                         break
                 else:
-                    _log("Finished processing all requested shorts.", args.verbose)
+                    log("Finished processing all requested shorts.", args.verbose, log_caller_file="replies.py")
             
         except Exception as e:
-            _log(f"An unexpected error occurred: {e}", args.verbose, is_error=True)
+            log(f"An unexpected error occurred: {e}", args.verbose, is_error=True, log_caller_file="replies.py")
         finally:
             if driver:
                 driver.quit()
-                _log("WebDriver closed.", args.verbose)
+                log("WebDriver closed.", args.verbose, log_caller_file="replies.py")
 
     elif args.review:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
         port = args.port
@@ -185,7 +148,7 @@ def main():
     elif args.post_approved:
         profile = args.profile
         if profile not in PROFILES:
-            _log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True)
+            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="replies.py")
             sys.exit(1)
         profile_name = PROFILES[profile]['name']
 
@@ -198,7 +161,7 @@ def main():
 
             if not approved_replies:
                 status.update("[yellow]No approved replies found to post.[/yellow]")
-                _log("No approved replies found to post.", args.verbose)
+                log("No approved replies found to post.", args.verbose, log_caller_file="replies.py")
                 return
             
             for i, reply in enumerate(approved_replies):
@@ -220,14 +183,14 @@ def main():
                     posted_count += 1
                 else:
                     failed_count += 1
-                    _log(f"Failed to post reply '{reply_id}' for video {video_url}.", args.verbose, is_error=True)
+                    log(f"Failed to post reply '{reply_id}' for video {video_url}.", args.verbose, is_error=True, log_caller_file="replies.py")
             
             status.stop()
-            _log(f"YouTube Reply Posting Summary for {profile_name}:", args.verbose)
-            _log(f"Total approved replies: {total_to_post}", args.verbose)
-            _log(f"Successfully posted: {posted_count}", args.verbose)
-            _log(f"Failed to post: {failed_count}", args.verbose)
-            _log(f"Already posted (skipped): {already_posted_count}", args.verbose)
+            log(f"YouTube Reply Posting Summary for {profile_name}:", args.verbose, log_caller_file="replies.py")
+            log(f"Total approved replies: {total_to_post}", args.verbose, log_caller_file="replies.py")
+            log(f"Successfully posted: {posted_count}", args.verbose, log_caller_file="replies.py")
+            log(f"Failed to post: {failed_count}", args.verbose, log_caller_file="replies.py")
+            log(f"Already posted (skipped): {already_posted_count}", args.verbose, log_caller_file="replies.py")
 
     elif args.clear:
         profile_name = args.profile
@@ -240,14 +203,14 @@ def main():
                 if os.path.isfile(file_path):
                     os.remove(file_path)
             os.rmdir(shorts_dir)
-            _log(f"Deleted shorts directory: {shorts_dir}", args.verbose)
+            log(f"Deleted shorts directory: {shorts_dir}", args.verbose, log_caller_file="replies.py")
 
         review_json_path = os.path.join(profile_base_dir, "youtube_replies_for_review.json")
         if os.path.exists(review_json_path):
             os.remove(review_json_path)
-            _log(f"Deleted review JSON: {review_json_path}", args.verbose)
+            log(f"Deleted review JSON: {review_json_path}", args.verbose, log_caller_file="replies.py")
 
-        _log(f"Cleared all generated files for profile '{profile_name}'.", args.verbose)
+        log(f"Cleared all generated files for profile '{profile_name}'.", args.verbose, log_caller_file="replies.py")
     else:
         parser.print_help()
 

@@ -1,52 +1,16 @@
 import os
-import re
 
 from profiles import PROFILES
 
-from datetime import datetime
 from rich.console import Console
 from typing import List, Dict, Any, Optional, Tuple
 from services.support.api_key_pool import APIKeyPool
+from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
-from services.support.api_call_tracker import APICallTracker
 from services.support.gemini_util import generate_gemini
+from services.support.api_call_tracker import APICallTracker
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[content_analyzer.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[content_analyzer.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def analyze_video_content_with_gemini(video_path: str, profile_name: str, status=None, api_key: Optional[str] = None, verbose: bool = False) -> Tuple[Optional[str], Optional[str]]:
     api_pool = APIKeyPool()
@@ -57,14 +21,14 @@ def analyze_video_content_with_gemini(video_path: str, profile_name: str, status
     
     gemini_api_key = api_pool.get_key()
     if not gemini_api_key:
-        _log("No Gemini API key available.", verbose, is_error=True)
+        log("No Gemini API key available.", verbose, is_error=True, log_caller_file="content_analyzer.py")
         return None, None
 
     try:
         rate_limiter.wait_if_needed(gemini_api_key)
         
         if not os.path.exists(video_path):
-            _log(f"Video file not found: {video_path}", verbose, is_error=True)
+            log(f"Video file not found: {video_path}", verbose, is_error=True, log_caller_file="content_analyzer.py")
             return None, None
 
         profile_config = PROFILES.get(profile_name, {})
@@ -80,14 +44,14 @@ def analyze_video_content_with_gemini(video_path: str, profile_name: str, status
         transcript = generate_gemini(video_path, api_pool, api_call_tracker, rate_limiter, transcript_prompt_text, model_name='gemini-2.5-flash', status=status, verbose=verbose)
 
         if summary and transcript:
-            _log(f"Successfully analyzed video content for {os.path.basename(video_path)}.", verbose)
+            log(f"Successfully analyzed video content for {os.path.basename(video_path)}.", verbose, log_caller_file="content_analyzer.py")
             return summary, transcript
         else:
-            _log(f"Failed to get both summary and transcript for {os.path.basename(video_path)}.", verbose, is_error=True)
+            log(f"Failed to get both summary and transcript for {os.path.basename(video_path)}.", verbose, is_error=True, log_caller_file="content_analyzer.py")
             return summary, transcript
 
     except Exception as e:
-        _log(f"Error analyzing video content with Gemini: {e}", verbose, is_error=True)
+        log(f"Error analyzing video content with Gemini: {e}", verbose, is_error=True, log_caller_file="content_analyzer.py")
         return None, None 
 
 def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_name: str, api_key: Optional[str] = None, status=None, verbose: bool = False) -> Optional[str]:
@@ -99,7 +63,7 @@ def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_
     
     gemini_api_key = api_pool.get_key()
     if not gemini_api_key:
-        _log("No Gemini API key available for content suggestion.", verbose, is_error=True)
+        log("No Gemini API key available for content suggestion.", verbose, is_error=True, log_caller_file="content_analyzer.py")
         return None
 
     try:
@@ -126,12 +90,12 @@ def suggest_best_content_with_gemini(videos_data: List[Dict[str, Any]], profile_
         suggestions = generate_gemini(None, api_pool, api_call_tracker, rate_limiter, full_prompt, model_name='gemini-2.5-flash', status=status, verbose=verbose)
         
         if suggestions:
-            _log("Successfully generated content suggestions.", verbose)
+            log("Successfully generated content suggestions.", verbose, log_caller_file="content_analyzer.py")
             return suggestions
         else:
-            _log("Failed to generate content suggestions.", verbose, is_error=True)
+            log("Failed to generate content suggestions.", verbose, is_error=True, log_caller_file="content_analyzer.py")
             return None
 
     except Exception as e:
-        _log(f"Error suggesting content with Gemini: {e}", verbose, is_error=True)
+        log(f"Error suggesting content with Gemini: {e}", verbose, is_error=True, log_caller_file="content_analyzer.py")
         return None 

@@ -3,40 +3,19 @@ import os
 from datetime import datetime
 from rich.console import Console
 from typing import Optional, Dict, Any
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Any] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def get_latest_dated_json_file(directory: str, prefix: str, verbose: bool = False) -> Optional[str]:
     latest_json_path = None
     latest_date = None
 
     if not os.path.exists(directory):
-        _log(f"Directory does not exist: {directory}", verbose)
+        log(f"Directory does not exist: {directory}", verbose, log_caller_file="file_manager.py")
         return None
 
-    _log(f"Searching for JSON files with prefix '{prefix}' in {directory}", verbose)
+    log(f"Searching for JSON files with prefix '{prefix}' in {directory}", verbose, log_caller_file="file_manager.py")
     
     for f in os.listdir(directory):
         if f.startswith(prefix) and f.endswith('.json'):
@@ -47,15 +26,15 @@ def get_latest_dated_json_file(directory: str, prefix: str, verbose: bool = Fals
                     if latest_date is None or current_date > latest_date:
                         latest_date = current_date
                         latest_json_path = os.path.join(directory, f)
-                        _log(f"Found newer file: {f} (date: {current_date})", verbose)
+                        log(f"Found newer file: {f} (date: {current_date})", verbose, log_caller_file="file_manager.py")
             except ValueError:
-                _log(f"Skipping file with invalid date format: {f}", verbose)
+                log(f"Skipping file with invalid date format: {f}", verbose, log_caller_file="file_manager.py")
                 continue
     
     if latest_json_path:
-        _log(f"Latest JSON file found: {latest_json_path}", verbose)
+        log(f"Latest JSON file found: {latest_json_path}", verbose, log_caller_file="file_manager.py")
     else:
-        _log(f"No JSON files found with prefix '{prefix}'", verbose)
+        log(f"No JSON files found with prefix '{prefix}'", verbose, log_caller_file="file_manager.py")
     
     return latest_json_path
 

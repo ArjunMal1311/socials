@@ -1,49 +1,14 @@
-import re
 import google.generativeai as genai
 
-from datetime import datetime
 from rich.console import Console
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
+from services.support.logger_util import _log as log
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_gemini_log_file_path
 
 console = Console()
 api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    if is_error:
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[message_generator.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[message_generator.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def generate_linkedin_message(
     profile_data: Dict[str, Any],
@@ -63,7 +28,7 @@ def generate_linkedin_message(
         api_key_suffix = api_key[-4:] if api_key else None
         can_call, reason = api_call_tracker.can_make_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix)
         if not can_call:
-            _log(f"[RATE LIMIT] Cannot call Gemini API: {reason}", verbose, status, is_error=True, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix))
+            log(f"[RATE LIMIT] Cannot call Gemini API: {reason}", verbose, status, is_error=True, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix), log_caller_file="message_generator.py")
             return f"Error generating message: {reason}"
 
         genai.configure(api_key=api_key)
@@ -95,11 +60,11 @@ def generate_linkedin_message(
         prompt_parts.append("LinkedIn Direct Message:\n")
 
         status.update("Generating personalized LinkedIn message...")
-        _log(f"[HITTING API] Calling Gemini API for LinkedIn message for {profile_name}", verbose, status, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix))
+        log(f"[HITTING API] Calling Gemini API for LinkedIn message for {profile_name}", verbose, status, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix), log_caller_file="message_generator.py")
         response = model.generate_content(prompt_parts)
         api_call_tracker.record_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix, success=True, response=response.text[:100])
         return response.text.strip()
     except Exception as e:
         api_call_tracker.record_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix, success=False, response=e)
-        _log(f"Error generating message: {str(e)}", verbose, status, is_error=True, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix))
+        log(f"Error generating message: {str(e)}", verbose, status, is_error=True, api_info=api_call_tracker.get_quot_info("gemini", "generate_content", model=model_name, api_key_suffix=api_key_suffix), log_caller_file="message_generator.py")
         return f"Error generating message: {str(e)}"

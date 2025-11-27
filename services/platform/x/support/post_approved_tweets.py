@@ -1,27 +1,13 @@
-import re
 import os
 import json
 
 from datetime import datetime
 from rich.console import Console
 from typing import Dict, Any, List, Optional, Tuple
+from services.support.logger_util import _log as log
 from services.support.path_config import get_eternity_schedule_file_path
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[post_approved_tweets.py] {timestamp}|[{color}]{log_message}[/{color}]")
-
 
 def _eternity_schedule_paths(profile_name: str) -> Tuple[str, str]:
     schedule_path = get_eternity_schedule_file_path(profile_name)
@@ -61,17 +47,17 @@ def _get_tweepy_client(profile_name: Optional[str], verbose: bool = False):
     try:
         import tweepy
     except Exception as e:
-        _log(f"tweepy is not installed: {e} Install with: pip install tweepy", verbose, is_error=True)
+        log(f"tweepy is not installed: {e} Install with: pip install tweepy", verbose, is_error=True, log_caller_file="post_approved_tweets.py")
         return None
 
     consumer_key, consumer_secret, access_token, access_token_secret = _resolve_credentials(profile_name)
 
     if not all([consumer_key, consumer_secret, access_token, access_token_secret]):
         scope_hint = (profile_name or '').strip().upper() or 'PROFILE'
-        _log(
+        log(
             f"Twitter API keys missing for profile {scope_hint}.\n" +
             f"Set these environment variables: {scope_hint}_X_CONSUMER_KEY, {scope_hint}_X_CONSUMER_SECRET, {scope_hint}_X_ACCESS_TOKEN, {scope_hint}_X_ACCESS_TOKEN_SECRET",
-            verbose, is_error=True
+            verbose, is_error=True, log_caller_file="post_approved_tweets.py"
         )
         return None
 
@@ -84,21 +70,21 @@ def _get_tweepy_client(profile_name: Optional[str], verbose: bool = False):
         )
         return client
     except Exception as e:
-        _log(f"Failed to create tweepy client: {e}", verbose, is_error=True)
+        log(f"Failed to create tweepy client: {e}", verbose, is_error=True, log_caller_file="post_approved_tweets.py")
         return None
 
 
 def post_tweet_reply(tweet_id: str, reply_text: str, profile_name: Optional[str] = None, verbose: bool = False) -> bool:
-    _log(f"Attempting to post reply to tweet ID {tweet_id}: '{reply_text[:80]}'", verbose)
+    log(f"Attempting to post reply to tweet ID {tweet_id}: '{reply_text[:80]}'", verbose, log_caller_file="post_approved_tweets.py")
     client = _get_tweepy_client(profile_name, verbose=verbose)
     if not client:
         return False
     try:
         response = client.create_tweet(text=reply_text, in_reply_to_tweet_id=tweet_id)
-        _log(f"Successfully posted reply to {tweet_id}", verbose)
+        log(f"Successfully posted reply to {tweet_id}", verbose, log_caller_file="post_approved_tweets.py")
         return True
     except Exception as e:
-        _log(f"Twitter API error posting reply to {tweet_id}: {e}", verbose, is_error=True)
+        log(f"Twitter API error posting reply to {tweet_id}: {e}", verbose, is_error=True, log_caller_file="post_approved_tweets.py")
         return False
 
 

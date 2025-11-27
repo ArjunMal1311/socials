@@ -3,43 +3,13 @@ import os
 import glob
 import subprocess
 
-from datetime import datetime
 from selenium import webdriver
 from rich.console import Console
-from typing import Optional, Dict, Any
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if verbose or is_error:
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[web_driver_handler.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-        if verbose and status:
-            status.start()
 
 def setup_driver(user_data_dir, incognito=False, profile="Default", headless=False, prefs: dict = None, additional_arguments: list = None, verbose: bool = False, status=None):
     options = Options()
@@ -48,13 +18,13 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     user_data_dir = os.path.abspath(user_data_dir)
 
     kill_chrome_processes_by_user_data_dir(user_data_dir, verbose, status)
-    _log(f"Killed Chrome processes for {user_data_dir}", verbose, status=status, api_info=None)
+    log(f"Killed Chrome processes for {user_data_dir}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
 
     profile_path = os.path.join(user_data_dir, profile)
     cleanup_chrome_locks(profile_path, verbose, status)
-    _log(f"Cleaned up Chrome lock files in {profile_path}", verbose, status=status, api_info=None)
+    log(f"Cleaned up Chrome lock files in {profile_path}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
 
-    _log(f"Attempting to set up driver with user_data_dir: {user_data_dir} and profile: {profile}", verbose, status=status, api_info=None)
+    log(f"Attempting to set up driver with user_data_dir: {user_data_dir} and profile: {profile}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
 
     if headless:
         options.add_argument('--headless=new')
@@ -69,10 +39,10 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     try:
         if not os.path.exists(user_data_dir):
             os.makedirs(user_data_dir, mode=0o777, exist_ok=True)
-        _log(f"Using Chrome data directory: {user_data_dir}", verbose, status=status, api_info=None)
+        log(f"Using Chrome data directory: {user_data_dir}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
     except Exception as e:
         error_msg = f"Failed to create Chrome data directory: {str(e)}"
-        _log(error_msg, verbose, is_error=True, status=status, api_info=None)
+        log(error_msg, verbose, is_error=True, status=status, api_info=None, log_caller_file="web_driver_handler.py")
         raise
 
     options.add_argument(f'--user-data-dir={user_data_dir}')
@@ -111,11 +81,11 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
 
     if not chromium_binary:
         error_msg = "Chromium binary not found. Please install Chromium."
-        _log(error_msg, verbose, is_error=True, status=status, api_info=None)
+        log(error_msg, verbose, is_error=True, status=status, api_info=None, log_caller_file="web_driver_handler.py")
         raise Exception(error_msg)
 
     options.binary_location = chromium_binary
-    _log(f"Using Chromium binary at: {chromium_binary}", verbose, status=status, api_info=None)
+    log(f"Using Chromium binary at: {chromium_binary}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
 
     service = Service()
     driver = webdriver.Chrome(service=service, options=options)
@@ -128,7 +98,7 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     driver.set_page_load_timeout(60)
     driver.implicitly_wait(30)
 
-    _log("Chromium WebDriver created successfully", verbose, status=status, api_info=None)
+    log("Chromium WebDriver created successfully", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
     return driver, status_messages
 
 
@@ -143,9 +113,9 @@ def cleanup_chrome_locks(profile_path, verbose: bool = False, status=None):
         for f in glob.glob(os.path.join(profile_path, pattern)):
             try:
                 os.remove(f)
-                _log(f"Removed leftover lock: {f}", verbose, status=status, api_info=None)
+                log(f"Removed leftover lock: {f}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
             except Exception as e:
-                _log(f"Could not remove {f}: {e}", verbose, is_error=True, status=status, api_info=None)
+                log(f"Could not remove {f}: {e}", verbose, is_error=True, status=status, api_info=None, log_caller_file="web_driver_handler.py")
 
 
 def kill_chrome_processes_by_user_data_dir(user_data_dir, verbose: bool = False, status=None):
@@ -166,12 +136,12 @@ def kill_chrome_processes_by_user_data_dir(user_data_dir, verbose: bool = False,
             pid_list = " ".join(pids_to_kill)
             kill_command = f"kill -9 {pid_list}"
             subprocess.run(kill_command, shell=True, capture_output=True, text=True)
-            _log(f"Killed Chrome/Chromium processes: {pid_list} using directory: {user_data_dir}", verbose, status=status, api_info=None)
+            log(f"Killed Chrome/Chromium processes: {pid_list} using directory: {user_data_dir}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
             return True
         else:
-            _log(f"No Chrome/Chromium processes found using directory: {user_data_dir}", verbose, status=status, api_info=None)
+            log(f"No Chrome/Chromium processes found using directory: {user_data_dir}", verbose, status=status, api_info=None, log_caller_file="web_driver_handler.py")
             return False
     except Exception as e:
-        _log(f"Error killing Chrome processes: {e}", verbose, is_error=True, status=status, api_info=None)
+        log(f"Error killing Chrome processes: {e}", verbose, is_error=True, status=status, api_info=None, log_caller_file="web_driver_handler.py")
         return False
 

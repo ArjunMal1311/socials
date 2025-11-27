@@ -3,18 +3,18 @@ import sys
 import json
 import argparse
 
+from pathlib import Path
 from datetime import datetime
 from rich.status import Status
 from dotenv import load_dotenv
 from rich.console import Console
-from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 from profiles import PROFILES
 
+from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
-from services.support.path_config import get_youtube_videos_dir, get_youtube_profile_dir
+from services.support.path_config import get_youtube_profile_dir
 from services.platform.youtube.support.scraper_utils import run_youtube_scraper
 from services.platform.youtube.support.caption_downloader import download_captions_for_videos
 from services.platform.youtube.support.video_downloader import download_videos_for_youtube_scraper
@@ -23,29 +23,6 @@ from services.platform.youtube.support.file_manager import clear_youtube_files, 
 from services.platform.youtube.support.content_analyzer import analyze_video_content_with_gemini, suggest_best_content_with_gemini
 
 console = Console()
-
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    if verbose or is_error:
-        console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def main():
     load_dotenv()
@@ -79,20 +56,20 @@ def main():
         today_filter = (time_filter == "daily")
 
         if weekly_filter and today_filter:
-            _log("Cannot use --weekly and --today simultaneously. Please choose one.", args.verbose, is_error=True)
+            log("Cannot use --weekly and --today simultaneously. Please choose one.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
 
         with Status(f"[white]Running YouTube Scraper for profile '{profile_name}' Searching for '{search_query}' (max {max_videos} videos)...[/white]" if search_query else f"[white]Running YouTube Scraper for profile '{profile_name}' Scraping trending videos (max {max_videos} videos)...[/white]", spinner="dots", console=console) as status:
             results = run_youtube_scraper(profile_name, search_query, max_videos, weekly_filter=weekly_filter, today_filter=today_filter, status=status, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
-            _log(f"YouTube Scraper finished. Scraped {len(results)} videos.", args.verbose)
+            log(f"YouTube Scraper finished. Scraped {len(results)} videos.", args.verbose, log_caller_file="scraper.py")
             if results:
                 sample = results[0]
-                _log("Sample:", args.verbose)
-                _log(f"  Title: {sample.get('title', '')[:70]}...", args.verbose)
-                _log(f"  URL: {sample.get('url', '')}", args.verbose)
-                _log(f"  Views: {sample.get('views', '')}", args.verbose)
-                _log(f"  Channel: {sample.get('channel_name', '')}", args.verbose)
+                log("Sample:", args.verbose, log_caller_file="scraper.py")
+                log(f"  Title: {sample.get('title', '')[:70]}...", args.verbose, log_caller_file="scraper.py")
+                log(f"  URL: {sample.get('url', '')}", args.verbose, log_caller_file="scraper.py")
+                log(f"  Views: {sample.get('views', '')}", args.verbose, log_caller_file="scraper.py")
+                log(f"  Channel: {sample.get('channel_name', '')}", args.verbose, log_caller_file="scraper.py")
 
             scraped_videos = results
 
@@ -100,13 +77,13 @@ def main():
                 with Status(f"[white]Downloading captions for {len(scraped_videos)} videos for profile '{profile_name}'[/white]", spinner="dots", console=console) as captions_status:
                     scraped_videos = download_captions_for_videos(profile_name, scraped_videos, verbose=args.verbose, headless=not args.no_headless, caption_method=args.caption_method)
                     captions_status.stop()
-                    _log(f"Caption download complete. Videos with captions: {sum(1 for v in scraped_videos if v.get('caption_filepath'))}", args.verbose)
+                    log(f"Caption download complete. Videos with captions: {sum(1 for v in scraped_videos if v.get('caption_filepath'))}", args.verbose, log_caller_file="scraper.py")
                 
             if args.download_videos and scraped_videos:
                 with Status(f"[white]Downloading videos for {len(scraped_videos)} videos for profile '{profile_name}'[/white]", spinner="dots", console=console) as videos_status:
                     scraped_videos = download_videos_for_youtube_scraper(profile_name, scraped_videos, verbose=args.verbose)
                     videos_status.stop()
-                    _log(f"Video download complete. Videos with files: {sum(1 for v in scraped_videos if v.get('video_filepath'))}", args.verbose)
+                    log(f"Video download complete. Videos with files: {sum(1 for v in scraped_videos if v.get('video_filepath'))}", args.verbose, log_caller_file="scraper.py")
 
             if (args.download_captions or args.download_videos) and scraped_videos:
                 updated_videos_for_analysis = []
@@ -132,16 +109,16 @@ def main():
                                     updated_videos_for_analysis.append(video_data)
                                     processed_count += 1
                                     analysis_status.update(f"[white]Processed {processed_count}/{len(scraped_videos)} videos (from captions only)...[/white]")
-                                    _log(f"Loaded captions for {video_title} from {video_data['caption_filepath']}", args.verbose)
+                                    log(f"Loaded captions for {video_title} from {video_data['caption_filepath']}", args.verbose, log_caller_file="scraper.py")
                                 except Exception as e:
-                                    _log(f"Error reading caption file {video_data['caption_filepath']}: {e}", args.verbose, is_error=True)
+                                    log(f"Error reading caption file {video_data['caption_filepath']}: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
                                     video_data['summarized_content'] = "Error: N/A"
                                     video_data['subtitles'] = "Error: N/A"
                                     updated_videos_for_analysis.append(video_data)
                                     processed_count += 1
                                     analysis_status.update(f"[white]Processed {processed_count}/{len(scraped_videos)} videos (caption read failed)...[/white]")
                             else:
-                                _log(f"No video file or caption file found for '{video_title}' ({video_id}). Skipping content analysis.", args.verbose)
+                                log(f"No video file or caption file found for '{video_title}' ({video_id}). Skipping content analysis.", args.verbose, log_caller_file="scraper.py")
                                 video_data['summarized_content'] = "N/A"
                                 video_data['subtitles'] = "N/A"
                                 updated_videos_for_analysis.append(video_data)
@@ -156,9 +133,9 @@ def main():
                                 summary, transcript = future.result()
                                 video_data_from_future['summarized_content'] = summary or "Analysis failed."
                                 video_data_from_future['subtitles'] = transcript or "Transcription failed."
-                                _log(f"Successfully analyzed content for: {video_title}", args.verbose)
+                                log(f"Successfully analyzed content for: {video_title}", args.verbose, log_caller_file="scraper.py")
                             except Exception as e:
-                                _log(f"Error analyzing content for {video_title}: {e}", args.verbose, is_error=True)
+                                log(f"Error analyzing content for {video_title}: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
                                 video_data_from_future['summarized_content'] = f"Error: {e}"
                                 video_data_from_future['subtitles'] = f"Error: {e}"
 
@@ -168,7 +145,7 @@ def main():
 
                 scraped_videos = updated_videos_for_analysis
                 analysis_status.stop()
-                _log("Content analysis for scraped videos complete.", args.verbose)
+                log("Content analysis for scraped videos complete.", args.verbose, log_caller_file="scraper.py")
 
             try:
                 output_dir = get_youtube_profile_dir(profile_name)
@@ -178,9 +155,9 @@ def main():
 
                 with open(output_file, 'w', encoding='utf-8') as f:
                     json.dump(scraped_videos, f, indent=2, ensure_ascii=False)
-                _log(f"Enriched video data saved to {output_file}", args.verbose)
+                log(f"Enriched video data saved to {output_file}", args.verbose, log_caller_file="scraper.py")
             except Exception as e:
-                _log(f"Error saving enriched video data: {e}", args.verbose, is_error=True)
+                log(f"Error saving enriched video data: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
 
     elif args.download_captions:
         profile_name = args.profile
@@ -193,27 +170,27 @@ def main():
         videos_json_path = get_latest_dated_json_file(profile_name, json_filename_prefix, verbose=args.verbose)
 
         if not videos_json_path:
-            _log(f"No scraped videos found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True)
+            log(f"No scraped videos found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         
         try:
             with open(videos_json_path, 'r', encoding='utf-8') as f:
                 scraped_videos = json.load(f)
         except Exception as e:
-            _log(f"Error loading scraped videos from {videos_json_path}: {e}", args.verbose, is_error=True)
+            log(f"Error loading scraped videos from {videos_json_path}: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
 
         with Status(f"[white]Downloading captions for {len(scraped_videos)} videos for profile '{profile_name}'[/white]", spinner="dots", console=console) as status:
             updated_videos = download_captions_for_videos(profile_name, scraped_videos, verbose=args.verbose, headless=not args.no_headless, caption_method=args.caption_method)
             status.stop()
-            _log(f"Caption download complete. Success: {sum(1 for v in updated_videos if v.get('caption_filepath'))} videos updated.", args.verbose)
+            log(f"Caption download complete. Success: {sum(1 for v in updated_videos if v.get('caption_filepath'))} videos updated.", args.verbose, log_caller_file="scraper.py")
 
         try:
             with open(videos_json_path, 'w', encoding='utf-8') as f:
                 json.dump(updated_videos, f, indent=2, ensure_ascii=False)
-            _log(f"Updated video data with caption file paths saved to {videos_json_path}", args.verbose)
+            log(f"Updated video data with caption file paths saved to {videos_json_path}", args.verbose, log_caller_file="scraper.py")
         except Exception as e:
-            _log(f"Error saving updated video data with caption file paths: {e}", args.verbose, is_error=True)
+            log(f"Error saving updated video data with caption file paths: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
 
     elif args.download_videos:
         profile_name = args.profile
@@ -226,27 +203,27 @@ def main():
         videos_json_path = get_latest_dated_json_file(profile_name, json_filename_prefix, verbose=args.verbose)
 
         if not videos_json_path:
-            _log(f"No scraped videos found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True)
+            log(f"No scraped videos found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         
         try:
             with open(videos_json_path, 'r', encoding='utf-8') as f:
                 scraped_videos = json.load(f)
         except Exception as e:
-            _log(f"Error loading scraped videos from {videos_json_path}: {e}", args.verbose, is_error=True)
+            log(f"Error loading scraped videos from {videos_json_path}: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
 
         with Status(f"[white]Downloading videos for {len(scraped_videos)} videos for profile '{profile_name}'[/white]", spinner="dots", console=console) as status:
             updated_videos = download_videos_for_youtube_scraper(profile_name, scraped_videos, verbose=args.verbose)
             status.stop()
-            _log(f"Video download complete. Videos with files: {sum(1 for v in updated_videos if v.get('video_filepath'))} videos updated.", args.verbose)
+            log(f"Video download complete. Videos with files: {sum(1 for v in updated_videos if v.get('video_filepath'))} videos updated.", args.verbose, log_caller_file="scraper.py")
         
         try:
             with open(videos_json_path, 'w', encoding='utf-8') as f:
                 json.dump(updated_videos, f, indent=2, ensure_ascii=False)
-            _log(f"Updated video data with video file paths saved to {videos_json_path}", args.verbose)
+            log(f"Updated video data with video file paths saved to {videos_json_path}", args.verbose, log_caller_file="scraper.py")
         except Exception as e:
-            _log(f"Error saving updated video data with video file paths: {e}", args.verbose, is_error=True)
+            log(f"Error saving updated video data with video file paths: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
 
     elif args.clean:
         profile_name = args.profile
@@ -259,14 +236,14 @@ def main():
         with Status(f"[white]Cleaning and sorting videos for profile '{profile_name}' ({json_filename_prefix})...[/white]", spinner="dots", console=console) as status:
             clean_and_sort_videos(profile_name, json_filename_prefix, weekly_filter=youtube_scraper_config.get("time_filter") == "weekly", today_filter=youtube_scraper_config.get("time_filter") == "daily", max_duration_minutes=youtube_scraper_config.get("max_duration_minutes"), status=status, verbose=args.verbose)
             status.stop()
-            _log(f"Video cleaning and sorting complete for profile '{profile_name}'.", args.verbose)
+            log(f"Video cleaning and sorting complete for profile '{profile_name}'.", args.verbose, log_caller_file="scraper.py")
 
     elif args.clear:
         profile_name = args.profile
         with Status(f"[white]Clearing all YouTube-related files for profile '{profile_name}'[/white]", spinner="dots", console=console) as status:
             clear_youtube_files(profile_name, status=status, verbose=args.verbose)
             status.stop()
-            _log(f"All YouTube files for profile '{profile_name}' cleared.", args.verbose)
+            log(f"All YouTube files for profile '{profile_name}' cleared.", args.verbose, log_caller_file="scraper.py")
 
     elif args.suggest_content:
         profile_name = args.profile
@@ -279,18 +256,18 @@ def main():
         videos_json_path = get_latest_dated_json_file(profile_name, json_filename_prefix, verbose=args.verbose)
 
         if not videos_json_path:
-            _log(f"No video data found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True)
+            log(f"No video data found for profile '{profile_name}' with prefix '{json_filename_prefix}'. Please run --scrape first.", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         
         try:
             with open(videos_json_path, 'r', encoding='utf-8') as f:
                 scraped_videos = json.load(f)
         except Exception as e:
-            _log(f"Error loading video data from {videos_json_path}: {e}", args.verbose, is_error=True)
+            log(f"Error loading video data from {videos_json_path}: {e}", args.verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
         
         if not scraped_videos:
-            _log("No videos found in the selected JSON file. Cannot suggest content.", args.verbose)
+            log("No videos found in the selected JSON file. Cannot suggest content.", args.verbose, log_caller_file="scraper.py")
             sys.exit(0)
 
         with Status(f"[white]Generating content suggestions for profile '{profile_name}' from {len(scraped_videos)} videos...[/white]", spinner="dots", console=console) as status:
@@ -302,7 +279,7 @@ def main():
                 console.print(suggestions)
                 console.print("[bold green]---------------------------[/bold green]")
             else:
-                _log("Failed to generate content suggestions.", args.verbose, is_error=True)
+                log("Failed to generate content suggestions.", args.verbose, is_error=True, log_caller_file="scraper.py")
 
     else:
         parser.print_help()

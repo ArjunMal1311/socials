@@ -1,27 +1,13 @@
-import re
 import os
 import json
 
-from datetime import datetime
 from rich.console import Console
 from urllib.parse import urlparse
+from services.support.logger_util import _log as log
 from services.support.path_config import get_replies_dir
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[action_mode_server.py] {timestamp}|[{color}]{log_message}[/{color}]")
 
 
 class ActionModeRequestHandler(SimpleHTTPRequestHandler):
@@ -31,7 +17,7 @@ class ActionModeRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
-        _log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose)
+        log(f"HTTP {self.client_address[0]} - {format % args}", self.verbose, log_caller_file="action_server.py")
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -175,17 +161,17 @@ class ActionModeRequestHandler(SimpleHTTPRequestHandler):
 def start_action_mode_review_server(profile_name: str, port: int = 8765, verbose: bool = False):
     root_dir = get_replies_dir(profile_name)
     if not os.path.exists(os.path.join(root_dir, 'review.html')):
-        _log(f"review.html not found under {root_dir}. Generate it first.", verbose, is_error=False)
+        log(f"review.html not found under {root_dir}. Generate it first.", verbose, is_error=False, log_caller_file="action_server.py")
     handler_factory = lambda *args, **kwargs: ActionModeRequestHandler(*args, root_dir=root_dir, verbose=verbose, **kwargs)
     httpd = HTTPServer(('127.0.0.1', port), handler_factory)
 
     def shutdown_server():
-        _log("Shutting down Action Mode review server...", verbose)
+        log("Shutting down Action Mode review server...", verbose, log_caller_file="action_server.py")
         httpd.shutdown()
 
     httpd.shutdown_server = shutdown_server
-    _log(f"Serving Action Mode review for '{profile_name}' at http://127.0.0.1:{port}", verbose)
-    _log("Press Ctrl+C in this terminal to stop the review server manually (or Enter in the main terminal once done).", verbose)
+    log(f"Serving Action Mode review for '{profile_name}' at http://127.0.0.1:{port}", verbose, log_caller_file="action_server.py")
+    log("Press Ctrl+C in this terminal to stop the review server manually (or Enter in the main terminal once done).", verbose, log_caller_file="action_server.py")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

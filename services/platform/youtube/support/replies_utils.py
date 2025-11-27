@@ -1,21 +1,20 @@
-import re
 import os
 import time
 import json
 import httplib2
 import subprocess
 
-from datetime import datetime
 from rich.status import Status
 from selenium import webdriver
 from rich.console import Console
 from oauth2client.file import Storage
 from oauth2client.tools import run_flow
+from typing import Optional, List, Dict
 from googleapiclient.discovery import build
 from selenium.webdriver.common.by import By
-from typing import Optional, List, Dict, Any
 from googleapiclient.errors import HttpError
 from services.support.api_key_pool import APIKeyPool
+from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from selenium.webdriver.support.ui import WebDriverWait
 from oauth2client.client import flow_from_clientsecrets
@@ -26,41 +25,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from services.support.path_config import get_youtube_schedule_videos_dir, get_youtube_shorts_dir, get_youtube_replies_for_review_dir
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[replies_utils.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[replies_utils.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 CLIENT_SECRETS_FILE = "client_secret.json"
 CREDENTIALS_FILE = "youtube-oauth2.json"
@@ -73,14 +37,14 @@ def get_authenticated_youtube_service(profile_name="Default", verbose: bool = Fa
     
     if not os.path.exists(profile_dir):
         os.makedirs(profile_dir)
-        _log(f"Created profile directory for YouTube API: {profile_dir}", verbose)
+        log(f"Created profile directory for YouTube API: {profile_dir}", verbose, log_caller_file="replies_utils.py")
 
     client_secrets_path = os.path.join(profile_dir, CLIENT_SECRETS_FILE)
     credentials_path = os.path.join(profile_dir, CREDENTIALS_FILE)
 
     if not os.path.exists(client_secrets_path):
-        _log(f"Error: '{CLIENT_SECRETS_FILE}' not found in {profile_dir}", verbose, is_error=True)
-        _log("Please download your OAuth 2.0 client secrets file from the Google API Console and place it in the specified profile directory.", verbose, is_error=True)
+        log(f"Error: '{CLIENT_SECRETS_FILE}' not found in {profile_dir}", verbose, is_error=True, log_caller_file="replies_utils.py")
+        log("Please download your OAuth 2.0 client secrets file from the Google API Console and place it in the specified profile directory.", verbose, is_error=True, log_caller_file="replies_utils.py")
         return None
 
     flow = flow_from_clientsecrets(client_secrets_path, scope=COMMENT_SCOPE)
@@ -88,8 +52,8 @@ def get_authenticated_youtube_service(profile_name="Default", verbose: bool = Fa
     credentials = storage.get()
 
     if credentials is None or credentials.invalid:
-        _log("OAuth2 credentials not found or invalid. Please run the authentication flow manually.", verbose)
-        _log(f"Run: python services/support/refresh_youtube_auth.py {profile_name}", verbose)
+        log("OAuth2 credentials not found or invalid. Please run the authentication flow manually.", verbose, log_caller_file="replies_utils.py")
+        log(f"Run: python services/support/refresh_youtube_auth.py {profile_name}", verbose, log_caller_file="replies_utils.py")
         credentials = run_flow(flow, storage)
 
     return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, http=credentials.authorize(httplib2.Http()))
@@ -106,10 +70,10 @@ def scrape_youtube_shorts_comments(profile_name: str, driver: webdriver.Chrome, 
             time.sleep(3)
             video_url = driver.current_url
         except TimeoutException:
-            _log("Comments button not found or not clickable within timeout. Continuing without comments.", verbose)
+            log("Comments button not found or not clickable within timeout. Continuing without comments.", verbose, log_caller_file="replies_utils.py")
             return [], None, None
         except NoSuchElementException:
-            _log("Comments button element not found. Continuing without comments.", verbose)
+            log("Comments button element not found. Continuing without comments.", verbose, log_caller_file="replies_utils.py")
             return [], None, None
 
         comments_data = []
@@ -122,7 +86,7 @@ def scrape_youtube_shorts_comments(profile_name: str, driver: webdriver.Chrome, 
                 EC.presence_of_element_located((By.XPATH, comments_section_xpath))
             )
         except TimeoutException:
-            _log("Comments section (div id=\"contents\") not found within timeout. This might mean no comments are loaded or the XPath is incorrect.", verbose)
+            log("Comments section (div id=\"contents\") not found within timeout. This might mean no comments are loaded or the XPath is incorrect.", verbose, log_caller_file="replies_utils.py")
             return [], None, None
 
         while len(comments_data) < max_comments and scroll_count < max_scrolls:
@@ -168,7 +132,7 @@ def scrape_youtube_shorts_comments(profile_name: str, driver: webdriver.Chrome, 
         return comments_data, driver, video_url
 
     except Exception as e:
-        _log(f"An error occurred during YouTube Shorts comment scraping: {e}", verbose, is_error=True)
+        log(f"An error occurred during YouTube Shorts comment scraping: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return [], None, None
     finally:
         pass
@@ -184,10 +148,10 @@ def move_to_next_short(driver, verbose: bool = False) -> bool:
         time.sleep(3)
         return True
     except (TimeoutException, NoSuchElementException):
-        _log("Next short button not found or not clickable. May be at the end of shorts.", verbose)
+        log("Next short button not found or not clickable. May be at the end of shorts.", verbose, log_caller_file="replies_utils.py")
         return False
     except Exception as e:
-        _log(f"Error moving to next short: {e}", verbose, is_error=True)
+        log(f"Error moving to next short: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return False
 
 def download_youtube_short(video_url: str, profile_name: str, status: Status = None, verbose: bool = False) -> Optional[str]:
@@ -209,14 +173,14 @@ def download_youtube_short(video_url: str, profile_name: str, status: Status = N
     if status:
         status.update(f"[white]Downloading video '{video_url}' to {output_dir}...[/white]")
     else:
-        _log(f"Downloading video '{video_url}' to {output_dir}...", verbose)
+        log(f"Downloading video '{video_url}' to {output_dir}...", verbose, log_caller_file="replies_utils.py")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         if status:
             status.update(f"[green]Video download complete: {video_url}[/green]")
         else:
-            _log(f"Video download complete: {video_url}", verbose)
+            log(f"Video download complete: {video_url}", verbose, log_caller_file="replies_utils.py")
         
         for f_name in os.listdir(output_dir):
             if f_name.startswith(video_id):
@@ -224,10 +188,10 @@ def download_youtube_short(video_url: str, profile_name: str, status: Status = N
         return None
 
     except subprocess.CalledProcessError as e:
-        _log(f"Error downloading video {video_url}: {e.stderr}", verbose, is_error=True)
+        log(f"Error downloading video {video_url}: {e.stderr}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return None
     except Exception as e:
-        _log(f"An unexpected error occurred during video download: {e}", verbose, is_error=True)
+        log(f"An unexpected error occurred during video download: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return None
 
 def generate_youtube_replies(profile_name: str, comments_data: list, video_context: str, video_path: str, api_key_pool: APIKeyPool, api_call_tracker: APICallTracker, rate_limiter: RateLimiter, verbose: bool = False):
@@ -286,10 +250,10 @@ def post_youtube_reply(driver, comment_id: str, reply_text: str, status: Status,
         return True
         
     except (TimeoutException, NoSuchElementException) as e:
-        _log(f"Error posting reply: {e}", verbose, is_error=True)
+        log(f"Error posting reply: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return False
     except Exception as e:
-        _log(f"An unexpected error occurred while posting reply: {e}", verbose, is_error=True)
+        log(f"An unexpected error occurred while posting reply: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return False
 
 def post_youtube_reply_api(profile_name: str, video_url: str, reply_text: str, status: Status = None, verbose: bool = False):
@@ -299,7 +263,7 @@ def post_youtube_reply_api(profile_name: str, video_url: str, reply_text: str, s
         
         youtube = get_authenticated_youtube_service(profile_name, verbose)
         if not youtube:
-            _log("Failed to authenticate with YouTube API", verbose, is_error=True)
+            log("Failed to authenticate with YouTube API", verbose, is_error=True, log_caller_file="replies_utils.py")
             return False
         
         if status:
@@ -329,20 +293,20 @@ def post_youtube_reply_api(profile_name: str, video_url: str, reply_text: str, s
         if status:
             status.update(f"[green]Comment posted successfully via API![/green]")
         
-        _log(f"✅ Comment posted successfully! Comment ID: {response['id']}", verbose)
+        log(f"✅ Comment posted successfully! Comment ID: {response['id']}", verbose, log_caller_file="replies_utils.py")
         return True
         
     except HttpError as e:
         error_details = e.error_details[0] if e.error_details else {}
         reason = error_details.get('reason', 'Unknown error')
-        _log(f"YouTube API Error: {reason}", verbose, is_error=True)
+        log(f"YouTube API Error: {reason}", verbose, is_error=True, log_caller_file="replies_utils.py")
         if reason == 'quotaExceeded':
-            _log("YouTube API quota exceeded. Try again later.", verbose, is_error=True)
+            log("YouTube API quota exceeded. Try again later.", verbose, is_error=True, log_caller_file="replies_utils.py")
         elif reason == 'forbidden':
-            _log("Access forbidden. Check your OAuth2 scopes and permissions.", verbose, is_error=True)
+            log("Access forbidden. Check your OAuth2 scopes and permissions.", verbose, is_error=True, log_caller_file="replies_utils.py")
         return False
     except Exception as e:
-        _log(f"An unexpected error occurred while posting comment via API: {e}", verbose, is_error=True)
+        log(f"An unexpected error occurred while posting comment via API: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
         return False
 
 def save_youtube_reply_for_review(profile_name: str, video_url: str, generated_reply: str, scraped_comments: List[Dict], video_path: str, verbose: bool = False):
@@ -363,7 +327,7 @@ def save_youtube_reply_for_review(profile_name: str, video_url: str, generated_r
     file_path = os.path.join(review_dir, f"{reply_id}.json")
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(reply_data, f, ensure_ascii=False, indent=4)
-    _log(f"Reply for '{video_url}' saved for review to {file_path}", verbose)
+    log(f"Reply for '{video_url}' saved for review to {file_path}", verbose, log_caller_file="replies_utils.py")
 
 def load_approved_youtube_replies(profile_name: str, verbose: bool = False) -> List[Dict]:
     review_dir = get_youtube_replies_for_review_dir(profile_name)
@@ -390,6 +354,6 @@ def mark_youtube_reply_as_posted(profile_name: str, reply_id: str, verbose: bool
             f.seek(0)
             json.dump(reply_data, f, ensure_ascii=False, indent=4)
             f.truncate()
-        _log(f"Reply '{reply_id}' marked as posted.", verbose)
+        log(f"Reply '{reply_id}' marked as posted.", verbose, log_caller_file="replies_utils.py")
     else:
-        _log(f"Reply file not found for ID: {reply_id}", verbose, is_error=True)
+        log(f"Reply file not found for ID: {reply_id}", verbose, is_error=True, log_caller_file="replies_utils.py")

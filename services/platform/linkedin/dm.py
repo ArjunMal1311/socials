@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import time
 import argparse
 
@@ -11,6 +10,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.status import Status
 from services.support.api_key_pool import APIKeyPool
+from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from services.support.web_driver_handler import setup_driver
 from services.platform.linkedin.support.message_generator import generate_linkedin_message
@@ -20,33 +20,13 @@ from services.support.sheets_util import get_google_sheets_service, save_linkedi
 
 console = Console()
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[dm.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[dm.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-
 def main():
     load_dotenv()
     initialize_directories()
 
     sheets_service = get_google_sheets_service(verbose=args.verbose)
     if not sheets_service:
-        _log("Failed to initialize Google Sheets service. Exiting.", True, is_error=True)
+        log("Failed to initialize Google Sheets service. Exiting.", True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
     parser = argparse.ArgumentParser(description="LinkedIn DM CLI Tool")
@@ -60,21 +40,21 @@ def main():
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
-        _log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True)
+        log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
     linkedin_user_prompt = PROFILES[args.profile].get('linkedin_user_prompt')
     if not linkedin_user_prompt:
-        _log(f"linkedin_user_prompt not found for profile '{args.profile}'. Please define it in profiles.py.", verbose=True, is_error=True)
+        log(f"linkedin_user_prompt not found for profile '{args.profile}'. Please define it in profiles.py.", verbose=True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
     target_profiles = PROFILES[args.profile].get('linkedin_target_profiles')
     if not target_profiles or not isinstance(target_profiles, list) or len(target_profiles) == 0:
-        _log(f"linkedin_target_profiles not found or is empty for profile '{args.profile}'. Please define it in profiles.py.", verbose=True, is_error=True)
+        log(f"linkedin_target_profiles not found or is empty for profile '{args.profile}'. Please define it in profiles.py.", verbose=True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
     if not (0 <= args.profile_index < len(target_profiles)):
-        _log(f"Invalid --profile-index {args.profile_index}. Must be between 0 and {len(target_profiles) - 1}.", verbose=True, is_error=True)
+        log(f"Invalid --profile-index {args.profile_index}. Must be between 0 and {len(target_profiles) - 1}.", verbose=True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
     target_profile_url = target_profiles[args.profile_index]
@@ -85,13 +65,13 @@ def main():
         with Status("[white]Setting up WebDriver...[/white]", spinner="dots", console=console) as status:
             driver, setup_messages = setup_driver(user_data_dir, profile=args.profile, headless=not args.no_headless)
             for msg in setup_messages:
-                _log(msg, args.verbose, status)
+                log(msg, args.verbose, status, log_caller_file="dm.py")
             status.update("[white]WebDriver setup complete.[/white]")
 
         if args.initial_login:
-            _log("Initial login flag detected. Waiting for 60 seconds to allow manual login...", args.verbose, status)
+            log("Initial login flag detected. Waiting for 60 seconds to allow manual login...", args.verbose, status, log_caller_file="dm.py")
             time.sleep(60)
-            _log("Resuming script after initial login delay.", args.verbose, status)
+            log("Resuming script after initial login delay.", args.verbose, status, log_caller_file="dm.py")
             
         with Status("[white]Fetching approved messages from Google Sheets...[/white]", spinner="dots", console=console) as status:
             approved_messages = get_approved_linkedin_messages(sheets_service, args.profile, verbose=args.verbose, status=status)
@@ -115,15 +95,15 @@ def main():
         html_output_filename = os.path.join(html_output_dir, f"{profile_name_for_files}_{timestamp}.html")
         with open(html_output_filename, 'w', encoding='utf-8') as f:
             f.write(raw_html)
-        _log(f"Raw HTML saved to {html_output_filename}", args.verbose)
+        log(f"Raw HTML saved to {html_output_filename}", args.verbose, log_caller_file="dm.py")
         
-        _log("\n--- Profile Data ---", args.verbose)
-        _log(f"Name: {profile_data.get("name", "N/A")}", args.verbose)
-        _log(f"Job Title: {profile_data.get("job_title", "N/A")}", args.verbose)
-        _log(f"Profile Text: {profile_data.get("profile_text", "N/A")[:500]}...", args.verbose)
+        log("\n--- Profile Data ---", args.verbose, log_caller_file="dm.py")
+        log(f"Name: {profile_data.get("name", "N/A")}", args.verbose, log_caller_file="dm.py")
+        log(f"Job Title: {profile_data.get("job_title", "N/A")}", args.verbose, log_caller_file="dm.py")
+        log(f"Profile Text: {profile_data.get("profile_text", "N/A")[:500]}...", args.verbose, log_caller_file="dm.py")
 
         if not profile_data.get("profile_text") or len(profile_data["profile_text"].strip()) < 50: 
-            _log("No significant profile text was parsed. Cannot generate a personalized message.", args.verbose, is_error=True)
+            log("No significant profile text was parsed. Cannot generate a personalized message.", args.verbose, is_error=True, log_caller_file="dm.py")
             sys.exit(1)
 
         api_pool = APIKeyPool()
@@ -134,31 +114,31 @@ def main():
         with Status("[white]Generating personalized message with Gemini AI...[/white]", spinner="dots", console=console) as status:
             gemini_api_key = api_pool.get_key()
             if not gemini_api_key:
-                _log("No Gemini API key available. Cannot generate message.", args.verbose, is_error=True, status=status)
+                log("No Gemini API key available. Cannot generate message.", args.verbose, is_error=True, status=status, log_caller_file="dm.py")
                 sys.exit(1)
             
             generated_message = generate_linkedin_message(profile_data=profile_data, user_input_prompt=linkedin_user_prompt, api_key=gemini_api_key, profile_name=args.profile, rate_limiter=rate_limiter, verbose=args.verbose, status=status, approved_messages=approved_messages)
             status.update("[white]Message generation complete.[/white]")
         
-        _log("\n--- Generated Message ---", args.verbose)
-        _log(generated_message, args.verbose)
+        log("\n--- Generated Message ---", args.verbose, log_caller_file="dm.py")
+        log(generated_message, args.verbose, log_caller_file="dm.py")
 
         approval_prompt = "\nPress ENTER to approve and save to Google Sheets, or type 'n' (or anything else) and ENTER to discard: "
         user_input = console.input(f"[bold yellow]{approval_prompt}[/bold yellow]")
 
         if user_input.lower() == '':
-            _log("Message approved. Saving to Google Sheets...", args.verbose)
+            log("Message approved. Saving to Google Sheets...", args.verbose, log_caller_file="dm.py")
             success = save_linkedin_message_to_sheet(sheets_service, args.profile, target_profile_url, profile_data.get("job_title", "N/A"), generated_message, verbose=args.verbose, status=status)
             if success:
-                _log("Message successfully saved to Google Sheets.", args.verbose)
+                log("Message successfully saved to Google Sheets.", args.verbose, log_caller_file="dm.py")
             else:
-                _log("Failed to save message to Google Sheets.", args.verbose, is_error=True)
+                log("Failed to save message to Google Sheets.", args.verbose, is_error=True, log_caller_file="dm.py")
         else:
-            _log("Message discarded.", args.verbose)
+            log("Message discarded.", args.verbose, log_caller_file="dm.py")
 
 
     except Exception as e:
-        _log(f"An error occurred: {e}", verbose=True, is_error=True)
+        log(f"An error occurred: {e}", verbose=True, is_error=True, log_caller_file="dm.py")
     finally:
         if driver:
             driver.quit()

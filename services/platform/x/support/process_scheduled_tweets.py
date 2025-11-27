@@ -1,11 +1,11 @@
 import time
-import re
 
 from datetime import datetime
 from rich.text import Text
 from rich.status import Status
 from rich.console import Console
 from selenium.webdriver.common.by import By
+from services.support.logger_util import _log as log
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
@@ -15,35 +15,8 @@ from services.platform.x.support.load_tweet_schedules import load_tweet_schedule
 
 console = Console()
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if is_error:
-        if status:
-            status.stop()
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[process_scheduled_tweets.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[process_scheduled_tweets.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-    else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[process_scheduled_tweets.py] {timestamp}|[{color}]{message}[/{color}]")
-
 def process_scheduled_tweets(profile_name="Default", verbose: bool = False, headless: bool = True):
-    _log(f"Processing scheduled tweets for profile: {profile_name}", verbose)
+    log(f"Processing scheduled tweets for profile: {profile_name}", verbose, log_caller_file="process_scheduled_tweets.py")
     user_data_dir = get_browser_data_dir(profile_name)
     driver = None
     try:
@@ -73,7 +46,7 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
         scheduled_tweets = load_tweet_schedules(profile_name, verbose=verbose)
 
         if not scheduled_tweets:
-            _log("No tweets scheduled yet.", verbose)
+            log("No tweets scheduled yet.", verbose, log_caller_file="process_scheduled_tweets.py")
             return
 
         with Status("[white]Scheduling tweets...[/white]", spinner="dots", console=console) as status:
@@ -86,11 +59,11 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
 
                 schedule_tweet(driver, tweet_text, media_file, scheduled_time, profile_name, status, verbose=verbose)
                 time.sleep(5)
-        _log("All scheduled tweets processed!", verbose)
+        log("All scheduled tweets processed!", verbose, log_caller_file="process_scheduled_tweets.py")
 
     except Exception as e:
-        _log(f"An error occurred during tweet processing: {e}", verbose, is_error=True)
+        log(f"An error occurred during tweet processing: {e}", verbose, is_error=True, log_caller_file="process_scheduled_tweets.py")
     finally:
         if driver:
             driver.quit()
-            _log("WebDriver closed.", verbose)
+            log("WebDriver closed.", verbose, log_caller_file="process_scheduled_tweets.py")

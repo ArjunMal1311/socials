@@ -1,37 +1,14 @@
-import re
 import time
 
-from datetime import datetime
 from rich.console import Console
 from selenium.webdriver.common.by import By
+from services.support.logger_util import _log as log
 
 console = Console()
 
-def _log(message: str, verbose: bool, is_error: bool = False, status=None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[capture_containers_scroll.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[capture_containers_scroll.py] {timestamp}|[{color}]{message}[/{color}]")
-    elif status:
-        status.update(message)
-
 def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose: bool = False, status=None):
     tweet_elements = driver.find_elements(By.CSS_SELECTOR, 'article[data-testid="tweet"]')
-    _log(f"DEBUG: Found {len(tweet_elements)} tweet articles.", verbose, status=status)
+    log(f"DEBUG: Found {len(tweet_elements)} tweet articles.", verbose, status=status, log_caller_file="capture_containers_scroll.py")
 
     new_containers_found_in_this_pass = 0
     for tweet_element in tweet_elements:
@@ -39,7 +16,7 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
             links = tweet_element.find_elements(By.CSS_SELECTOR, 'a[href*="/status/"]')
             
             if not links:
-                _log(f"DEBUG: Tweet article has no /status/ link. Text: {tweet_element.text[:50]}...", verbose, is_error=False, status=status)
+                log(f"DEBUG: Tweet article has no /status/ link. Text: {tweet_element.text[:50]}...", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
                 continue
             
             url = None
@@ -50,26 +27,26 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
                     break
             
             if not url:
-                _log(f"DEBUG: No valid tweet URL found in article. Text: {tweet_element.text[:50]}...", verbose, is_error=False, status=status)
+                log(f"DEBUG: No valid tweet URL found in article. Text: {tweet_element.text[:50]}...", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
                 continue
 
             tweet_id = url.split("/status/")[1].split("?")[0]
             if tweet_id in processed_tweet_ids:
-                _log(f"DEBUG: Skipping already processed tweet ID: {tweet_id}", verbose, is_error=False, status=status)
+                log(f"DEBUG: Skipping already processed tweet ID: {tweet_id}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
                 continue
 
             profile_image_url = ""
             try:
                 profile_image_element = tweet_element.find_element(By.CSS_SELECTOR, 'a[href^="/"] img')
                 profile_image_url = profile_image_element.get_attribute('src')
-                _log(f"DEBUG (capture_containers_and_scroll): Extracted profile_image_url: {profile_image_url}", verbose, status=status)
+                log(f"DEBUG (capture_containers_and_scroll): Extracted profile_image_url: {profile_image_url}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
             except Exception as img_e:
-                _log(f"DEBUG: Could not extract profile image for tweet ID {tweet_id}: {img_e}", verbose, is_error=False, status=status)
+                log(f"DEBUG: Could not extract profile image for tweet ID {tweet_id}: {img_e}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
 
             container_html = tweet_element.get_attribute('outerHTML')
             container_text = tweet_element.text
 
-            _log(f"DEBUG: New tweet found - URL: {url}, ID: {tweet_id}. Total processed: {len(processed_tweet_ids) + 1}", verbose, status=status)
+            log(f"DEBUG: New tweet found - URL: {url}, ID: {tweet_id}. Total processed: {len(processed_tweet_ids) + 1}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
             processed_tweet_ids.add(tweet_id)
             raw_containers.append({
                 'html': container_html,
@@ -80,7 +57,7 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
             })
             new_containers_found_in_this_pass += 1
         except Exception as e:
-            _log(f"[ERROR] Exception processing tweet article: {e}", verbose, is_error=True, status=status)
+            log(f"[ERROR] Exception processing tweet article: {e}", verbose, is_error=True, status=status, log_caller_file="capture_containers_scroll.py")
             continue
 
     viewport_height = driver.execute_script("return window.innerHeight")

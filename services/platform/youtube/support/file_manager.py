@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import json
 
@@ -7,44 +6,10 @@ from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 from typing import Optional, List, Dict, Any
+from services.support.logger_util import _log as log
 from services.support.path_config import get_youtube_profile_dir, get_youtube_videos_dir, get_youtube_captions_dir
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[file_manager.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[file_manager.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def _parse_views_string(views_str: str) -> int:
     if not views_str or views_str.lower() == 'no views':
@@ -103,7 +68,7 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
         if status:
             status.update(f"[white]Removing video files from {videos_dir}...[/white]")
         else:
-            _log(f"Removing video files from {videos_dir}...", verbose)
+            log(f"Removing video files from {videos_dir}...", verbose, log_caller_file="file_manager.py")
         try:
             shutil.rmtree(videos_dir)
             deleted_count += 1
@@ -111,13 +76,13 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
             if status:
                 status.update(f"[yellow]Could not delete video directory {videos_dir}: {e}[/yellow]")
             else:
-                _log(f"Could not delete video directory {videos_dir}: {e}", verbose)
+                log(f"Could not delete video directory {videos_dir}: {e}", verbose, log_caller_file="file_manager.py")
     
     if os.path.exists(captions_dir):
         if status:
             status.update(f"[white]Removing caption files from {captions_dir}...[/white]")
         else:
-            _log(f"Removing caption files from {captions_dir}...", verbose)
+            log(f"Removing caption files from {captions_dir}...", verbose, log_caller_file="file_manager.py")
         try:
             shutil.rmtree(captions_dir)
             deleted_count += 1
@@ -125,12 +90,12 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
             if status:
                 status.update(f"[yellow]Could not delete caption directory {captions_dir}: {e}[/yellow]")
             else:
-                _log(f"Could not delete caption directory {captions_dir}: {e}", verbose)
+                log(f"Could not delete caption directory {captions_dir}: {e}", verbose, log_caller_file="file_manager.py")
 
     if status:
         status.update(f"[white]Recreating empty 'videos' and 'captions' directories for {profile_name}...[/white]")
     else:
-        _log(f"Recreating empty 'videos' and 'captions' directories for {profile_name}...", verbose)
+        log(f"Recreating empty 'videos' and 'captions' directories for {profile_name}...", verbose, log_caller_file="file_manager.py")
 
     os.makedirs(videos_dir, exist_ok=True)
     os.makedirs(captions_dir, exist_ok=True)
@@ -138,7 +103,7 @@ def clear_youtube_files(profile_name: str, status: Optional[Status] = None, verb
     if status:
         status.update(f"[white]Cleared {deleted_count} directories for profile {profile_name}.[/white]")
     else:
-        _log(f"Cleared {deleted_count} directories for profile {profile_name}.", verbose)
+        log(f"Cleared {deleted_count} directories for profile {profile_name}.", verbose, log_caller_file="file_manager.py")
 
     return deleted_count
 
@@ -179,7 +144,7 @@ def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_f
         if status:
             status.update(f"[yellow]No video data file found with prefix '{json_filename_prefix}' in {youtube_profile_dir}. Skipping clean and sort.[/yellow]")
         else:
-            _log(f"No video data file found with prefix '{json_filename_prefix}' in {youtube_profile_dir}. Skipping clean and sort.", verbose)
+            log(f"No video data file found with prefix '{json_filename_prefix}' in {youtube_profile_dir}. Skipping clean and sort.", verbose, log_caller_file="file_manager.py")
         return
 
     try:
@@ -189,14 +154,14 @@ def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_f
         if status:
             status.update(f"[bold red]Error loading video data from {latest_json_path}: {e}[/bold red]")
         else:
-            _log(f"Error loading video data from {latest_json_path}: {e}", verbose, is_error=True)
+            log(f"Error loading video data from {latest_json_path}: {e}", verbose, is_error=True, log_caller_file="file_manager.py")
         return
 
     initial_count = len(videos)
     if status:
         status.update(f"[white]Loaded {initial_count} videos. Cleaning and sorting...[/white]")
 
-    _log(f"Debug: today_filter={today_filter}, weekly_filter={weekly_filter}, max_duration_minutes={max_duration_minutes}", verbose)
+    log(f"Debug: today_filter={today_filter}, weekly_filter={weekly_filter}, max_duration_minutes={max_duration_minutes}", verbose, log_caller_file="file_manager.py")
 
     cleaned_videos = []
     for video in videos:
@@ -211,21 +176,21 @@ def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_f
             if numeric_views >= 500:
                 should_keep = True
             else:
-                _log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - below daily threshold.", verbose)
+                log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - below daily threshold.", verbose, log_caller_file="file_manager.py")
         elif weekly_filter:
             if numeric_views >= 2000:
                 should_keep = True
             else:
-                _log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - below weekly threshold.", verbose)
+                log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - below weekly threshold.", verbose, log_caller_file="file_manager.py")
         else:
             if numeric_views > 0: 
                 should_keep = True
             else:
-                _log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - no views.", verbose)
+                log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({views_str} -> {numeric_views}) - no views.", verbose, log_caller_file="file_manager.py")
 
         if should_keep and max_duration_minutes is not None:
             if video_length_seconds > (max_duration_minutes * 60):
-                _log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({video_length_str}) - exceeds max duration of {max_duration_minutes} minutes.", verbose)
+                log(f"Debug: Skipping '{video.get('title', 'Unknown')}' ({video_length_str}) - exceeds max duration of {max_duration_minutes} minutes.", verbose, log_caller_file="file_manager.py")
                 should_keep = False
 
         if should_keep:
@@ -246,9 +211,9 @@ def clean_and_sort_videos(profile_name: str, json_filename_prefix: str, weekly_f
         if status:
             status.update(f"[white]Cleaned and sorted {len(sorted_videos)} videos saved to {latest_json_path}. Removed {initial_count - len(sorted_videos)} videos.[/white]")
         else:
-            _log(f"Cleaned and sorted {len(sorted_videos)} videos saved to {latest_json_path}. Removed {initial_count - len(sorted_videos)} videos.", verbose)
+            log(f"Cleaned and sorted {len(sorted_videos)} videos saved to {latest_json_path}. Removed {initial_count - len(sorted_videos)} videos.", verbose, log_caller_file="file_manager.py")
     except Exception as e:
         if status:
             status.update(f"[bold red]Error saving cleaned and sorted video data to {latest_json_path}: {e}[/bold red]")
         else:
-            _log(f"Error saving cleaned and sorted video data to {latest_json_path}: {e}", verbose, is_error=True) 
+            log(f"Error saving cleaned and sorted video data to {latest_json_path}: {e}", verbose, is_error=True, log_caller_file="file_manager.py") 

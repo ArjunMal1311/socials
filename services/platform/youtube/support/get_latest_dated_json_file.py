@@ -2,32 +2,10 @@ import os
 
 from datetime import datetime
 from rich.console import Console
-from typing import Optional, Dict, Any
+from services.support.logger_util import _log as log
 from services.support.path_config import get_youtube_profile_dir
 
 console = Console()
-
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Any] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def get_latest_dated_json_file(profile_name: str, prefix: str, verbose: bool = False) -> Optional[str]:
     youtube_profile_dir = get_youtube_profile_dir(profile_name)
@@ -35,10 +13,10 @@ def get_latest_dated_json_file(profile_name: str, prefix: str, verbose: bool = F
     latest_date = None
 
     if not os.path.exists(youtube_profile_dir):
-        _log(f"Profile directory does not exist: {youtube_profile_dir}", verbose)
+        log(f"Profile directory does not exist: {youtube_profile_dir}", verbose, log_caller_file="get_latest_dated_json_file.py")
         return None
 
-    _log(f"Searching for JSON files with prefix '{prefix}' in {youtube_profile_dir}", verbose)
+    log(f"Searching for JSON files with prefix '{prefix}' in {youtube_profile_dir}", verbose, log_caller_file="get_latest_dated_json_file.py")
     
     for f in os.listdir(youtube_profile_dir):
         if f.startswith(prefix) and f.endswith('.json'):
@@ -49,14 +27,14 @@ def get_latest_dated_json_file(profile_name: str, prefix: str, verbose: bool = F
                     if latest_date is None or current_date > latest_date:
                         latest_date = current_date
                         latest_json_path = os.path.join(youtube_profile_dir, f)
-                        _log(f"Found newer file: {f} (date: {current_date})", verbose)
+                        log(f"Found newer file: {f} (date: {current_date})", verbose, log_caller_file="get_latest_dated_json_file.py")
             except ValueError:
-                _log(f"Skipping file with invalid date format: {f}", verbose)
+                log(f"Skipping file with invalid date format: {f}", verbose, log_caller_file="get_latest_dated_json_file.py")
                 continue
     
     if latest_json_path:
-        _log(f"Latest JSON file found: {latest_json_path}", verbose)
+        log(f"Latest JSON file found: {latest_json_path}", verbose, log_caller_file="get_latest_dated_json_file.py")
     else:
-        _log(f"No JSON files found with prefix '{prefix}'", verbose)
+        log(f"No JSON files found with prefix '{prefix}'", verbose, log_caller_file="get_latest_dated_json_file.py")
     
     return latest_json_path

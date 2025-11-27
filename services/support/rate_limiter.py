@@ -1,24 +1,10 @@
-import re
 import time
 import threading
 
-from datetime import datetime
 from rich.console import Console
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-        log_message = message
-        if is_error and not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red" if is_error else "white"
-        console.print(f"[rate_limiter.py] {timestamp}|[{color}]{log_message}[/{color}]")
 
 class RateLimiter:
     def __init__(self, rpm_limit=60, verbose: bool = False):
@@ -39,7 +25,7 @@ class RateLimiter:
             
             sleep_time = 0
             if len(key_requests) >= self.rpm_limit:
-                _log(f"Rate limit reached for API key. Waiting...", self.verbose)
+                log(f"Rate limit reached for API key. Waiting...", self.verbose, log_caller_file="rate_limiter.py")
                 sleep_time = key_requests[0] - minute_ago
                 if sleep_time > 0:
                     time.sleep(sleep_time)

@@ -1,47 +1,10 @@
 import os
-import re
 import html
 
-from datetime import datetime
 from rich.console import Console
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[review_html.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[review_html.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 MEDIA_VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm'}
 
@@ -80,7 +43,8 @@ def build_youtube_review_html(profile_name: str, items: List[Dict[str, Any]], ve
                     <span class="likes">{likes} likes</span>
                     <p>{comment_text}</p>
                 </div>
-            """)
+            """
+            )
         comments_html = ''.join(comments_html_parts)
 
         block = f"""
@@ -138,7 +102,7 @@ def build_youtube_review_html(profile_name: str, items: List[Dict[str, Any]], ve
     .container {{ max-width: 1200px; margin: 24px auto; padding: 0 16px; }}
     h1 {{ font-size: 20px; font-weight: 600; margin: 8px 0 16px; }}
     .actions {{ margin-bottom: 16px; display:flex; gap:8px; }}
-    .card {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }}
+    .card {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }} 
     .media {{ display: grid; gap: 10px; align-content: start; }}
     img, video {{ width: 100%; border-radius: 8px; background: #000; }}
     .content {{ display: grid; gap: 12px; align-content: start; }}
@@ -166,7 +130,7 @@ def build_youtube_review_html(profile_name: str, items: List[Dict[str, Any]], ve
     <div class="actions">
       <button id="refresh">Refresh</button>
     </div>
-    {''.join(item_blocks)}
+    {' '.join(item_blocks)}
   </div>
   <script>
     async function post(url, payload) {{
@@ -208,7 +172,7 @@ def build_youtube_review_html(profile_name: str, items: List[Dict[str, Any]], ve
         }}
       }});
 
-      btnDelete?.addEventListener('click', async () => {{ 
+      btnDelete?.addEventListener('click', async () => {{
         try {{
           if (!confirm('Delete this item?')) return;
           setIndicator('Deleting...');

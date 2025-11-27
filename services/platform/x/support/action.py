@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
 from services.support.api_key_pool import APIKeyPool
+from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.image_download import download_images
@@ -29,40 +30,6 @@ from services.support.sheets_util import get_google_sheets_service, save_action_
 
 console = Console()
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_info: Optional[Dict[str, Any]] = None):
-    if is_error:
-        if status:
-            status.stop()
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})")
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[action_mode.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[action_mode.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-        
 def filter_bmp(text):
     return ''.join(c for c in text if ord(c) <= 0xFFFF)
 
@@ -111,7 +78,7 @@ def _cleanup_temp_media_dir(schedule_folder: str, verbose: bool = False):
     temp_dir = os.path.join(schedule_folder, '_temp_media')
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
-        _log(f"Cleaned up temporary media directory: {temp_dir}", verbose)
+        log(f"Cleaned up temporary media directory: {temp_dir}", verbose, log_caller_file="action.py")
 
 
 def _copy_medi_into_action_mode(media_paths: List[str], schedule_folder: str, verbose: bool = False) -> List[str]:
@@ -133,7 +100,7 @@ def _copy_medi_into_action_mode(media_paths: List[str], schedule_folder: str, ve
             shutil.copy2(path, target_path)
             saved_abs_paths.append(os.path.abspath(target_path))
         except Exception as e:
-            _log(f"Error copying media {path} into schedule folder: {e}", verbose, is_error=True)
+            log(f"Error copying media {path} into schedule folder: {e}", verbose, is_error=True, log_caller_file="action.py")
     return saved_abs_paths
 
 def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_name: str, schedule_folder: str, is_online_mode: bool = False, ignore_video_tweets: bool = False, verbose: bool = False) -> List[str]:
@@ -144,7 +111,7 @@ def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_na
         temp_media_dir = _get_temp_media_dir(schedule_folder)
         if raw_media_urls:
             if ignore_video_tweets and (raw_media_urls == 'video' or (isinstance(raw_media_urls, str) and raw_media_urls.strip() == 'video')):
-                _log(f"Ignoring video tweet {tweet_data['tweet_id']} due to --ignore-video-tweets flag.", verbose, is_error=False)
+                log(f"Ignoring video tweet {tweet_data['tweet_id']} due to --ignore-video-tweets flag.", verbose, is_error=False, log_caller_file="action.py")
             elif raw_media_urls == 'video' or (isinstance(raw_media_urls, str) and raw_media_urls.strip() == 'video'):
                 try:
                     video_path = download_twitter_videos([tweet_data['tweet_url']], profile_name="Download", headless=True)
@@ -152,9 +119,9 @@ def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_na
                         copied = _copy_medi_into_action_mode([video_path], temp_media_dir, verbose)
                         media_abs_paths_for_gemini.extend(copied)
                     else:
-                        _log(f"Video download failed or returned no path for {tweet_data['tweet_id']}", verbose, is_error=False)
+                        log(f"Video download failed or returned no path for {tweet_data['tweet_id']}", verbose, is_error=False, log_caller_file="action.py")
                 except Exception as e:
-                    _log(f"Error handling video for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True)
+                    log(f"Error handling video for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True, log_caller_file="action.py")
             elif isinstance(raw_media_urls, (list, str)):
                 image_urls = [u.strip() for u in (raw_media_urls if isinstance(raw_media_urls, list) else str(raw_media_urls).split(';')) if u and u.strip()]
                 if image_urls:
@@ -165,7 +132,7 @@ def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_na
         return media_abs_paths_for_gemini
 
     if ignore_video_tweets and (raw_media_urls == 'video' or (isinstance(raw_media_urls, str) and raw_media_urls.strip() == 'video')):
-        _log(f"Ignoring video tweet {tweet_data['tweet_id']} due to --ignore-video-tweets flag.", verbose, is_error=False)
+        log(f"Ignoring video tweet {tweet_data['tweet_id']} due to --ignore-video-tweets flag.", verbose, is_error=False, log_caller_file="action.py")
     elif raw_media_urls == 'video' or (isinstance(raw_media_urls, str) and raw_media_urls.strip() == 'video'):
         try:
             video_path = download_twitter_videos([tweet_data['tweet_url']], profile_name="Download", headless=True)
@@ -173,9 +140,9 @@ def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_na
                 copied = _copy_medi_into_action_mode([video_path], schedule_folder, verbose)
                 media_abs_paths_for_gemini.extend(copied)
             else:
-                _log(f"Video download failed or returned no path for {tweet_data['tweet_id']}", verbose, is_error=False)
+                log(f"Video download failed or returned no path for {tweet_data['tweet_id']}", verbose, is_error=False, log_caller_file="action.py")
         except Exception as e:
-            _log(f"Error handling video for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True)
+            log(f"Error handling video for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True, log_caller_file="action.py")
     elif raw_media_urls:
         try:
             image_urls = [u.strip() for u in str(raw_media_urls).split(';') if u and u.strip()]
@@ -184,7 +151,7 @@ def _prepare_media_for_gemini_action_mode(tweet_data: Dict[str, Any], profile_na
                 copied = _copy_medi_into_action_mode(downloaded_images, schedule_folder, verbose)
                 media_abs_paths_for_gemini.extend(copied)
         except Exception as e:
-            _log(f"Error handling images for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True)
+            log(f"Error handling images for tweet {tweet_data['tweet_id']}: {str(e)}", verbose, is_error=True, log_caller_file="action.py")
 
     return media_abs_paths_for_gemini
 
@@ -194,36 +161,36 @@ def _navigate_to_community(driver, community_name: str, verbose: bool = False):
             EC.element_to_be_clickable((By.XPATH, f"//a[@role='tab']//span[contains(text(), '{community_name}')]"))
         )
         community_tab.click()
-        _log(f"Successfully clicked on '{community_name}' community tab.", verbose)
+        log(f"Successfully clicked on '{community_name}' community tab.", verbose, log_caller_file="action.py")
         time.sleep(5)
     except Exception as e:
-        _log(f"Could not find or click community tab '{community_name}': {e}. Proceeding with general home feed scraping.", verbose, is_error=False)
+        log(f"Could not find or click community tab '{community_name}': {e}. Proceeding with general home feed scraping.", verbose, is_error=False, log_caller_file="action.py")
 
 def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True) -> Any:
     user_data_dir = get_browser_data_dir(profile_name)
     schedule_folder = _ensure_action_mode_folder(profile_name)
     setup_messages = []
-    _log(f"Action Mode Online: user_data_dir is {user_data_dir}", verbose, status)
+    log(f"Action Mode Online: user_data_dir is {user_data_dir}", verbose, status, log_caller_file="action.py")
 
     try:
         driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, verbose=verbose, status=status, headless=headless)
         setup_messages.extend(messages_from_driver)
-        _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
+        log(f"Messages from driver setup: {messages_from_driver}", verbose, status, log_caller_file="action.py")
         for msg in setup_messages:
-            _log(msg, verbose, status)
+            log(msg, verbose, status, log_caller_file="action.py")
         if status:
             status.update("[white]WebDriver setup complete.[/white]")
     except Exception as e:
-        _log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True)
-        _log(f"WebDriver setup messages: {setup_messages}", verbose, status, is_error=True)
+        log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True, log_caller_file="action.py")
+        log(f"WebDriver setup messages: {setup_messages}", verbose, status, is_error=True, log_caller_file="action.py")
         return None
 
     if specific_search_url:
         driver.get(specific_search_url)
-        _log(f"Navigated to specific search URL: {specific_search_url}", verbose, status)
+        log(f"Navigated to specific search URL: {specific_search_url}", verbose, status, log_caller_file="action.py")
     else:
         driver.get("https://x.com/home")
-        _log("Navigated to x.com/home...", verbose, status)
+        log("Navigated to x.com/home...", verbose, status, log_caller_file="action.py")
     time.sleep(5)
     
     if community_name:
@@ -249,7 +216,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
                 last_new_content_time = time.time()
 
             if time.time() - last_new_content_time > 10:
-                _log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False)
+                log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False, log_caller_file="action.py")
                 driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                 time.sleep(random.uniform(2, 4))
                 last_new_content_time = time.time()
@@ -259,10 +226,10 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
                 status.update(f"Collecting tweets: {len(processed_tweet_ids)} collected...")
             time.sleep(1)
     except KeyboardInterrupt:
-        _log("Collection stopped manually.", verbose, status)
+        log("Collection stopped manually.", verbose, status, log_caller_file="action.py")
 
     if not raw_containers:
-        _log("No tweets found during collection.", verbose, status)
+        log("No tweets found during collection.", verbose, status, log_caller_file="action.py")
         return driver
 
     if status:
@@ -293,9 +260,9 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
             reply_sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"
             all_replies = get_generated_replies(sheets_service, reply_sheet_name, verbose=verbose, status=status)
             if verbose:
-                _log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status)
+                log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status, log_caller_file="action.py")
         except Exception as e:
-            _log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True)
+            log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True, log_caller_file="action.py")
             all_replies = []
 
     enriched_items: List[Dict[str, Any]] = []
@@ -320,7 +287,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
                 future = executor.submit(_generate_with_pool, api_pool, args, status, verbose)
                 future_map[future] = item
             else:
-                _log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True)
+                log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True, log_caller_file="action.py")
                 td = item['tweet_data']
                 results.append({
                     'tweet_id': td.get('tweet_id'),
@@ -359,7 +326,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
                 results.append(record)
             except Exception as e:
                 td = item['tweet_data']
-                _log(f"Error generating analysis for tweet {td.get('tweet_id')}: {str(e)}", verbose, status, is_error=True)
+                log(f"Error generating analysis for tweet {td.get('tweet_id')}: {str(e)}", verbose, status, is_error=True, log_caller_file="action.py")
                 results.append({
                     'tweet_id': td.get('tweet_id'),
                     'tweet_url': td.get('tweet_url'),
@@ -381,7 +348,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
     if sheets_service:
         save_action_mode_replies_to_sheet(sheets_service, profile_name, results, verbose=verbose, status=status)
     else:
-        _log("Google Sheets service not available. Skipping saving to sheet.", verbose, status, is_error=True)
+        log("Google Sheets service not available. Skipping saving to sheet.", verbose, status, is_error=True, log_caller_file="action.py")
     
     _cleanup_temp_media_dir(schedule_folder, verbose)
     
@@ -391,7 +358,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
 def post_approved_action_mode_replies_online(driver, profile_name: str, run_number: int, post_via_api: bool = False, verbose: bool = False) -> Dict[str, Any]:
     service = get_google_sheets_service(verbose=verbose, status=None)
     if not service:
-        _log("Google Sheets service not available. Cannot post replies.", verbose, is_error=True)
+        log("Google Sheets service not available. Cannot post replies.", verbose, is_error=True, log_caller_file="action.py")
         return {"processed": 0, "posted": 0, "failed": 0}
 
     today_date = datetime.now().strftime('%Y-%m-%d')
@@ -399,7 +366,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
     approved_replies_with_indices = [(item, idx) for item, idx in items_with_indices if item.get('status') == 'approved' and item.get('profile') == profile_name]
 
     if not approved_replies_with_indices:
-        _log(f"No approved replies found for today ({today_date}) and run number ({run_number}) in the Google Sheet.", verbose, is_error=False)
+        log(f"No approved replies found for today ({today_date}) and run number ({run_number}) in the Google Sheet.", verbose, is_error=False, log_caller_file="action.py")
         return {"processed": 0, "posted": 0, "failed": 0}
 
     time.sleep(5)
@@ -408,7 +375,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
     failed = 0
     updates_to_sheet = []
 
-    _log("Starting automated posting of approved replies from Google Sheets...", verbose)
+    log("Starting automated posting of approved replies from Google Sheets...", verbose, log_caller_file="action.py")
 
     if driver and not post_via_api:
         driver.execute_script("window.scrollTo(0, 0)")
@@ -420,7 +387,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
         tweet_id = tweet_data.get('tweet_id')
 
         if not tweet_url or not generated_reply or not tweet_id:
-            _log(f"Skipping invalid entry in Google Sheet: {tweet_data}", verbose, is_error=False)
+            log(f"Skipping invalid entry in Google Sheet: {tweet_data}", verbose, is_error=False, log_caller_file="action.py")
             failed += 1
             updates_to_sheet.append({
                 'range': f'{profile_name}_online_replies!G{row_idx}',
@@ -435,7 +402,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
 
             while found_tweet_element is None and scroll_attempts < max_scroll_attempts:
                 try:
-                    _log(f"Searching for tweet ID: {tweet_id} on home feed (scroll attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose)
+                    log(f"Searching for tweet ID: {tweet_id} on home feed (scroll attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose, log_caller_file="action.py")
 
                     tweet_link_element = WebDriverWait(driver, 5).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
@@ -446,13 +413,13 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                     time.sleep(random.uniform(1, 2))
                     
                 except (TimeoutException, NoSuchElementException, StaleElementReferenceException) as e:
-                    _log(f"Tweet ID {tweet_id} not visible or stale ({e}). Scrolling down to load more content...", verbose)
+                    log(f"Tweet ID {tweet_id} not visible or stale ({e}). Scrolling down to load more content...", verbose, log_caller_file="action.py")
                     driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                     time.sleep(random.uniform(2, 4))
                     scroll_attempts += 1
 
             if found_tweet_element is None:
-                _log(f"Could not find tweet with ID {tweet_id} on home feed after {max_scroll_attempts} scrolls. Skipping.", verbose, is_error=False)
+                log(f"Could not find tweet with ID {tweet_id} on home feed after {max_scroll_attempts} scrolls. Skipping.", verbose, is_error=False, log_caller_file="action.py")
                 failed += 1
                 updates_to_sheet.append({
                     'range': f'{profile_name}_online_replies!G{row_idx}',
@@ -462,10 +429,10 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
 
         try:
             if post_via_api:
-                _log(f"Found tweet ID: {tweet_id}. Posting reply via API.", verbose)
+                log(f"Found tweet ID: {tweet_id}. Posting reply via API.", verbose, log_caller_file="action.py")
                 success = post_tweet_reply(tweet_id, generated_reply, profile_name=profile_name)
                 if success:
-                    _log(f"Successfully posted reply to {tweet_url} via API", verbose, is_error=False)
+                    log(f"Successfully posted reply to {tweet_url} via API", verbose, is_error=False, log_caller_file="action.py")
                     posted += 1
                     current_posted_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     updates_to_sheet.append({
@@ -479,14 +446,14 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                     save_posted_reply_to_replied_tweets_sheet(service, profile_name, tweet_data, verbose=verbose)
                     time.sleep(2)
                 else:
-                    _log(f"Failed to post reply to {tweet_url} via API", verbose, is_error=True)
+                    log(f"Failed to post reply to {tweet_url} via API", verbose, is_error=True, log_caller_file="action.py")
                     failed += 1
                     updates_to_sheet.append({
                         'range': f'{profile_name}_online_replies!G{row_idx}',
                         'values': [['api_post_failed']]
                     })
             else:
-                _log(f"Found tweet ID: {tweet_id}. Attempting to post reply.", verbose)
+                log(f"Found tweet ID: {tweet_id}. Attempting to post reply.", verbose, log_caller_file="action.py")
                 
                 reply_button = WebDriverWait(found_tweet_element, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="reply"]'))
@@ -513,12 +480,12 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                         EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="like"]'))
                     )
                     like_button.click()
-                    _log(f"Successfully liked tweet {tweet_id}.", verbose, is_error=False)
+                    log(f"Successfully liked tweet {tweet_id}.", verbose, is_error=False, log_caller_file="action.py")
                     time.sleep(random.uniform(1, 2))
                 except Exception as like_e:
-                    _log(f"Could not like tweet {tweet_id}: {like_e}", verbose, is_error=False)
+                    log(f"Could not like tweet {tweet_id}: {like_e}", verbose, is_error=False, log_caller_file="action.py")
 
-                _log(f"Successfully posted reply to {tweet_url}", verbose, is_error=False)
+                log(f"Successfully posted reply to {tweet_url}", verbose, is_error=False, log_caller_file="action.py")
                 posted += 1
                 current_posted_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 updates_to_sheet.append({
@@ -532,7 +499,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                 save_posted_reply_to_replied_tweets_sheet(service, profile_name, tweet_data, verbose=verbose)
 
         except Exception as e:
-            _log(f"Failed to post reply to {tweet_url}: {e}", verbose, is_error=True)
+            log(f"Failed to post reply to {tweet_url}: {e}", verbose, is_error=True, log_caller_file="action.py")
             failed += 1
             updates_to_sheet.append({
                 'range': f'{profile_name}_online_replies!G{row_idx}',
@@ -551,27 +518,27 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
 def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool = False) -> Dict[str, Any]:
     service = get_google_sheets_service(verbose=verbose, status=None)
     if not service:
-        _log("Google Sheets service not available. Cannot post replies.", verbose, is_error=True)
+        log("Google Sheets service not available. Cannot post replies.", verbose, is_error=True, log_caller_file="action.py")
         return {"processed": 0, "posted": 0, "failed": 0}
 
     schedule_folder = _ensure_action_mode_folder(profile_name)
     schedule_path = os.path.join(schedule_folder, 'schedule.json')
     
     if not os.path.exists(schedule_path):
-        _log(f"Schedule file not found for action mode: {schedule_path}", verbose, is_error=True)
+        log(f"Schedule file not found for action mode: {schedule_path}", verbose, is_error=True, log_caller_file="action.py")
         return {"processed": 0, "posted": 0, "failed": 0}
 
     with open(schedule_path, 'r') as f:
         try:
             items: List[Dict[str, Any]] = json.load(f)
         except Exception as e:
-            _log(f"Failed to read action mode schedule file: {e}", verbose, is_error=True)
+            log(f"Failed to read action mode schedule file: {e}", verbose, is_error=True, log_caller_file="action.py")
             return {"processed": 0, "posted": 0, "failed": 0}
 
     approved_replies = [item for item in items if item.get('status') == 'approved']
 
     if not approved_replies:
-        _log("No approved replies found in the schedule.", verbose, is_error=False)
+        log("No approved replies found in the schedule.", verbose, is_error=False, log_caller_file="action.py")
         return {"processed": 0, "posted": 0, "failed": 0}
 
     time.sleep(5)
@@ -579,7 +546,7 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
     posted = 0
     failed = 0
 
-    _log("Starting automated posting of approved replies...", verbose)
+    log("Starting automated posting of approved replies...", verbose, log_caller_file="action.py")
 
     driver.execute_script("window.scrollTo(0, 0)")
     time.sleep(random.uniform(2, 3))
@@ -590,7 +557,7 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
         tweet_id = tweet_data.get('tweet_id')
 
         if not tweet_url or not generated_reply or not tweet_id:
-            _log(f"Skipping invalid entry in schedule: {tweet_data}", verbose, is_error=False)
+            log(f"Skipping invalid entry in schedule: {tweet_data}", verbose, is_error=False, log_caller_file="action.py")
             failed += 1
             continue
 
@@ -600,7 +567,7 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
 
         while found_tweet_element is None and scroll_attempts < max_scroll_attempts:
             try:
-                _log(f"Searching for tweet ID: {tweet_id} on home feed (scroll attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose)
+                log(f"Searching for tweet ID: {tweet_id} on home feed (scroll attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose, log_caller_file="action.py")
 
                 tweet_link_element = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
@@ -611,13 +578,13 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
                 time.sleep(random.uniform(1, 2))
                 
             except (TimeoutException, NoSuchElementException, StaleElementReferenceException) as e:
-                _log(f"Tweet ID {tweet_id} not visible or stale ({e}). Scrolling down to load more content...", verbose)
+                log(f"Tweet ID {tweet_id} not visible or stale ({e}). Scrolling down to load more content...", verbose, log_caller_file="action.py")
                 driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                 time.sleep(random.uniform(2, 4))
                 scroll_attempts += 1
 
         if found_tweet_element is None:
-            _log(f"Could not find tweet with ID {tweet_id} on home feed after {max_scroll_attempts} scrolls. Skipping.", verbose, is_error=False)
+            log(f"Could not find tweet with ID {tweet_id} on home feed after {max_scroll_attempts} scrolls. Skipping.", verbose, is_error=False, log_caller_file="action.py")
             failed += 1
             tweet_data['status'] = 'tweet_not_found'
             with open(schedule_path, 'w') as f:
@@ -625,7 +592,7 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
             continue
 
         try:
-            _log(f"Found tweet ID: {tweet_id}. Attempting to post reply.", verbose)
+            log(f"Found tweet ID: {tweet_id}. Attempting to post reply.", verbose, log_caller_file="action.py")
             
             reply_button = WebDriverWait(found_tweet_element, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="reply"]'))
@@ -652,18 +619,18 @@ def post_approved_action_mode_replies(driver, profile_name: str, verbose: bool =
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="like"]'))
                 )
                 like_button.click()
-                _log(f"Successfully liked tweet {tweet_id}.", verbose, is_error=False)
+                log(f"Successfully liked tweet {tweet_id}.", verbose, is_error=False, log_caller_file="action.py")
                 time.sleep(random.uniform(1, 2))
             except Exception as like_e:
-                _log(f"Could not like tweet {tweet_id}: {like_e}", verbose, is_error=False)
+                log(f"Could not like tweet {tweet_id}: {like_e}", verbose, is_error=False, log_caller_file="action.py")
 
-            _log(f"Successfully posted reply to {tweet_url}", verbose, is_error=False)
+            log(f"Successfully posted reply to {tweet_url}", verbose, is_error=False, log_caller_file="action.py")
             posted += 1
             tweet_data['status'] = 'posted'
             save_posted_reply_to_replied_tweets_sheet(service, profile_name, tweet_data, verbose=verbose)
 
         except Exception as e:
-            _log(f"Failed to post reply to {tweet_url}: {e}", verbose, is_error=True)
+            log(f"Failed to post reply to {tweet_url}: {e}", verbose, is_error=True, log_caller_file="action.py")
             failed += 1
             tweet_data['status'] = 'post_failed'
         
@@ -680,27 +647,27 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
     schedule_folder = _ensure_action_mode_folder(profile_name)
     setup_messages = []
     
-    _log(f"Action Mode With Review: user_data_dir is {user_data_dir}", verbose, status)
+    log(f"Action Mode With Review: user_data_dir is {user_data_dir}", verbose, status, log_caller_file="action.py")
 
     try:
         driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         setup_messages.extend(messages_from_driver)
-        _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
+        log(f"Messages from driver setup: {messages_from_driver}", verbose, status, log_caller_file="action.py")
         for msg in setup_messages:
-            _log(msg, verbose, status)
+            log(msg, verbose, status, log_caller_file="action.py")
         if status:
             status.update("[white]WebDriver setup complete.[/white]")
     except Exception as e:
-        _log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True)
-        _log(f"WebDriver setup messages: {setup_messages}", verbose, status, is_error=True)
+        log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True, log_caller_file="action.py")
+        log(f"WebDriver setup messages: {setup_messages}", verbose, status, is_error=True, log_caller_file="action.py")
         return None
 
     if specific_search_url:
         driver.get(specific_search_url)
-        _log(f"Navigated to specific search URL: {specific_search_url}", verbose, status)
+        log(f"Navigated to specific search URL: {specific_search_url}", verbose, status, log_caller_file="action.py")
     else:
         driver.get("https://x.com/home")
-        _log("Navigated to x.com/home...", verbose, status)
+        log("Navigated to x.com/home...", verbose, status, log_caller_file="action.py")
     time.sleep(5)
 
     if community_name:
@@ -720,13 +687,13 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
     try:
         while len(processed_tweet_ids) < max_tweets and no_new_content_count < max_retries:
             no_new_content_count, scroll_count, new_tweets_in_pass = capture_containers_and_scroll(
-                driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count
+                driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose=verbose, status=status
             )
             if new_tweets_in_pass > 0:
                 last_new_content_time = time.time()
 
             if time.time() - last_new_content_time > 10:
-                _log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False)
+                log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False, log_caller_file="action.py")
                 driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                 time.sleep(random.uniform(2, 4))
                 last_new_content_time = time.time()
@@ -736,10 +703,10 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
                 status.update(f"Collecting tweets: {len(processed_tweet_ids)} collected...")
             time.sleep(1)
     except KeyboardInterrupt:
-        _log("Collection stopped manually.", verbose, status)
+        log("Collection stopped manually.", verbose, status, log_caller_file="action.py")
 
     if not raw_containers:
-        _log("No tweets found during collection.", verbose, status)
+        log("No tweets found during collection.", verbose, status, log_caller_file="action.py")
         return driver
 
     if status:
@@ -747,7 +714,7 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
 
     processed_tweets: List[Dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(process_container, c, {'name': profile_name}) for c in raw_containers[:max_tweets]]
+        futures = [executor.submit(process_container, c, verbose=verbose) for c in raw_containers[:max_tweets]]
         for future in futures:
             td = future.result()
             if td:
@@ -770,9 +737,9 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
             reply_sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"
             all_replies = get_generated_replies(service, reply_sheet_name, verbose=verbose, status=status)
             if verbose:
-                _log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status)
+                log(f"Fetched {len(all_replies)} approved replies from sheet for review.", verbose, status, log_caller_file="action.py")
         except Exception as e:
-            _log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True)
+            log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True, log_caller_file="action.py")
             all_replies = []
 
     enriched_items: List[Dict[str, Any]] = []
@@ -797,7 +764,7 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
                 future = executor.submit(_generate_with_pool, api_pool, args, status, verbose)
                 future_map[future] = item
             else:
-                _log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True)
+                log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True, log_caller_file="action.py")
                 td = item['tweet_data']
                 results.append({
                     'tweet_id': td.get('tweet_id'),
@@ -836,7 +803,7 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
                 results.append(record)
             except Exception as e:
                 td = item['tweet_data']
-                _log(f"Error generating analysis for tweet {td.get('tweet_id')}: {str(e)}", verbose, status, is_error=True)
+                log(f"Error generating analysis for tweet {td.get('tweet_id')}: {str(e)}", verbose, status, is_error=True, log_caller_file="action.py")
                 results.append({
                     'tweet_id': td.get('tweet_id'),
                     'tweet_url': td.get('tweet_url'),
@@ -859,16 +826,16 @@ def run_action_mode_with_review(profile_name: str, custom_prompt: str, max_tweet
     try:
         with open(schedule_path, 'w') as f:
             json.dump(results, f, indent=2)
-        _log(f"Saved Action Mode approval file: {schedule_path}", verbose)
+        log(f"Saved Action Mode approval file: {schedule_path}", verbose, status, log_caller_file="action.py")
     except Exception as e:
-        _log(f"Failed to save schedule file: {e}", verbose, is_error=True)
+        log(f"Failed to save schedule file: {e}", verbose, is_error=True, status=status, log_caller_file="action.py")
 
     try:
         html_path = build_action_mode_schedule_html(profile_name)
         if html_path:
-            _log(f"Action Mode Review HTML ready: {html_path}", verbose)
+            log(f"Action Mode Review HTML ready: {html_path}", verbose, status, log_caller_file="action.py")
     except Exception as e:
-        _log(f"Failed to generate Action Mode review HTML: {e}", verbose, is_error=False)
+        log(f"Failed to generate Action Mode review HTML: {e}", verbose, is_error=False, status=status, log_caller_file="action.py")
     
     return driver
 
@@ -876,25 +843,25 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
     user_data_dir = get_browser_data_dir(profile_name)
     setup_messages = [] 
     
-    _log(f"Action Mode: user_data_dir is {user_data_dir}", verbose, status)
+    log(f"Action Mode: user_data_dir is {user_data_dir}", verbose, status, log_caller_file="action.py")
 
     try:
         driver, messages_from_driver = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         setup_messages.extend(messages_from_driver)
-        _log(f"Messages from driver setup: {messages_from_driver}", verbose, status)
+        log(f"Messages from driver setup: {messages_from_driver}", verbose, status, log_caller_file="action.py")
         for msg in setup_messages:
-            _log(msg, verbose, status)
+            log(msg, verbose, status, log_caller_file="action.py")
             
     except Exception as e:
-        _log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True)
+        log(f"Error setting up WebDriver: {e}", verbose, status, is_error=True, log_caller_file="action.py")
         return
 
     if specific_search_url:
         driver.get(specific_search_url)
-        _log(f"Navigated to specific search URL: {specific_search_url}", verbose, status)
+        log(f"Navigated to specific search URL: {specific_search_url}", verbose, status, log_caller_file="action.py")
     else:
         driver.get("https://x.com/home")
-        _log("Navigated to x.com/home...", verbose, status)
+        log("Navigated to x.com/home...", verbose, status, log_caller_file="action.py")
     time.sleep(5)
 
     if community_name:
@@ -908,7 +875,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
             reply_sheet_name = f"{sanitize_sheet_name(profile_suffix)}_replied_tweets"
             all_replies = get_generated_replies(sheets_service, reply_sheet_name, verbose=verbose, status=status)
         except Exception as e:
-            _log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True)
+            log(f"Error fetching generated replies for {profile_name}: {e}", verbose, status, is_error=True, log_caller_file="action.py")
             all_replies = []
 
     results = []
@@ -926,13 +893,13 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
 
         try:
             while len(processed_tweet_ids) < max_tweets and no_new_content_count < max_retries:
-                no_new_content_count, scroll_count, new_tweets_in_pass = capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count)
+                no_new_content_count, scroll_count, new_tweets_in_pass = capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose=verbose, status=status)
 
                 if new_tweets_in_pass > 0:
                     last_new_content_time = time.time()
 
                 if time.time() - last_new_content_time > 10:
-                    _log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False)
+                    log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False, log_caller_file="action.py")
                     driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                     time.sleep(random.uniform(2, 4))
                     last_new_content_time = time.time()
@@ -945,7 +912,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     if status:
                         status.update(f"Performing extra scroll at scroll_count={scroll_count} ({len(processed_tweet_ids)} tweets collected)")
                     else:
-                        _log(f"Performing extra scroll at scroll_count={scroll_count}", verbose)
+                        log(f"Performing extra scroll at scroll_count={scroll_count}", verbose, log_caller_file="action.py")
                         
                     driver.execute_script(f"window.scrollTo(0, {driver.execute_script('return window.pageYOffset') - driver.execute_script('return window.innerHeight') * 0.2})")
                     time.sleep(0.2)
@@ -971,7 +938,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
             if status:
                 status.update("No tweets found after collection! Waiting for user input...")
             else:
-                _log("No tweets found after collection! Waiting for user input...", verbose)
+                log("No tweets found after collection! Waiting for user input...", verbose, log_caller_file="action.py")
             continue_action = input("Press Enter to try again or type 'no' to exit: ").lower()
             if continue_action == 'yes' or continue_action == '':
                 driver.get("https://x.com/home")
@@ -987,7 +954,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for container in raw_containers[:max_tweets]:
-                future = executor.submit(process_container, container, {'name': profile_name})
+                future = executor.submit(process_container, container, verbose=verbose)
                 futures.append(future)
 
             for future in futures:
@@ -1016,7 +983,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
             if media_urls_for_gemini:
                 gemini_args.append((tweet_text, media_urls_for_gemini, profile_name, api_pool.get_key(), rate_limiter, custom_prompt, tweet_data['tweet_id'], all_replies))
             else:
-                _log(f"No valid media found for tweet {tweet_data['tweet_id']}, skipping media attachment.", verbose, is_error=False)
+                log(f"No valid media found for tweet {tweet_data['tweet_id']}, skipping media attachment.", verbose, is_error=False, log_caller_file="action.py")
                 gemini_args.append((tweet_text, [], profile_name, api_pool.get_key(), rate_limiter, custom_prompt, tweet_data['tweet_id'], all_replies))
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -1027,7 +994,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     future = executor.submit(_generate_with_pool, api_pool, args, status, verbose)
                     future_map[future] = (processed_tweets_data[i], args)
                 else:
-                    _log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True)
+                    log("No available API keys for Gemini for one of the tweets.", verbose, status, is_error=True, log_caller_file="action.py")
                     tweets_with_replies.append({
                         "tweet_text": processed_tweets_data[i]['tweet_text'],
                         "generated_reply": "",
@@ -1049,12 +1016,12 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     tweet_data['run_number'] = run_number
                     tweets_with_replies.append(tweet_data)
                 except Exception as e:
-                    _log(f"Error generating reply for tweet {tweet_data['tweet_text'][:50]}...: {str(e)}", verbose, status, is_error=True)
+                    log(f"Error generating reply for tweet {tweet_data['tweet_text'][:50]}...: {str(e)}", verbose, status, is_error=True, log_caller_file="action.py")
                     tweet_data['generated_reply'] = f"Error: {str(e)}"
                     tweet_data['run_number'] = run_number
                     tweets_with_replies.append(tweet_data)
 
-        _log(f"Successfully generated replies for {len(tweets_with_replies)} tweets.\n", verbose)
+        log(f"Successfully generated replies for {len(tweets_with_replies)} tweets.\n", verbose, log_caller_file="action.py")
         
         driver.execute_script("window.scrollTo(0, 0)")
         time.sleep(1) 
@@ -1073,35 +1040,35 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
             tweet_id = tweet_data['tweet_id'] 
 
             if tweet_data.get('status') == "no_api_key":
-                _log(f"Skipping tweet {tweet_url} due to no API key.", verbose, is_error=False)
+                log(f"Skipping tweet {tweet_url} due to no API key.", verbose, is_error=False, log_caller_file="action.py")
                 results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "no_api_key", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                 continue
             
             if not generated_reply or "Error generating reply" in generated_reply:
-                _log(f"Skipping tweet {tweet_url} as reply generation failed.", verbose, is_error=False)
+                log(f"Skipping tweet {tweet_url} as reply generation failed.", verbose, is_error=False, log_caller_file="action.py")
                 results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "reply_generation_failed", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                 continue
 
             if post_via_api:
                 safe_reply = filter_bmp(generated_reply)
-                _log(f"Posting reply via API to tweet {tweet_id}: '{safe_reply[:80]}...'", verbose)
+                log(f"Posting reply via API to tweet {tweet_id}: '{safe_reply[:80]}...'", verbose, log_caller_file="action.py")
                 
                 if status:
                     status.update(f"Posting reply {i+1}/{len(tweets_with_replies)} via API...")
                 
                 success = post_tweet_reply(tweet_id, safe_reply, profile_name=profile_name)
                 if success:
-                    _log(f"Successfully posted reply to {tweet_url} via API", verbose, is_error=False)
+                    log(f"Successfully posted reply to {tweet_url} via API", verbose, is_error=False, log_caller_file="action.py")
                     results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "posted_via_api", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                 else:
-                    _log(f"Failed to post reply to {tweet_url} via API", verbose, is_error=True)
+                    log(f"Failed to post reply to {tweet_url} via API", verbose, is_error=True, log_caller_file="action.py")
                     results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "api_post_failed", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                 
                 time.sleep(2);
             else:
                 safe_reply = filter_bmp(generated_reply)
                 pyperclip.copy(safe_reply)
-                _log("Reply copied to clipboard. Click into the reply box, paste (Ctrl+V), edit if you wish, then post.", verbose)
+                log("Reply copied to clipboard. Click into the reply box, paste (Ctrl+V), edit if you wish, then post.", verbose, log_caller_file="action.py")
 
                 article = None
                 try:
@@ -1110,7 +1077,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     )
                     article = link_element.find_element(By.XPATH, './ancestor::article[@role="article"]')
                 except Exception as e:
-                    _log(f"Tweet with ID {tweet_id} (URL: {tweet_url}) not found on current page right before interaction. Skipping browser interaction. Error: {str(e)}", verbose, is_error=False)
+                    log(f"Tweet with ID {tweet_id} (URL: {tweet_url}) not found on current page right before interaction. Skipping browser interaction. Error: {str(e)}", verbose, is_error=False, log_caller_file="action.py")
                     results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "tweet_not_on_page_for_interaction", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                     continue
 
@@ -1131,7 +1098,7 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     )
                     if status:
                         status.update("Reply box opened. Waiting for user to paste/edit/post and close the dialog.")
-                    _log("Reply box opened. Waiting for user to paste/edit/post and close the dialog.", verbose)
+                    log("Reply box opened. Waiting for user to paste/edit/post and close the dialog.", verbose, log_caller_file="action.py")
 
                     dialog_closed = False
                     start_wait_time = time.time()
@@ -1142,40 +1109,40 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                             time.sleep(1) 
                         elif "x.com/home" in current_url:
                             dialog_closed = True
-                            _log("Reply box closed. Moving to next tweet...", verbose)
+                            log("Reply box closed. Moving to next tweet...", verbose, log_caller_file="action.py")
                             break
                         else:
                             dialog_closed = True
-                            _log(f"Unexpected URL ({current_url}), assuming reply box closed. Moving to next tweet...", verbose, is_error=False)
+                            log(f"Unexpected URL ({current_url}), assuming reply box closed. Moving to next tweet...", verbose, is_error=False, log_caller_file="action.py")
                             break
                     
                     if not dialog_closed:
-                        _log(f"Reply dialog for tweet {tweet_url} did not close within {max_dialog_wait_time} seconds. Proceeding to next tweet.", verbose, is_error=False)
+                        log(f"Reply dialog for tweet {tweet_url} did not close within {max_dialog_wait_time} seconds. Proceeding to next tweet.", verbose, is_error=False, log_caller_file="action.py")
                         results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "dialog_timeout", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                         continue 
 
                     results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "posted_or_closed", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
 
                 except Exception as e:
-                    _log(f"Error during browser interaction for tweet {tweet_url}: {str(e)}", verbose, is_error=True)
+                    log(f"Error during browser interaction for tweet {tweet_url}: {str(e)}", verbose, is_error=True, log_caller_file="action.py")
                     results.append({"tweet_text": tweet_text, "generated_reply": generated_reply, "status": "browser_interaction_failed", 'profile_image_url': tweet_data.get('profile_image_url', ''), 'likes': tweet_data.get('likes', ''), 'retweets': tweet_data.get('retweets', ''), 'replies': tweet_data.get('replies', ''), 'views': tweet_data.get('views', ''), 'bookmarks': tweet_data.get('bookmarks', '')})
                     continue 
 
                 if status:
                     status.update("Moving to next tweet...")
                 else:
-                    _log("Moving to next tweet...", verbose)
+                    log("Moving to next tweet...", verbose, log_caller_file="action.py")
                 time.sleep(2)
 
             if post_via_api:
-                _log(f"\nAction mode finished. Posted {len([r for r in results if r.get('status') == 'posted_via_api'])} replies via API.", verbose)
+                log(f"\nAction mode finished. Posted {len([r for r in results if r.get('status') == 'posted_via_api'])} replies via API.", verbose, log_caller_file="action.py")
                 break
             else:
                 posted_count = len([r for r in results if r.get('status') in ['posted_or_closed', 'posted']])
                 failed_count = len([r for r in results if r.get('status') not in ['posted_or_closed', 'posted', 'no_api_key', 'reply_generation_failed'] ])
                 if status:
                     status.update(f"Action mode finished. Posted: {posted_count}, Failed: {failed_count}. Waiting for user input...")
-                _log(f"Action mode finished. Posted: {posted_count}, Failed: {failed_count}.", verbose)
+                log(f"Action mode finished. Posted: {posted_count}, Failed: {failed_count}.", verbose, log_caller_file="action.py")
                 continue_action = input("\nPress Enter to process more tweets or type 'no' to exit: ").lower()
                 if continue_action == 'yes' or continue_action == '':
                     if status:
@@ -1186,6 +1153,6 @@ def run_action_mode(profile_name, custom_prompt, max_tweets=20, status=None, ign
                     if status:
                         status.update("Action mode finished. Browser will remain open.")
                     else:
-                        _log("Action mode finished. Browser will remain open.", verbose)
+                        log("Action mode finished. Browser will remain open.", verbose, log_caller_file="action.py")
                     break
         return results

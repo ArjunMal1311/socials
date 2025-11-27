@@ -6,13 +6,13 @@ import requests
 import google.generativeai as genai
 
 from bs4 import BeautifulSoup
-from datetime import datetime
 from selenium import webdriver
 from rich.status import Status
 from rich.console import Console
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from typing import Optional, List, Dict, Tuple, Any
+from services.support.logger_util import _log as log
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.path_config import get_instagram_reels_dir
 from selenium.webdriver.support import expected_conditions as EC
@@ -21,28 +21,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 console = Console()
 
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    if is_error or verbose:
-        console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def _init_gemini_model(api_key=None):
     if not api_key:
@@ -136,39 +114,39 @@ def scrape_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int 
                 time.sleep(3)
                 break
             except TimeoutException:
-                _log(f"Attempt {i+1}/{retries}: Comments button not found or not clickable within timeout. Retrying...", verbose)
+                log(f"Attempt {i+1}/{retries}: Comments button not found or not clickable within timeout. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
                 time.sleep(2)
             except NoSuchElementException:
-                _log(f"Attempt {i+1}/{retries}: Comments button element not found. Retrying...", verbose)
+                log(f"Attempt {i+1}/{retries}: Comments button element not found. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
                 time.sleep(2)
             except Exception as e:
-                _log(f"Attempt {i+1}/{retries}: An unexpected error occurred while clicking comments button: {e}. Retrying...", verbose)
+                log(f"Attempt {i+1}/{retries}: An unexpected error occurred while clicking comments button: {e}. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
                 time.sleep(2)
         else:
-            _log("Failed to click comments button after multiple retries. Continuing without comments.", verbose)
+            log("Failed to click comments button after multiple retries. Continuing without comments.", verbose, log_caller_file="instagram_replies_utils.py")
             return [], None
 
         comments_data = []
         scroll_count = 0
         max_scrolls = 5
 
-        _log("Attempting to find comments section...", verbose)
+        log("Attempting to find comments section...", verbose, log_caller_file="instagram_replies_utils.py")
         comments_section_xpath = "//span[contains(text(),'Comments')]/parent::*/parent::*/following-sibling::div"
         try:
             comments_panel = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, comments_section_xpath))
             )
-            _log("Comments section found.", verbose)
+            log("Comments section found.", verbose, log_caller_file="instagram_replies_utils.py")
         except TimeoutException:
-            _log("Comments section not found within timeout. This might mean no comments are loaded or the XPath is incorrect.", verbose)
+            log("Comments section not found within timeout. This might mean no comments are loaded or the XPath is incorrect.", verbose, log_caller_file="instagram_replies_utils.py")
             return [], None
 
-        _log("Scrolling to load more comments...", verbose)
+        log("Scrolling to load more comments...", verbose, log_caller_file="instagram_replies_utils.py")
         while len(comments_data) < max_comments and scroll_count < max_scrolls:
             driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", comments_panel)
             time.sleep(2)
             scroll_count += 1
-        _log(f"Finished scrolling {scroll_count} times.", verbose)
+        log(f"Finished scrolling {scroll_count} times.", verbose, log_caller_file="instagram_replies_utils.py")
 
         video_url = driver.current_url
 
@@ -178,7 +156,7 @@ def scrape_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int 
             os.makedirs(os.path.dirname(html_dump_path), exist_ok=True)
             with open(html_dump_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            _log(f"Full comments HTML saved to: {html_dump_path}", verbose)
+            log(f"Full comments HTML saved to: {html_dump_path}", verbose, log_caller_file="instagram_replies_utils.py")
 
         cleaned_html = parse_instagram_comments_robust(html_content)
         structured_comments = extract_structured_comments(cleaned_html)
@@ -186,7 +164,7 @@ def scrape_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int 
         return structured_comments, video_url
 
     except Exception as e:
-        _log(f"An error occurred during Instagram Reels comment scraping: {e}", verbose, is_error=True)
+        log(f"An error occurred during Instagram Reels comment scraping: {e}", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
         return [], None
 
 def generate_instagram_replies(comments_data: list, video_path: str = None, api_key: str = None, verbose: bool = False):
@@ -211,7 +189,7 @@ def generate_instagram_replies(comments_data: list, video_path: str = None, api_
         return response.text
 
     except Exception as e:
-        _log(f"Error generating Instagram reply with Gemini: {e}", verbose, is_error=True)
+        log(f"Error generating Instagram reply with Gemini: {e}", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
         return f"Error generating reply: {e}"
 
 def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool = False):
@@ -221,7 +199,7 @@ def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool 
             if status:
                 status.stop()
 
-            _log(f"Generated Reply: {reply_text}", verbose)
+            log(f"Generated Reply: {reply_text}", verbose, log_caller_file="instagram_replies_utils.py")
             edited_reply = console.input("[bold yellow]Edit reply (press Enter to accept): [/bold yellow]")
             if not edited_reply:
                 edited_reply = reply_text
@@ -229,7 +207,7 @@ def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool 
 
             confirmation = console.input("[bold yellow]Are you sure you want to post this reply? (yes/no): [/bold yellow]")
             if confirmation.lower() != 'yes':
-                _log("Reply not posted. User aborted.", verbose)
+                log("Reply not posted. User aborted.", verbose, log_caller_file="instagram_replies_utils.py")
                 if status:
                     status.start()
                 return False
@@ -238,46 +216,46 @@ def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool 
                 status.start() 
 
             initial_input_xpath = "//input[@placeholder='Add a comment…']"
-            _log(f"Attempt {attempt + 1}/{max_retries}: Attempting to find initial comment input field with XPath: {initial_input_xpath}", verbose)
+            log(f"Attempt {attempt + 1}/{max_retries}: Attempting to find initial comment input field with XPath: {initial_input_xpath}", verbose, log_caller_file="instagram_replies_utils.py")
             initial_input_element = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, initial_input_xpath))
             )
-            _log("Initial comment input field found and is clickable.", verbose)
+            log("Initial comment input field found and is clickable.", verbose, log_caller_file="instagram_replies_utils.py")
 
-            _log("Attempting to click initial comment input field.", verbose)
+            log("Attempting to click initial comment input field.", verbose, log_caller_file="instagram_replies_utils.py")
             ActionChains(driver).move_to_element(initial_input_element).click().perform()
-            _log("Initial comment input field clicked. Waiting for contenteditable div...", verbose)
+            log("Initial comment input field clicked. Waiting for contenteditable div...", verbose, log_caller_file="instagram_replies_utils.py")
             time.sleep(1)
 
             comment_input_xpath = "//div[@aria-placeholder='Add a comment…' and @contenteditable='true']"
-            _log(f"Attempt {attempt + 1}/{max_retries}: Attempting to find contenteditable div with XPath: {comment_input_xpath}", verbose)
+            log(f"Attempt {attempt + 1}/{max_retries}: Attempting to find contenteditable div with XPath: {comment_input_xpath}", verbose, log_caller_file="instagram_replies_utils.py")
             comment_input_div = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, comment_input_xpath))
             )
-            _log("Contenteditable comment input div found and is clickable.", verbose)
+            log("Contenteditable comment input div found and is clickable.", verbose, log_caller_file="instagram_replies_utils.py")
             time.sleep(1)
         
             driver.execute_script("arguments[0].innerText = '';", comment_input_div)
-            _log("Cleared existing content in contenteditable div.", verbose)
+            log("Cleared existing content in contenteditable div.", verbose, log_caller_file="instagram_replies_utils.py")
             time.sleep(0.5)
 
-            _log(f"Attempting to send reply text character by character: '{reply_text}'", verbose)
+            log(f"Attempting to send reply text character by character: '{reply_text}'", verbose, log_caller_file="instagram_replies_utils.py")
             for char in reply_text:
                 comment_input_div.send_keys(char)
                 time.sleep(0.05) 
-            _log("Reply text sent character by character.", verbose)
+            log("Reply text sent character by character.", verbose, log_caller_file="instagram_replies_utils.py")
             time.sleep(1)
 
             post_button_xpath = "//div[contains(text(),'Post')]"
-            _log(f"Attempting to find post button with XPath: {post_button_xpath}", verbose)
+            log(f"Attempting to find post button with XPath: {post_button_xpath}", verbose, log_caller_file="instagram_replies_utils.py")
             post_button = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, post_button_xpath))
             )
-            _log("Post button found and is clickable.", verbose)
+            log("Post button found and is clickable.", verbose, log_caller_file="instagram_replies_utils.py")
 
-            _log("Attempting to click post button using JavaScript.", verbose)
+            log("Attempting to click post button using JavaScript.", verbose, log_caller_file="instagram_replies_utils.py")
             driver.execute_script("arguments[0].click();", post_button)
-            _log("Post button clicked via JavaScript.", verbose)
+            log("Post button clicked via JavaScript.", verbose, log_caller_file="instagram_replies_utils.py")
 
             if status:
                 status.update(f"[green]Reply posted successfully![/green]")
@@ -286,13 +264,13 @@ def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool 
             return True
 
         except (TimeoutException, NoSuchElementException) as e:
-            _log(f"Attempt {attempt + 1}/{max_retries}: Selenium Error posting reply: {e}. Retrying...", verbose)
+            log(f"Attempt {attempt + 1}/{max_retries}: Selenium Error posting reply: {e}. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
             time.sleep(3)
         except Exception as e:
-            _log(f"Attempt {attempt + 1}/{max_retries}: An unexpected error occurred while posting reply: {e}. Retrying...", verbose, is_error=True)
+            log(f"Attempt {attempt + 1}/{max_retries}: An unexpected error occurred while posting reply: {e}. Retrying...", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
             time.sleep(3)
 
-    _log("Failed to post reply after multiple attempts.", verbose, is_error=True)
+    log("Failed to post reply after multiple attempts.", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
     return False
 
 def move_to_next_reel(driver, verbose: bool = False) -> bool:
@@ -307,24 +285,24 @@ def move_to_next_reel(driver, verbose: bool = False) -> bool:
                 )
                 if comment_button: 
                     comment_button.click()
-                    _log("Comments section closed.", verbose)
+                    log("Comments section closed.", verbose, log_caller_file="instagram_replies_utils.py")
                     time.sleep(2)
                     break
             except TimeoutException:
-                _log(f"Attempt {i+1}/{retries}: Comments button not found or not clickable within timeout when trying to close. Retrying...", verbose)
+                log(f"Attempt {i+1}/{retries}: Comments button not found or not clickable within timeout when trying to close. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
                 time.sleep(2)
             except NoSuchElementException:
-                _log(f"Attempt {i+1}/{retries}: Comments button element not found when trying to close. Retrying...", verbose)
+                log(f"Attempt {i+1}/{retries}: Comments button element not found when trying to close. Retrying...", verbose, log_caller_file="instagram_replies_utils.py")
                 time.sleep(2) 
         else:
-            _log("Failed to close comments after multiple retries. Continuing without closing comments.", verbose)
+            log("Failed to close comments after multiple retries. Continuing without closing comments.", verbose, log_caller_file="instagram_replies_utils.py")
 
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ARROW_DOWN)
-        _log("Moved to next reel using down arrow key.", verbose)
+        log("Moved to next reel using down arrow key.", verbose, log_caller_file="instagram_replies_utils.py")
         time.sleep(6)
         return True
     except Exception as e:
-        _log(f"Error moving to next Instagram Reel: {e}", verbose, is_error=True)
+        log(f"Error moving to next Instagram Reel: {e}", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
         return False
 
 def download_instagram_reel(reel_url: str, profile_name: str, status: Status = None, verbose: bool = False) -> Optional[str]:
@@ -350,12 +328,12 @@ def download_instagram_reel(reel_url: str, profile_name: str, status: Status = N
         if status:
             status.update(f"[green]Reel downloaded: {output_path}[/green]")
         else:
-            _log(f"Reel downloaded: {output_path}", verbose)
+            log(f"Reel downloaded: {output_path}", verbose, log_caller_file="instagram_replies_utils.py")
         return output_path
 
     except requests.exceptions.RequestException as e:
-        _log(f"Error downloading Instagram Reel {reel_url}: {e}", verbose, is_error=True)
+        log(f"Error downloading Instagram Reel {reel_url}: {e}", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
         return None
     except Exception as e:
-        _log(f"An unexpected error occurred during reel download: {e}", verbose, is_error=True)
+        log(f"An unexpected error occurred during reel download: {e}", verbose, is_error=True, log_caller_file="instagram_replies_utils.py")
         return False

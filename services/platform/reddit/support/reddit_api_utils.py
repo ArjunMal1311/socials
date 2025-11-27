@@ -1,13 +1,12 @@
-import re
 import os
 import time
 import praw
 
 from dotenv import load_dotenv
 from rich.console import Console
+from typing import List, Dict, Any
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
-
+from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_reddit_log_file_path
@@ -16,42 +15,6 @@ console = Console()
 
 _api_call_tracker_instances: Dict[str, APICallTracker] = {}
 _rate_limiter_instances: Dict[str, RateLimiter] = {}
-
-def _log(message: str, verbose: bool, is_error: bool = False, status=None, api_info: Optional[Dict[str, Any]] = None):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        quota_str = ""
-        if api_info and "error" not in api_info:
-            rpm_current = api_info.get('rpm_current', 'N/A')
-            rpm_limit = api_info.get('rpm_limit', 'N/A')
-            rpd_current = api_info.get('rpd_current', 'N/A')
-            rpd_limit = api_info.get('rpd_limit', -1)
-            quota_str = (
-                f" (RPM: {rpm_current}/{rpm_limit}, "
-                f"RPD: {rpd_current}/{rpd_limit if rpd_limit != -1 else 'N/A'})"
-            )
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[reddit_api_utils.py] {timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[reddit_api_utils.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
 
 def _get_api_trackers(profile_name: str):
     if profile_name not in _api_call_tracker_instances:
@@ -70,11 +33,11 @@ def initialize_praw(profile_name: str, verbose: bool = False):
         password = os.getenv("REDDIT_PASSWORD")
 
         if not all([client_id, client_secret]):
-            _log("Reddit API credentials (client_id, client_secret) are required and not found in .env. PRAW cannot be initialized.", verbose, is_error=True)
+            log("Reddit API credentials (client_id, client_secret) are required and not found in .env. PRAW cannot be initialized.", verbose, is_error=True, log_caller_file="reddit_api_utils.py")
             return None
 
         if not all([username, password]):
-            _log("Reddit user credentials (username, password) not found in .env. PRAW will be initialized for read-only operations.", verbose, is_error=False)
+            log("Reddit user credentials (username, password) not found in .env. PRAW will be initialized for read-only operations.", verbose, is_error=False, log_caller_file="reddit_api_utils.py")
             reddit = praw.Reddit(
                 client_id=client_id,
                 client_secret=client_secret,
@@ -88,10 +51,10 @@ def initialize_praw(profile_name: str, verbose: bool = False):
                 username=username,
                 password=password
             )
-        _log("PRAW initialized successfully.", verbose)
+        log("PRAW initialized successfully.", verbose, log_caller_file="reddit_api_utils.py")
         return reddit
     except Exception as e:
-        _log(f"Error initializing PRAW: {e}", verbose, is_error=True)
+        log(f"Error initializing PRAW: {e}", verbose, is_error=True, log_caller_file="reddit_api_utils.py")
         return None
 
 def _handle_rate_limit(profile_name: str, method_name: str, status=None, verbose: bool = False):
@@ -102,7 +65,7 @@ def _handle_rate_limit(profile_name: str, method_name: str, status=None, verbose
         if can_call:
             break
         api_info = api_call_tracker.get_quot_info("reddit", method_name, api_key_suffix=api_key_suffix)
-        _log(f"Rate limit hit for Reddit API ({method_name}): {reason}. Waiting...", verbose, is_error=True, status=status, api_info=api_info)
+        log(f"Rate limit hit for Reddit API ({method_name}): {reason}. Waiting...", verbose, is_error=True, status=status, api_info=api_info, log_caller_file="reddit_api_utils.py")
         sleep_time = rate_limiter.wait_if_needed(api_key_suffix)
         if sleep_time > 0:
             time.sleep(sleep_time)
@@ -110,7 +73,7 @@ def _handle_rate_limit(profile_name: str, method_name: str, status=None, verbose
 def get_subreddit_posts(profile_name: str, reddit_instance: praw.Reddit, subreddit_name: str, time_filter: str = "all", limit: int = 100, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     api_key_suffix = os.getenv("REDDIT_CLIENT_ID")[-4:] if os.getenv("REDDIT_CLIENT_ID") else "N/A"
     if not reddit_instance:
-        _log("Reddit API not initialized.", verbose, is_error=True, status=status)
+        log("Reddit API not initialized.", verbose, is_error=True, status=status, log_caller_file="reddit_api_utils.py")
         return []
     
     posts_data = []
@@ -119,7 +82,7 @@ def get_subreddit_posts(profile_name: str, reddit_instance: praw.Reddit, subredd
         subreddit = reddit_instance.subreddit(subreddit_name)
         method_name = f"subreddit_{time_filter}"
         
-        _log(f"Fetching {time_filter} posts from r/{subreddit_name}...", verbose, status=status)
+        log(f"Fetching {time_filter} posts from r/{subreddit_name}...", verbose, status=status, log_caller_file="reddit_api_utils.py")
         _handle_rate_limit(profile_name, method_name, status, verbose)
 
         posts = []
@@ -144,7 +107,7 @@ def get_subreddit_posts(profile_name: str, reddit_instance: praw.Reddit, subredd
             yesterday_start = datetime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0)
             yesterday_end = datetime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59)
 
-            _log(f"Fetching 'day' posts for custom 'yesterday' filter from r/{subreddit_name}...", verbose, status=status)
+            log(f"Fetching 'day' posts for custom 'yesterday' filter from r/{subreddit_name}...", verbose, status=status, log_caller_file="reddit_api_utils.py")
             all_day_posts = subreddit.top(time_filter="day", limit=limit)
             filtered_posts = []
             for post in all_day_posts:
@@ -152,9 +115,9 @@ def get_subreddit_posts(profile_name: str, reddit_instance: praw.Reddit, subredd
                 if yesterday_start <= post_utc_dt <= yesterday_end:
                     filtered_posts.append(post)
             posts = filtered_posts
-            _log(f"Filtered {len(posts)} posts for 'yesterday' from r/{subreddit_name}.", verbose, status=status)
+            log(f"Filtered {len(posts)} posts for 'yesterday' from r/{subreddit_name}.", verbose, status=status, log_caller_file="reddit_api_utils.py")
         else:
-            _log(f"Unsupported time filter: {time_filter}", verbose, is_error=True, status=status)
+            log(f"Unsupported time filter: {time_filter}", verbose, is_error=True, status=status, log_caller_file="reddit_api_utils.py")
             return []
 
         for post in posts:
@@ -174,16 +137,16 @@ def get_subreddit_posts(profile_name: str, reddit_instance: praw.Reddit, subredd
                 "subreddit": post.subreddit.display_name
             })
         api_call_tracker.record_call("reddit", method_name, api_key_suffix=api_key_suffix, success=True)
-        _log(f"Fetched {len(posts_data)} {time_filter} posts from r/{subreddit_name}.", verbose, status=status)
+        log(f"Fetched {len(posts_data)} {time_filter} posts from r/{subreddit_name}.", verbose, status=status, log_caller_file="reddit_api_utils.py")
     except Exception as e:
         api_call_tracker.record_call("reddit", method_name, api_key_suffix=api_key_suffix, success=False, response=str(e))
-        _log(f"Error fetching posts from r/{subreddit_name} with filter {time_filter}: {e}", verbose, is_error=True, status=status)
+        log(f"Error fetching posts from r/{subreddit_name} with filter {time_filter}: {e}", verbose, is_error=True, status=status, log_caller_file="reddit_api_utils.py")
     return posts_data
 
 def get_post_comments(profile_name: str, reddit_instance: praw.Reddit, post_id: str, limit: int = 25, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     api_key_suffix = os.getenv("REDDIT_CLIENT_ID")[-4:] if os.getenv("REDDIT_CLIENT_ID") else "N/A"
     if not reddit_instance:
-        _log("Reddit API not initialized.", verbose, is_error=True, status=status)
+        log("Reddit API not initialized.", verbose, is_error=True, status=status, log_caller_file="reddit_api_utils.py")
         return []
     
     comments_data = []
@@ -192,7 +155,7 @@ def get_post_comments(profile_name: str, reddit_instance: praw.Reddit, post_id: 
         post = reddit_instance.submission(id=post_id)
         method_name = "post_comments"
 
-        _log(f"Fetching comments for post {post_id}...", verbose, status=status)
+        log(f"Fetching comments for post {post_id}...", verbose, status=status, log_caller_file="reddit_api_utils.py")
         _handle_rate_limit(profile_name, method_name, status, verbose)
 
         post.comments.replace_more(limit=0) 
@@ -208,8 +171,8 @@ def get_post_comments(profile_name: str, reddit_instance: praw.Reddit, post_id: 
                 "is_stickied": comment.stickied
             })
         api_call_tracker.record_call("reddit", method_name, api_key_suffix=api_key_suffix, success=True)
-        _log(f"Fetched {len(comments_data)} comments for post {post_id}.", verbose, status=status)
+        log(f"Fetched {len(comments_data)} comments for post {post_id}.", verbose, status=status, log_caller_file="reddit_api_utils.py")
     except Exception as e:
         api_call_tracker.record_call("reddit", method_name, api_key_suffix=api_key_suffix, success=False, response=str(e))
-        _log(f"Error fetching comments for post {post_id}: {e}", verbose, is_error=True, status=status)
+        log(f"Error fetching comments for post {post_id}: {e}", verbose, is_error=True, status=status, log_caller_file="reddit_api_utils.py")
     return comments_data

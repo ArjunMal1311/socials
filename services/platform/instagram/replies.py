@@ -4,38 +4,16 @@ import time
 import json
 import argparse
 
-from datetime import datetime
 from rich.status import Status
 from dotenv import load_dotenv
 from rich.console import Console
-from typing import Optional, Dict, Any
+from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir, get_instagram_profile_dir, get_instagram_reels_dir
 from services.platform.instagram.support.instagram_replies_utils import scrape_instagram_reels_comments, generate_instagram_replies, post_instagram_reply, move_to_next_reel, download_instagram_reel, parse_instagram_comments_robust, extract_structured_comments
 
 console = Console()
 
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def main():
     load_dotenv()
@@ -77,7 +55,7 @@ def main():
             status.stop()
 
             if not driver:
-                _log("WebDriver could not be initialized. Aborting.", args.verbose, is_error=True)
+                log("WebDriver could not be initialized. Aborting.", args.verbose, is_error=True, log_caller_file="replies.py")
                 sys.exit(1) 
 
             with Status("[white]Navigating to Instagram Reels...[/white]", spinner="dots", console=console) as status:
@@ -87,7 +65,7 @@ def main():
 
             for i in range(args.number_of_reels):
                 video_path = None
-                _log(f"--- Processing Reel {i+1}/{args.number_of_reels} ---", args.verbose)
+                log(f"--- Processing Reel {i+1}/{args.number_of_reels} ---", args.verbose, log_caller_file="replies.py")
                 
                 html_dump_path = os.path.join(profile_base_dir, "instagram_comments_dump.html")
                 
@@ -102,16 +80,16 @@ def main():
                 status.stop()
 
                 if reel_url and structured_comments_for_gemini:
-                    _log(f"Scraped {len(structured_comments_for_gemini)} comments from {reel_url}.", args.verbose)
+                    log(f"Scraped {len(structured_comments_for_gemini)} comments from {reel_url}.", args.verbose, log_caller_file="replies.py")
                     
                     with Status(f"[white]Downloading Instagram Reel: {reel_url}...[/white]", spinner="dots", console=console) as status:
                         video_path = download_instagram_reel(reel_url, profile_name, status, verbose=args.verbose)
                     status.stop()
 
                     if video_path:
-                        _log(f"Downloaded reel to: {video_path}", args.verbose)
+                        log(f"Downloaded reel to: {video_path}", args.verbose, log_caller_file="replies.py")
                     else:
-                        _log("Could not download Instagram Reel. Continuing without video content.", args.verbose)
+                        log("Could not download Instagram Reel. Continuing without video content.", args.verbose, log_caller_file="replies.py")
 
                     with Status("[white]Generating reply...[/white]", spinner="dots", console=console) as status:
                         generated_reply = generate_instagram_replies(
@@ -123,34 +101,34 @@ def main():
                         status.stop()
                         
                         if generated_reply and not generated_reply.startswith("Error"):
-                            _log("Generated Reply:", args.verbose)
-                            _log(f"{generated_reply}", args.verbose)
+                            log("Generated Reply:", args.verbose, log_caller_file="replies.py")
+                            log(f"{generated_reply}", args.verbose, log_caller_file="replies.py")
                             
                             with Status("[white]Attempting to post reply...[/white]", spinner="dots", console=console) as status:
                                 post_instagram_reply(driver, generated_reply, status, verbose=args.verbose)
                             status.stop()
-                            _log("Reply process completed.", args.verbose)
+                            log("Reply process completed.", args.verbose, log_caller_file="replies.py")
                         else:
-                            _log(f"Failed to generate reply: {generated_reply}", args.verbose, is_error=True)
+                            log(f"Failed to generate reply: {generated_reply}", args.verbose, is_error=True, log_caller_file="replies.py")
                 else:
-                    _log("No comments scraped or no reel URL found to generate replies for.", args.verbose)
+                    log("No comments scraped or no reel URL found to generate replies for.", args.verbose, log_caller_file="replies.py")
                 
                 if i < args.number_of_reels - 1:
                     if not move_to_next_reel(driver, verbose=args.verbose):
-                        _log("Could not move to the next reel. Ending process.", args.verbose)
+                        log("Could not move to the next reel. Ending process.", args.verbose, log_caller_file="replies.py")
                         break
                 else:
-                    _log("Finished processing all requested reels.", args.verbose)
+                    log("Finished processing all requested reels.", args.verbose, log_caller_file="replies.py")
 
         except Exception as e:
-            _log(f"An unexpected error occurred: {e}", args.verbose, is_error=True)
+            log(f"An unexpected error occurred: {e}", args.verbose, is_error=True, log_caller_file="replies.py")
         finally:
             if driver:
                 driver.quit()
-                _log("WebDriver closed.", args.verbose)
+                log("WebDriver closed.", args.verbose, log_caller_file="replies.py")
             if video_path and os.path.exists(video_path):
                 os.remove(video_path)
-                _log(f"Deleted downloaded reel: {video_path}", args.verbose)
+                log(f"Deleted downloaded reel: {video_path}", args.verbose, log_caller_file="replies.py")
 
     elif args.parse:
         profile_name = args.profile 
@@ -167,12 +145,12 @@ def main():
             cleaned_dump_path = os.path.join(profile_base_dir, "instagram_comments_cleaned_dump.html")
             with open(cleaned_dump_path, "w", encoding="utf-8") as f:
                 f.write(cleaned_html)
-            _log(f"Cleaned HTML (without classes) saved to: {cleaned_dump_path}", args.verbose)
+            log(f"Cleaned HTML (without classes) saved to: {cleaned_dump_path}", args.verbose, log_caller_file="replies.py")
             
             structured_comments = extract_structured_comments(cleaned_html)
             console.print(json.dumps(structured_comments, indent=2))
         else:
-            _log(f"Error: {html_dump_path} not found. Please run --scrape-and-reply first to generate the dump file.", args.verbose, is_error=True)
+            log(f"Error: {html_dump_path} not found. Please run --scrape-and-reply first to generate the dump file.", args.verbose, is_error=True, log_caller_file="replies.py")
 
     elif args.clear:
         profile_name = args.profile
@@ -181,7 +159,7 @@ def main():
         
         if os.path.exists(html_dump_path):
             os.remove(html_dump_path)
-            _log(f"Deleted HTML dump: {html_dump_path}", args.verbose)
+            log(f"Deleted HTML dump: {html_dump_path}", args.verbose, log_caller_file="replies.py")
 
         reels_dir = get_instagram_reels_dir(profile_name)
         if os.path.exists(reels_dir):
@@ -190,9 +168,9 @@ def main():
                 if os.path.isfile(file_path):
                     os.remove(file_path)
             os.rmdir(reels_dir)
-            _log(f"Deleted reels directory: {reels_dir}", args.verbose)
+            log(f"Deleted reels directory: {reels_dir}", args.verbose, log_caller_file="replies.py")
 
-        _log(f"Cleared all generated files for profile '{profile_name}'.", args.verbose)
+        log(f"Cleared all generated files for profile '{profile_name}'.", args.verbose, log_caller_file="replies.py")
 
     else:
         parser.print_help()

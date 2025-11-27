@@ -2,18 +2,11 @@ import os
 import html
 import json
 
-from datetime import datetime
 from rich.console import Console
 from typing import List, Dict, Any, Optional
 from services.support.path_config import get_action_schedule_file_path, get_review_html_path
 
 console = Console()
-
-def _log(message: str, verbose: bool, is_error: bool = False):
-    if verbose or is_error:
-      timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-      color = "bold red" if is_error else "white"
-      console.print(f"[action_mode_html.py] {timestamp}|[{color}]{message}[/{color}]")
 
 MEDIA_IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 MEDIA_VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm'}
@@ -37,14 +30,14 @@ def _render_media_tags(media_files: List[str]) -> str:
 def build_action_mode_schedule_html(profile_name: str, verbose: bool = False) -> Optional[str]:
     schedule_path = get_action_schedule_file_path(profile_name)
     if not os.path.exists(schedule_path):
-        _log(f"Action Mode Schedule not found: {schedule_path}", verbose, is_error=True)
+        console.log(f"Action Mode Schedule not found: {schedule_path}", style="red")
         return None
 
     try:
         with open(schedule_path, 'r') as f:
             items: List[Dict[str, Any]] = json.load(f)
     except Exception as e:
-        _log(f"Failed to read Action Mode schedule file: {e}", verbose, is_error=True)
+        console.log(f"Failed to read Action Mode schedule file: {e}", style="red")
         return None
 
     title = f"Action Mode Review - {profile_name}"
@@ -209,9 +202,9 @@ def build_action_mode_schedule_html(profile_name: str, verbose: bool = False) ->
     try:
         with open(out_path, 'w') as f:
             f.write(html_doc)
-        _log(f"Generated Action Mode review HTML: {out_path}", verbose)
+        console.log(f"Generated Action Mode review HTML: {out_path}", style="green")
         return out_path
     except Exception as e:
-        _log(f"Failed to write Action Mode review HTML: {e}", verbose, is_error=True)
+        console.log(f"Failed to write Action Mode review HTML: {e}", style="red")
         return None
 

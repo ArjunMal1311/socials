@@ -1,12 +1,11 @@
-import re
 import os
 import time
 
 from pathlib import Path
-from datetime import datetime
 from rich.console import Console
 from typing import List, Dict, Any
 from selenium.webdriver.common.by import By
+from services.support.logger_util import _log as log
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 from youtube_transcript_api.formatters import SRTFormatter
@@ -19,31 +18,6 @@ from services.platform.youtube.support.youtube_api_utils import initialize_youtu
 
 console = Console()
 
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if status and (is_error or verbose):
-        status.stop()
-
-    log_message = message
-    if is_error:
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[caption_downloader.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[caption_downloader.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-
 def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, verbose: bool = False) -> Dict[str, Any]:
     video_id = "unknown"
     if 'youtube.com' in video_url:
@@ -53,11 +27,11 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
         
     subtitle_to_url = f"https://subtitle.to/{video_url}"
     
-    _log(f"Accessing subtitle.to for video {video_id}", verbose)
+    log(f"Accessing subtitle.to for video {video_id}", verbose, log_caller_file="caption_downloader.py")
     try:
         driver.get(subtitle_to_url)
     except Exception as e:
-        _log(f"Error loading page: {e}", verbose, is_error=True)
+        log(f"Error loading page: {e}", verbose, is_error=True, log_caller_file="caption_downloader.py")
         return {
             "success": False,
             "error": str(e),
@@ -84,7 +58,7 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
                     EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                 )
                 if download_button:
-                    _log(f"Found download button with selector: {selector}", verbose)
+                    log(f"Found download button with selector: {selector}", verbose, log_caller_file="caption_downloader.py")
                     break
             except TimeoutException:
                 continue
@@ -128,7 +102,7 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
             }
             
     except Exception as inner_e:
-        _log(f"Error during caption extraction: {inner_e}", verbose, is_error=True)
+        log(f"Error during caption extraction: {inner_e}", verbose, is_error=True, log_caller_file="caption_downloader.py")
         return {
             "success": False,
             "error": str(inner_e),
@@ -137,7 +111,7 @@ def scrape_caption_from_subtitle_to(driver, video_url: str, profile_name: str, v
         }
         
 def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False, headless: bool = True, caption_method: str = "selenium") -> Dict[str, Any]:
-    _log(f"Starting to download captions for {len(videos_data)} videos for profile '{profile_name}' using {caption_method} method.", verbose)
+    log(f"Starting to download captions for {len(videos_data)} videos for profile '{profile_name}' using {caption_method} method.", verbose, log_caller_file="caption_downloader.py")
 
     if caption_method == "api":
         download_results = download_captions_via_api(profile_name, videos_data, verbose=verbose)
@@ -149,7 +123,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
         }
 
         total_videos = len(videos_data)
-        _log(f"Starting to download captions for {total_videos} videos for profile '{profile_name}' via Selenium", verbose)
+        log(f"Starting to download captions for {total_videos} videos for profile '{profile_name}' via Selenium", verbose, log_caller_file="caption_downloader.py")
 
         driver = None
         try:
@@ -192,12 +166,12 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                 additional_arguments=additional_arguments
             )
             for msg in setup_messages:
-                _log(msg, verbose)
+                log(msg, verbose, log_caller_file="caption_downloader.py")
 
             for i, video in enumerate(videos_data):
                 video_url = video.get('url')
                 if not video_url:
-                    _log(f"No URL found for video {i+1}/{total_videos}. Skipping.", verbose)
+                    log(f"No URL found for video {i+1}/{total_videos}. Skipping.", verbose, log_caller_file="caption_downloader.py")
                     download_results["failed"].append({
                         "video_id": video.get("video_id", "Unknown"),
                         "title": video.get("title", "Unknown Title"),
@@ -207,7 +181,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                     continue
 
                 video_title = video.get("title", "Unknown Title")
-                _log(f"Processing video {i+1}/{total_videos}: {video_title}", verbose)
+                log(f"Processing video {i+1}/{total_videos}: {video_title}", verbose, log_caller_file="caption_downloader.py")
 
                 try:
                     result = scrape_caption_from_subtitle_to(driver, video_url, profile_name, verbose)
@@ -218,7 +192,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                             "filename": result["filename"],
                             "caption_filepath": result["caption_filepath"]
                         })
-                        _log(f"Successfully downloaded captions for: {video_title}", verbose)
+                        log(f"Successfully downloaded captions for: {video_title}", verbose, log_caller_file="caption_downloader.py")
                     else:
                         download_results["failed"].append({
                             "video_id": result.get("video_id", video.get("video_id", "Unknown")),
@@ -226,9 +200,9 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                             "reason": result.get("error", "Unknown error"),
                             "caption_filepath": result.get("caption_filepath", None)
                         })
-                        _log(f"Failed to download captions for: {video_title} - {result.get('error', 'Unknown error')}", verbose, is_error=True)
+                        log(f"Failed to download captions for: {video_title} - {result.get('error', 'Unknown error')}", verbose, is_error=True, log_caller_file="caption_downloader.py")
                 except Exception as e:
-                    _log(f"Unexpected error for video {video_title}: {e}", verbose, is_error=True)
+                    log(f"Unexpected error for video {video_title}: {e}", verbose, is_error=True, log_caller_file="caption_downloader.py")
                     download_results["failed"].append({
                         "video_id": video.get("video_id", "Unknown"),
                         "title": video_title,
@@ -239,7 +213,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                 time.sleep(2)
 
         except Exception as e:
-            _log(f"Error setting up driver for caption download: {e}", verbose, is_error=True)
+            log(f"Error setting up driver for caption download: {e}", verbose, is_error=True, log_caller_file="caption_downloader.py")
             download_results["failed"].append({"video_id": "N/A", "title": "Driver Setup", "reason": str(e), "caption_filepath": None})
         finally:
             if driver:
@@ -251,7 +225,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
     elif caption_method == "transcript_api":
         download_results = download_captions_via_transcript_api(profile_name, videos_data, verbose=verbose)
     else:
-        _log(f"Unknown caption download method: {caption_method}", verbose, is_error=True)
+        log(f"Unknown caption download method: {caption_method}", verbose, is_error=True, log_caller_file="caption_downloader.py")
         return videos_data
     
     for video in videos_data:
@@ -265,7 +239,7 @@ def download_captions_for_videos(profile_name: str, videos_data: List[Dict[str, 
                 video["caption_filepath"] = None
                 break
 
-    _log(f"Completed caption download. Success: {len(download_results['success'])}, Failed: {len(download_results['failed'])}", verbose)
+    log(f"Completed caption download. Success: {len(download_results['success'])}, Failed: {len(download_results['failed'])}", verbose, log_caller_file="caption_downloader.py")
     return videos_data
 
 def download_captions_via_api(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False) -> Dict[str, Any]:
@@ -275,7 +249,7 @@ def download_captions_via_api(profile_name: str, videos_data: List[Dict[str, Any
     }
     youtube_service = initialize_youtube_api(profile_name, verbose=verbose)
     if not youtube_service:
-        _log("YouTube API not initialized. Cannot download captions via API.", verbose, is_error=True)
+        log("YouTube API not initialized. Cannot download captions via API.", verbose, is_error=True, log_caller_file="caption_downloader.py")
         return results
 
     captions_dir = get_youtube_captions_dir(profile_name)
@@ -286,15 +260,15 @@ def download_captions_via_api(profile_name: str, videos_data: List[Dict[str, Any
         video_title = video.get("title", "Unknown Title")
 
         if not video_id:
-            _log(f"No video ID found for video {i+1}. Skipping API caption download.", verbose, is_error=True)
+            log(f"No video ID found for video {i+1}. Skipping API caption download.", verbose, is_error=True, log_caller_file="caption_downloader.py")
             results["failed"].append({"video_id": "N/A", "title": video_title, "reason": "No video ID", "caption_filepath": None})
             continue
 
-        _log(f"Listing caption tracks for video '{video_title}' ({video_id}) via API.", verbose)
+        log(f"Listing caption tracks for video '{video_title}' ({video_id}) via API.", verbose, log_caller_file="caption_downloader.py")
         caption_tracks = list_caption_tracks(profile_name, youtube_service, video_id, verbose=verbose)
 
         if not caption_tracks:
-            _log(f"No caption tracks found for video '{video_title}' ({video_id}).", verbose)
+            log(f"No caption tracks found for video '{video_title}' ({video_id}).", verbose, log_caller_file="caption_downloader.py")
             results["failed"].append({"video_id": video_id, "title": video_title, "reason": "No caption tracks available", "caption_filepath": None})
             continue
 
@@ -305,13 +279,13 @@ def download_captions_via_api(profile_name: str, videos_data: List[Dict[str, Any
         output_filename = f"{video_id}_{caption_language}.srt"
         output_path = os.path.join(captions_dir, output_filename)
 
-        _log(f"Attempting to download {caption_language} caption for '{video_title}' ({video_id}) via API.", verbose)
+        log(f"Attempting to download {caption_language} caption for '{video_title}' ({video_id}) via API.", verbose, log_caller_file="caption_downloader.py")
         if download_caption_track(profile_name, youtube_service, caption_id, output_path, verbose=verbose):
             results["success"].append({"video_id": video_id, "title": video_title, "filename": output_path, "caption_filepath": output_path})
-            _log(f"Successfully downloaded captions for '{video_title}' ({video_id}).", verbose)
+            log(f"Successfully downloaded captions for '{video_title}' ({video_id}).", verbose, log_caller_file="caption_downloader.py")
         else:
             results["failed"].append({"video_id": video_id, "title": video_title, "reason": "API download failed", "caption_filepath": None})
-            _log(f"Failed to download captions for '{video_title}' ({video_id}) via API.", verbose, is_error=True)
+            log(f"Failed to download captions for '{video_title}' ({video_id}) via API.", verbose, is_error=True, log_caller_file="caption_downloader.py")
     return results 
 
 def download_captions_via_transcript_api(profile_name: str, videos_data: List[Dict[str, Any]], verbose: bool = False) -> Dict[str, Any]:
@@ -331,27 +305,27 @@ def download_captions_via_transcript_api(profile_name: str, videos_data: List[Di
         video_title = video.get("title", "Unknown Title")
 
         if not video_id:
-            _log(f"No video ID found for video {i+1}. Skipping Transcript API caption download.", verbose, is_error=True)
+            log(f"No video ID found for video {i+1}. Skipping Transcript API caption download.", verbose, is_error=True, log_caller_file="caption_downloader.py")
             results["failed"].append({"video_id": "N/A", "title": video_title, "reason": "No video ID", "caption_filepath": None})
             continue
         
         try:
-            _log(f"Attempting to fetch captions for '{video_title}' ({video_id}) via YouTubeTranscriptApi.", verbose)
+            log(f"Attempting to fetch captions for '{video_title}' ({video_id}) via YouTubeTranscriptApi.", verbose, log_caller_file="caption_downloader.py")
             transcript_list = ytt_api.list(video_id)
             
             transcript = None
             try:
                 transcript = transcript_list.find_manually_created_transcript(['en'])
             except NoTranscriptFound:
-                _log(f"No manually created English transcript found for {video_id}, trying generated.", verbose)
+                log(f"No manually created English transcript found for {video_id}, trying generated.", verbose, log_caller_file="caption_downloader.py")
                 try:
                     transcript = transcript_list.find_generated_transcript(['en'])
                 except NoTranscriptFound:
-                    _log(f"No generated English transcript found for {video_id}, trying any available manually created.", verbose)
+                    log(f"No generated English transcript found for {video_id}, trying any available manually created.", verbose, log_caller_file="caption_downloader.py")
                     try:
                         transcript = transcript_list.find_manually_created_transcript([t.language_code for t in transcript_list])
                     except NoTranscriptFound:
-                        _log(f"No manually created transcripts in any language found for {video_id}, trying any available generated.", verbose)
+                        log(f"No manually created transcripts in any language found for {video_id}, trying any available generated.", verbose, log_caller_file="caption_downloader.py")
                         try:
                             transcript = transcript_list.find_generated_transcript([t.language_code for t in transcript_list])
                         except NoTranscriptFound:
@@ -368,16 +342,16 @@ def download_captions_via_transcript_api(profile_name: str, videos_data: List[Di
                     f.write(formatted_caption)
                 
                 results["success"].append({"video_id": video_id, "title": video_title, "filename": output_path, "caption_filepath": output_path})
-                _log(f"Successfully downloaded captions for '{video_title}' ({video_id}) via Transcript API.", verbose)
+                log(f"Successfully downloaded captions for '{video_title}' ({video_id}) via Transcript API.", verbose, log_caller_file="caption_downloader.py")
             else:
-                _log(f"No suitable caption tracks found for video '{video_title}' ({video_id}) via Transcript API.", verbose)
+                log(f"No suitable caption tracks found for video '{video_title}' ({video_id}) via Transcript API.", verbose, log_caller_file="caption_downloader.py")
                 results["failed"].append({"video_id": video_id, "title": video_title, "reason": "No suitable caption tracks found via Transcript API", "caption_filepath": None})
 
         except (NoTranscriptFound, TranscriptsDisabled) as e:
-            _log(f"Captions not available or disabled for '{video_title}' ({video_id}): {e}", verbose, is_error=True)
+            log(f"Captions not available or disabled for '{video_title}' ({video_id}): {e}", verbose, is_error=True, log_caller_file="caption_downloader.py")
             results["failed"].append({"video_id": video_id, "title": video_title, "reason": str(e), "caption_filepath": None})
         except Exception as e:
-            _log(f"Unexpected error fetching captions for '{video_title}' ({video_id}) via Transcript API: {repr(e)}", verbose, is_error=True)
+            log(f"Unexpected error fetching captions for '{video_title}' ({video_id}) via Transcript API: {repr(e)}", verbose, is_error=True, log_caller_file="caption_downloader.py")
             results["failed"].append({"video_id": video_id, "title": video_title, "reason": repr(e), "caption_filepath": None})
             
     return results 

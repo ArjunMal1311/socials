@@ -6,13 +6,14 @@ from datetime import datetime
 from rich.status import Status
 from dotenv import load_dotenv
 from rich.console import Console
+from services.support.logger_util import _log as log
 from services.utils.ideas.support.aggregator import aggregate_platform_data
 from services.utils.ideas.support.composite_scorer import add_composite_scores
 from services.utils.ideas.support.clean import clean_reddit_data, clean_x_data
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file
+from services.utils.ideas.support.idea_utils import generate_content_titles, generate_video_scripts
 from services.utils.ideas.support.token_counter import calculate_reddit_tokens, calculate_x_tokens, calculate_aggregated_tokens
 from services.support.path_config import get_titles_output_dir, get_scripts_output_dir, get_reddit_profile_dir, get_community_dir, get_ideas_aggregated_dir
-from services.utils.ideas.support.idea_utils import _log, get_and_clean_aggregated_data, generate_content_titles, generate_video_scripts
 
 console = Console()
 
@@ -50,7 +51,7 @@ def main():
         reddit_dir = get_reddit_profile_dir(profile_name)
         x_community_dir = get_community_dir(profile_name)
 
-        _log(f"Clearing data for profile '{profile_name}'", args.verbose)
+        log(f"Clearing data for profile '{profile_name}'", args.verbose, log_caller_file="idea.py")
 
         for directory in [reddit_dir, x_community_dir]:
             if os.path.exists(directory):
@@ -59,29 +60,29 @@ def main():
                         file_path = os.path.join(directory, filename)
                         if os.path.isfile(file_path):
                             os.remove(file_path)
-                            _log(f"Deleted {filename}", args.verbose, status=status)
-                _log(f"Cleared directory: {directory}", args.verbose)
+                            log(f"Deleted {filename}", args.verbose, status=status, log_caller_file="idea.py")
+                log(f"Cleared directory: {directory}", args.verbose, log_caller_file="idea.py")
             else:
-                _log(f"Directory does not exist, skipping: {directory}", args.verbose)
-        _log("Clearing completed.", args.verbose)
+                log(f"Directory does not exist, skipping: {directory}", args.verbose, log_caller_file="idea.py")
+        log("Clearing completed.", args.verbose, log_caller_file="idea.py")
         return
 
     if args.composite:
         with Status(f"[white]Calculating composite scores for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
             add_composite_scores(args.profile, args.verbose, status)
             status.stop()
-        _log("Composite score calculation completed.", args.verbose)
+        log("Composite score calculation completed.", args.verbose, log_caller_file="idea.py")
         return
 
     if args.aggregate:
         with Status(f"[white]Aggregating data for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
             aggregate_platform_data(args.profile, args.verbose, status)
             status.stop()
-        _log("Data aggregation completed.", args.verbose)
+        log("Data aggregation completed.", args.verbose, log_caller_file="idea.py")
         return
 
     if not args.platforms:
-        _log("Please specify at least one platform to pull data from using --platforms.", is_error=True)
+        log("Please specify at least one platform to pull data from using --platforms.", is_error=True, log_caller_file="idea.py")
         parser.print_help()
         return
 
@@ -91,30 +92,30 @@ def main():
             if "reddit" in args.platforms:
                 reddit_token_count = calculate_reddit_tokens(args.profile, args.verbose, status)
                 if reddit_token_count is not None:
-                    _log(f"Total tokens in latest Reddit JSON file: {reddit_token_count}", args.verbose)
+                    log(f"Total tokens in latest Reddit JSON file: {reddit_token_count}", args.verbose, log_caller_file="idea.py")
                     token_count_output = True
                 else:
-                    _log("Failed to calculate Reddit tokens.", args.verbose, is_error=True)
+                    log("Failed to calculate Reddit tokens.", args.verbose, is_error=True, log_caller_file="idea.py")
             
             if "x" in args.platforms:
                 x_token_count = calculate_x_tokens(args.profile, args.verbose, status)
                 if x_token_count is not None:
-                    _log(f"Total tokens in latest X JSON file: {x_token_count}", args.verbose)
+                    log(f"Total tokens in latest X JSON file: {x_token_count}", args.verbose, log_caller_file="idea.py")
                     token_count_output = True
                 else:
-                    _log("Failed to calculate X tokens.", args.verbose, is_error=True)
+                    log("Failed to calculate X tokens.", args.verbose, is_error=True, log_caller_file="idea.py")
 
             aggregated_dir = get_ideas_aggregated_dir(args.profile)
             aggregated_file = os.path.join(aggregated_dir, "aggregate.json")
             if os.path.exists(aggregated_file):
                 aggregated_token_count = calculate_aggregated_tokens(args.profile, args.verbose, status)
                 if aggregated_token_count is not None:
-                    _log(f"Total tokens in aggregated JSON file: {aggregated_token_count}", args.verbose)
+                    log(f"Total tokens in aggregated JSON file: {aggregated_token_count}", args.verbose, log_caller_file="idea.py")
                     token_count_output = True
                 else:
-                    _log("Failed to calculate aggregated tokens.", args.verbose, is_error=True)
+                    log("Failed to calculate aggregated tokens.", args.verbose, is_error=True, log_caller_file="idea.py")
             elif token_count_output:
-                _log("No aggregated data found to calculate tokens.", args.verbose, is_error=False)
+                log("No aggregated data found to calculate tokens.", args.verbose, is_error=False, log_caller_file="idea.py")
 
             status.stop()
         return
@@ -122,27 +123,21 @@ def main():
     if args.clean:
         with Status(f"[white]Cleaning data for profile '{args.profile}'[/white]", spinner="dots", console=console) as status:
             if "reddit" in args.platforms:
-                _log("Cleaning Reddit data...", args.verbose, status=status)
+                log("Cleaning Reddit data...", args.verbose, status=status, log_caller_file="idea.py")
                 clean_reddit_data(args.profile, args.verbose, status)
             if "x" in args.platforms:
-                _log("Cleaning X data...", args.verbose, status=status)
+                log("Cleaning X data...", args.verbose, status=status, log_caller_file="idea.py")
                 clean_x_data(args.profile, args.verbose, status)
             status.stop()
-        _log("Cleaning completed.", args.verbose)
+        log("Cleaning completed.", args.verbose, log_caller_file="idea.py")
         
         if not (args.generate_titles or args.generate_scripts or args.tokens):
             return
 
     if args.generate_titles:
         with Status(f"[white]Generating content titles for profile '{args.profile}' from {', '.join(args.platforms).upper()} ...[/white]", spinner="dots", console=console) as status:
-            aggregated_data = get_and_clean_aggregated_data(args.profile, args.platforms, status, args.verbose, clean=args.clean)
-            if not aggregated_data:
-                _log("No aggregated data available for title generation.", args.verbose, is_error=True, status=status)
-                return
             titles = generate_content_titles(
                 profile_name=args.profile,
-                platforms=args.platforms,
-                api_key=args.api_key,
                 status=status,
                 verbose=args.verbose,
             )
@@ -160,32 +155,33 @@ def main():
                     cleaned_titles_string = titles.replace("```json", "").replace("```", "").strip()
                     with open(output_file, 'w', encoding='utf-8') as f:
                         json.dump(json.loads(cleaned_titles_string), f, indent=2, ensure_ascii=False)
-                    _log(f"Generated titles saved to {output_file}", args.verbose)
+                    log(f"Generated titles saved to {output_file}", args.verbose, log_caller_file="idea.py")
                 except Exception as e:
-                    _log(f"Error saving generated titles to {output_file}: {e}", args.verbose, is_error=True)
+                    log(f"Error saving generated titles to {output_file}: {e}", args.verbose, is_error=True, log_caller_file="idea.py")
             else:
-                _log("No content titles generated.", args.verbose, is_error=True)
+                log("No content titles generated.", args.verbose, is_error=True, log_caller_file="idea.py")
+                
     elif args.generate_scripts:
         titles_output_dir = get_titles_output_dir(args.profile)
         latest_titles_file = get_latest_dated_json_file(directory=titles_output_dir, prefix="generated_titles_")
 
         if not latest_titles_file or not os.path.exists(latest_titles_file):
-            _log(f"Error: No latest generated titles file found for profile '{args.profile}' in {titles_output_dir}. Please generate titles first.", is_error=True)
+            log(f"Error: No latest generated titles file found for profile '{args.profile}' in {titles_output_dir}. Please generate titles first.", is_error=True, log_caller_file="idea.py")
             return
 
-        _log(f"Loading latest generated titles from {latest_titles_file}", args.verbose)
+        log(f"Loading latest generated titles from {latest_titles_file}", args.verbose, log_caller_file="idea.py")
         try:
             with open(latest_titles_file, 'r', encoding='utf-8') as f:
                 generated_titles_data = json.load(f)
             all_ideas = generated_titles_data.get("ideas", [])
         except json.JSONDecodeError:
-            _log(f"Error: Invalid JSON in generated titles file at '{latest_titles_file}'.", is_error=True)
+            log(f"Error: Invalid JSON in generated titles file at '{latest_titles_file}'.", is_error=True, log_caller_file="idea.py")
             return
         
         selected_ideas = [idea for idea in all_ideas if idea.get("approved") == True]
 
         if not selected_ideas:
-            _log(f"No approved ideas found in {latest_titles_file}. Please set \"approved\": true for ideas you want to generate scripts for.", is_error=True)
+            log(f"No approved ideas found in {latest_titles_file}. Please set \"approved\": true for ideas you want to generate scripts for.", is_error=True, log_caller_file="idea.py")
             return
 
         with Status(f"[white]Generating scripts for {len(selected_ideas)} selected ideas for profile '{args.profile}' ...[/white]", spinner="dots", console=console) as status:
@@ -204,13 +200,13 @@ def main():
                 try:
                     with open(output_file, 'w', encoding='utf-8') as f:
                         json.dump(scripts, f, indent=2, ensure_ascii=False)
-                    _log(f"Generated scripts saved to {output_file}", args.verbose)
+                    log(f"Generated scripts saved to {output_file}", args.verbose, log_caller_file="idea.py")
                 except Exception as e:
-                    _log(f"Error saving generated scripts to {output_file}: {e}", args.verbose, is_error=True)
+                    log(f"Error saving generated scripts to {output_file}: {e}", args.verbose, is_error=True, log_caller_file="idea.py")
             else:
-                _log("No video scripts generated.", args.verbose, is_error=True)
+                log("No video scripts generated.", args.verbose, is_error=True, log_caller_file="idea.py")
     elif not args.tokens:
-        _log("No action specified. Use --generate-titles to generate titles, --generate-scripts to generate scripts, or --tokens to calculate tokens.", is_error=True)
+        log("No action specified. Use --generate-titles to generate titles, --generate-scripts to generate scripts, or --tokens to calculate tokens.", is_error=True, log_caller_file="idea.py")
         parser.print_help()
 
 if __name__ == "__main__":

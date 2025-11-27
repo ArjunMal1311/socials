@@ -4,35 +4,12 @@ import sys
 import argparse
 import subprocess
 
-from datetime import datetime
 from rich.status import Status
 from rich.console import Console
-from typing import Optional, Dict, Any
 from services.support.path_config import get_instagram_videos_dir
+from services.support.logger_util import _log as log
 
 console = Console()
-
-def _log(message: str, verbose: bool = False, is_error: bool = False, status: Optional[Status] = None, api_info: Optional[Dict[str, Any]] = None):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    if is_error:
-        level = "ERROR"
-        style = "bold red"
-    else:
-        level = "INFO"
-        style = "white"
-    
-    formatted_message = f"[{timestamp}] [{level}] {message}"
-    
-    if api_info:
-        api_message = api_info.get('message', '')
-        if api_message:
-            formatted_message += f" | API: {api_message}"
-    
-    console.print(formatted_message, style=style)
-    
-    if status:
-        status.update(formatted_message)
 
 def download_instagram_videos(video_urls: list, profile_name: str, status: Status = None, verbose: bool = False):
     output_dir = get_instagram_videos_dir(profile_name)
@@ -41,11 +18,11 @@ def download_instagram_videos(video_urls: list, profile_name: str, status: Statu
     try:
         subprocess.run(['yt-dlp', '--version'], capture_output=True, check=True)
     except FileNotFoundError:
-        _log("Error: yt-dlp is not installed.", verbose, is_error=True)
-        _log("Please install it using: pip install yt-dlp or sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp", verbose)
+        log("Error: yt-dlp is not installed.", verbose, is_error=True, log_caller_file="videos.py")
+        log("Please install it using: pip install yt-dlp or sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp", verbose, log_caller_file="videos.py")
         return []
     except subprocess.CalledProcessError as e:
-        _log(f"Error checking yt-dlp version: {e}", verbose, is_error=True)
+        log(f"Error checking yt-dlp version: {e}", verbose, is_error=True, log_caller_file="videos.py")
         return []
 
     downloaded_paths = []
@@ -54,7 +31,7 @@ def download_instagram_videos(video_urls: list, profile_name: str, status: Statu
             status.update(f"[white]Downloading video {i+1}/{len(video_urls)} from {url} using yt-dlp...[/white]")
         
         try:
-            output_template = os.path.join(output_dir, '%(id)s.%(ext)s')
+            output_template = os.path.join(output_dir, '% (id)s.%(ext)s')
             command = [
                 'yt-dlp',
                 '--format', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]', 
@@ -72,7 +49,7 @@ def download_instagram_videos(video_urls: list, profile_name: str, status: Statu
                 if status:
                     status.update(f"[green]Successfully downloaded {os.path.basename(downloaded_file)}[/green]")
                 else:
-                    _log(f"Successfully downloaded {os.path.basename(downloaded_file)}", verbose)
+                    log(f"Successfully downloaded {os.path.basename(downloaded_file)}", verbose, log_caller_file="videos.py")
             else:
                 raise Exception("yt-dlp output did not contain expected download destination.")
 
@@ -80,12 +57,12 @@ def download_instagram_videos(video_urls: list, profile_name: str, status: Statu
             if status:
                 status.update(f"[bold red]Error downloading {url} with yt-dlp: {e.stderr}[/bold red]")
             else:
-                _log(f"Error downloading {url} with yt-dlp: {e.stderr}", verbose, is_error=True)
+                log(f"Error downloading {url} with yt-dlp: {e.stderr}", verbose, is_error=True, log_caller_file="videos.py")
         except Exception as e:
             if status:
                 status.update(f"[bold red]An unexpected error occurred for {url}: {e}[/bold red]")
             else:
-                _log(f"An unexpected error occurred for {url}: {e}", verbose, is_error=True)
+                log(f"An unexpected error occurred for {url}: {e}", verbose, is_error=True, log_caller_file="videos.py")
     
     return downloaded_paths
 
@@ -102,13 +79,13 @@ def main():
     video_urls = [url.strip() for url in args.urls.split(',') if url.strip()]
 
     if not video_urls:
-        _log("No valid URLs provided. Please provide a comma-separated list of Instagram video URLs.", args.verbose, is_error=True)
+        log("No valid URLs provided. Please provide a comma-separated list of Instagram video URLs.", args.verbose, is_error=True, log_caller_file="videos.py")
         sys.exit(1)
 
     with Status("[white]Starting Instagram video download...[/white]", spinner="dots", console=console) as status:
         downloaded = download_instagram_videos(video_urls, args.profile, status=status, verbose=args.verbose)
         status.stop()
-        _log(f"Download process complete. Downloaded {len(downloaded)} videos.", args.verbose)
+        log(f"Download process complete. Downloaded {len(downloaded)} videos.", args.verbose, log_caller_file="videos.py")
 
 if __name__ == "__main__":
     main()

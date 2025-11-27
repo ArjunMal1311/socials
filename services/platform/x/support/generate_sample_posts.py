@@ -1,39 +1,12 @@
-import re
 import random
 
 from rich.status import Status
 from rich.console import Console
 from datetime import datetime, timedelta
+from services.support.logger_util import _log as log
 from services.platform.x.support.save_tweet_schedules import save_tweet_schedules
 
 console = Console()
-
-def _log(message: str, verbose: bool, status=None, is_error: bool = False):
-    if is_error:
-        if status:
-            status.stop()
-        log_message = message
-        if not verbose:
-            match = re.search(r'(\d{3}\s+.*?)(?:\.|\n|$)', message)
-            if match:
-                log_message = f"Error: {match.group(1).strip()}"
-            else:
-                log_message = message.split('\n')[0].strip()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "bold red"
-        console.print(f"[generate_sample_posts.py] {timestamp}|[{color}]{log_message}[/{color}]")
-    elif verbose:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[generate_sample_posts.py] {timestamp}|[{color}]{message}[/{color}]")
-        if status:
-            status.start()
-    elif status:
-        status.update(message)
-    else:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        color = "white"
-        console.print(f"[generate_sample_posts.py] {timestamp}|[{color}]{message}[/{color}]")
 
 def generate_sample_posts(gap_minutes_min=None, gap_minutes_max=None, fixed_gap_hours=None, fixed_gap_minutes=None, scheduled_tweet_text="This is a sample tweet!", start_image_number=1, profile_name="Default", num_days=1, start_date=None, verbose: bool = False):
     with Status("[white]Generating sample posts...[/white]", spinner="dots", console=console) as status:
@@ -73,4 +46,4 @@ def generate_sample_posts(gap_minutes_min=None, gap_minutes_max=None, fixed_gap_
                 image_index += 1
         save_tweet_schedules(sample_posts, profile_name)
         status.update(f"[white]Generated {len(sample_posts)} sample posts for profile '{profile_name}'.[/white]")
-        _log(f"Generated {len(sample_posts)} sample posts for profile '{profile_name}'.", verbose)
+        log(f"Generated {len(sample_posts)} sample posts for profile '{profile_name}'.", verbose, log_caller_file="generate_sample_posts.py")
