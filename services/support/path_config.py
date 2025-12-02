@@ -147,6 +147,9 @@ def get_google_profile_dir(profile_name: str) -> str:
 def get_google_analysis_dir(profile_name: str) -> str:
     return os.path.join(get_google_profile_dir(profile_name), "analysis")
 
+def get_product_hunt_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "product_hunt", profile_name)
+
 def get_ideas_aggregated_dir(profile_name: str) -> str:
     path = os.path.join(BASE_TMP_DIR, "ideas", profile_name, "aggregated")
     return ensure_dir_exists(path)
