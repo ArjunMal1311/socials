@@ -80,9 +80,9 @@ def generate_video_scripts(profile_name: str, selected_ideas: List[Dict[str, Any
         log(f"Profile '{profile_name}' not found.", verbose, is_error=True, status=status, log_caller_file="idea_utils.py")
         return None
 
-    script_generation_prompt_template = profile_config.get("prompts", {}).get("content_ideas")
+    script_generation_prompt_template = profile_config.get("prompts", {}).get("script_generation_prompt")
     if not script_generation_prompt_template:
-        log(f"'content_ideas' prompt not found in profile '{profile_name}'.", verbose, is_error=True, status=status, log_caller_file="idea_utils.py")
+        log(f"'script_generation_prompt' prompt not found in profile '{profile_name}'.", verbose, is_error=True, status=status, log_caller_file="idea_utils.py")
         return None
 
     api_key_pool = APIKeyPool()

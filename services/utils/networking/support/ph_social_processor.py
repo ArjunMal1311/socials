@@ -19,11 +19,11 @@ def process_product_socials(linkedin_driver, x_driver, product_data: Dict[str, A
         if "linkedin.com/in/" in link:
             username = link.split("linkedin.com/in/")[-1].strip('/')
             connection_sent = send_connection_request(linkedin_driver, link, verbose, status)
-            socials_output["linkedin"]["profiles"].append({"url": link, "connection_sent": connection_sent, "dm": False})
+            socials_output["linkedin"]["profiles"].append({"url": link, "connection_sent": connection_sent, "dm": False, "irrelevant": False, "connection_accepted": False})
         elif "x.com/" in link or "twitter.com/" in link:
             username = link.split("x.com/")[-1].split("twitter.com/")[-1].strip('/')
             dm_available = check_dm_button(x_driver, username, verbose, status)
-            socials_output["x"]["profiles"].append({"url": link, "dm_available": dm_available, "dm": False})
+            socials_output["x"]["profiles"].append({"url": link, "dm_available": dm_available, "dm": False, "irrelevant": False})
     
     product_data["socials"] = socials_output
     log(f"Finished processing social links for product: {product_data.get('Name', 'N/A')}", verbose, status, log_caller_file="ph_social_processor.py", data=socials_output)
