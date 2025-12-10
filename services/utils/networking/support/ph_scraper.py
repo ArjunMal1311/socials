@@ -113,7 +113,7 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
                     "Activity": "N/A", 
                     "Next Action": "N/A", 
                     "Improvements": "N/A",
-                    "socials": json.dumps(detailed_product_data.get("socials", {}))
+                    "socials": detailed_product_data.get("socials", {})
                 }
                 all_scraped_products_detailed.append(formatted_data)
                 log(f"Successfully scraped detailed product information for {formatted_data.get("Name")}.", verbose, status=status, log_caller_file="ph_scraper.py", data=formatted_data)

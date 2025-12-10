@@ -152,7 +152,10 @@ def main():
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 output_file = os.path.join(titles_output_dir, f"generated_titles_{timestamp}.json")
                 try:
-                    cleaned_titles_string = titles.replace("```json", "").replace("```", "").strip()
+                    if isinstance(titles, tuple) and titles:
+                        cleaned_titles_string = titles[0].replace("```json", "").replace("```", "").strip()
+                    else:
+                        cleaned_titles_string = titles.replace("```json", "").replace("```", "").strip()
                     with open(output_file, 'w', encoding='utf-8') as f:
                         json.dump(json.loads(cleaned_titles_string), f, indent=2, ensure_ascii=False)
                     log(f"Generated titles saved to {output_file}", args.verbose, log_caller_file="idea.py")
@@ -181,7 +184,7 @@ def main():
         selected_ideas = [idea for idea in all_ideas if idea.get("approved") == True]
 
         if not selected_ideas:
-            log(f"No approved ideas found in {latest_titles_file}. Please set \"approved\": true for ideas you want to generate scripts for.", is_error=True, log_caller_file="idea.py")
+            log(f"No approved ideas found in {latest_titles_file}. Please set \"approved\": true for ideas you want to generate scripts for.", args.verbose, is_error=True, log_caller_file="idea.py")
             return
 
         with Status(f"[white]Generating scripts for {len(selected_ideas)} selected ideas for profile '{args.profile}' ...[/white]", spinner="dots", console=console) as status:
