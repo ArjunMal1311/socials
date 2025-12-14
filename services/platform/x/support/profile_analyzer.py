@@ -7,7 +7,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from services.platform.x.support.process_container import process_container
 from services.platform.x.support.capture_containers_scroll import capture_containers_and_scroll
-from services.support.sheets_util import get_google_sheets_service, create_online_action_mode_sheet, save_action_mode_replies_to_sheet
+from services.support.sheets_util import get_google_sheets_service, create_sheet_if_not_exists
+from services.support.database import save_data_to_service
 
 console = Console()
 
@@ -22,7 +23,8 @@ def analyze_profile(driver, profile_name: str, target_profile_name: str, verbose
         log("Failed to get Google Sheets service. Exiting.", verbose, is_error=True, log_caller_file="profile_analyzer.py")
         return
 
-    create_online_action_mode_sheet(service, profile_name, verbose=verbose, status=status)
+    headers = [['Tweet ID', 'Tweet Date', 'Tweet URL', 'Tweet Text', 'Media URLs', 'Generated Reply', 'Status', 'Posted Date', 'Scraped Date', 'Run Number', 'Profile Image URL', 'Likes', 'Retweets', 'Replies', 'Views', 'Bookmarks', 'Profile']]
+    create_sheet_if_not_exists(service, sheet_name, headers, verbose=verbose, status=status, target_range='A1:Q1')
 
     profile_url = f"https://x.com/{target_profile_name}/with_replies"
     driver.get(profile_url)
@@ -60,7 +62,7 @@ def analyze_profile(driver, profile_name: str, target_profile_name: str, verbose
     log(f"Processed {len(all_tweet_data)} unique tweets.", verbose, log_caller_file="profile_analyzer.py")
 
     if all_tweet_data:
-        save_action_mode_replies_to_sheet(service, profile_name, all_tweet_data, verbose=verbose, status=status)
+        save_data_to_service(data=all_tweet_data, service_preference="google_sheets", operation_type="initial_generated_replies", profile_name=profile_name, verbose=verbose, status=status)
         log(f"Successfully saved {len(all_tweet_data)} tweets to Google Sheet '{sheet_name}'.", verbose, log_caller_file="profile_analyzer.py")
     else:
         log("No tweets to save to Google Sheet.", verbose, log_caller_file="profile_analyzer.py")

@@ -1,28 +1,24 @@
 import os
 import sys
-import time
 import argparse
-import threading
 
 from dotenv import load_dotenv
 from rich.status import Status
 from rich.console import Console
 
-from profiles import PROFILES, SPECIFIC_TARGET_PROFILES
+from profiles import PROFILES
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import datetime, timedelta
 from services.support.logger_util import _log as log
 from services.platform.x.support.action import setup_driver
 from services.platform.x.support.profile_analyzer import analyze_profile
-from services.platform.x.support.eternity_server import start_eternity_review_server 
+from services.platform.x.support.eternity_server import start_eternity_review_server
 from services.support.path_config import get_browser_data_dir, initialize_directories
-from services.platform.x.support.action_server import start_action_mode_review_server
 from services.platform.x.support.eternity import run_eternity_mode, clear_eternity_files 
 from services.platform.x.support.post_to_community import post_to_community_tweet, post_regular_tweet
 from services.platform.x.support.post_approved_tweets import post_approved_replies, check_profile_credentials
-from services.platform.x.support.action import run_action_mode, run_action_mode_with_review, post_approved_action_mode_replies, run_action_mode_online, post_approved_action_mode_replies_online
+from services.platform.x.support.action import run_action_mode_online, post_approved_action_mode_replies_online
 
 console = Console()
 
@@ -35,17 +31,15 @@ def main():
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     # Action Mode
-    parser.add_argument("--action-review", action="store_true", help="Activate action mode with integrated review workflow. Generates replies, saves them for approval, and opens a review server for manual approval before posting.")
+    # parser.add_argument("--action-review", action="store_true", help="Activate action mode with integrated review workflow. Generates replies, saves them for approval, and opens a review server for manual approval before posting.")
+    parser.add_argument("--action-mode", action="store_true", help="Activate action mode to generate replies. In this mode, the system scrapes tweets, generates replies using Gemini AI, and saves them to a Google Sheet for review.")
     parser.add_argument("--action-port", type=int, default=8765, help="Port number for the action mode review server. Default is 8765. This is separate from the general --port setting.")
     # Action Mode (Online)
     parser.add_argument("--run-number", type=int, default=1, help="Specify the run number for the current day. Useful for multiple daily runs (e.g., 1 for first run, 2 for second run). Default is 1.")
-    parser.add_argument("--online", action="store_true", help="Use Google Sheets integration for review and posting in action mode. This enables cloud-based collaboration and review workflows.")
     # Action Mode (Additional)
     parser.add_argument("--ignore-video-tweets", action="store_true", help="Skip processing of tweets that contain video content during analysis and reply generation. Useful for focusing on text-based interactions.")
     # Action Generate & Post later via API
-    parser.add_argument("--action-generate", action="store_true", help="Activate action mode to generate replies and save them for approval without opening a review server or posting. Useful for batch generation.")
-    parser.add_argument("--post-action-approved", action="store_true", help="Post all approved replies from the action mode schedule. This will post all replies that have been marked as approved in the action mode workflow.")
-    parser.add_argument("--post-action-approved-sequential", action="store_true", help="Post all approved replies from the action mode schedule in sequential order. Designed for automated execution workflows where replies should be posted one after another.")
+    # parser.add_argument("--action-generate", action="store_true", help="Activate action mode to generate replies and save them for approval without opening a review server or posting. Useful for batch generation.")
     
     # Eternity Mode
     parser.add_argument("--limit", type=int, default=None, help="Limit the number of approved replies to post. Useful for testing or controlling the volume of posts. Set to 0 for no limit.")
@@ -190,154 +184,6 @@ def main():
                 driver.quit()
         return
 
-    if args.action_generate:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
-
-        with Status(f"[white]Running Action Mode Generation: Scraping and analyzing tweets for {profile_name}...[/white]", spinner="dots", console=console) as status:
-            driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
-            status.stop()
-            if driver:
-                driver.quit()
-            log(f"Action mode generation finished for {profile_name}. Replies saved to Google Sheet: {profile_name}_online_replies", verbose=args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-        return
-
-    if args.action_review:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        profile_name = PROFILES[profile]['name']
-        custom_prompt = PROFILES[profile]['prompts']['reply_generation']
-        
-        specific_search_url = None
-        target_profile_name = None
-        if args.specific_target_profiles:
-            profile_key = args.specific_target_profiles
-            if profile_key not in SPECIFIC_TARGET_PROFILES:
-                log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-                log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-                sys.exit(1)
-            
-            target_profiles_list = SPECIFIC_TARGET_PROFILES[profile_key]
-            profile_names_for_query = [url.split('/')[-1] for url in target_profiles_list]
-            today = datetime.now()
-            yesterday = today - timedelta(days=1)
-            until_date = today.strftime('%Y-%m-%d')
-            since_date = yesterday.strftime('%Y-%m-%d')
-            
-            from_queries = [f"from%3A{name}" for name in profile_names_for_query]
-            query_string = "%20OR%20".join(from_queries)
-            specific_search_url = f"https://x.com/search?q=(({query_string}))%20until%3A{until_date}%20since%3A{since_date}&src=typed_query"
-            target_profile_name = profile_key
-
-        with Status(f"[white]Running Action Mode with review: Scraping and analyzing tweets for {profile_name}...[/white]", spinner="dots", console=console) as status:
-            if args.online:
-                driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, specific_search_url=specific_search_url, target_profile_name=target_profile_name, verbose=args.verbose, headless=not args.no_headless)
-                status.stop()
-                log(f"Action mode with online review finished. Review generated replies in Google Sheet: {profile_name}_online_replies", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-                log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-                input()
-            else:
-                driver = run_action_mode_with_review(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
-                status.stop()
-                
-        if driver:
-            if not args.online:                
-                httpd_server = None
-                def run_server():
-                    nonlocal httpd_server
-                    httpd_server = start_action_mode_review_server(profile_name, port=args.action_port, verbose=args.verbose)
-                
-                server_thread = threading.Thread(target=run_server)
-                server_thread.daemon = True
-                server_thread.start()
-                time.sleep(1)
-
-                log("Press Enter here when you are done reviewing and want to post approved replies.", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-                input()
-            
-                if httpd_server and hasattr(httpd_server, 'shutdown_server'):
-                    httpd_server.shutdown_server()
-                    server_thread.join()
-
-            with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
-                if args.online:
-                    if args.post_via_api:
-                        driver.quit()
-                        driver = None
-                    summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose)
-                else:
-                    summary = post_approved_action_mode_replies(driver, profile_name, verbose=args.verbose)
-                status.stop()
-                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-            
-            if driver:
-                driver.quit()
-        return
-
-    if args.post_action_approved_sequential:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        profile_name = PROFILES[profile]['name']
-        user_data_dir = get_browser_data_dir(profile_name)
-
-        driver = None
-        if not args.post_via_api:
-            try:
-                driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
-                for msg in setup_messages:
-                    log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-            except Exception as e:
-                log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-                sys.exit(1)
-
-        with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
-            summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose)
-            status.stop()
-            log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-        
-        if driver:
-            driver.quit()
-        return
-
-    if args.post_action_approved:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        profile_name = PROFILES[profile]['name']
-        user_data_dir = get_browser_data_dir(profile_name)
-
-        try:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=not args.no_headless)
-            for msg in setup_messages:
-                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-        except Exception as e:
-            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
-            summary = post_approved_action_mode_replies(driver, profile_name, verbose=args.verbose)
-            status.stop()
-            log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-        driver.quit()
-        return
-
     if args.post_to_community:
         profile = args.profile
         if profile not in PROFILES:
@@ -346,37 +192,12 @@ def main():
             sys.exit(1)
 
         profile_name = PROFILES[profile]['name']
-        tweet_text = args.post_to_community_tweet
-        community_name = args.community_name
-
-        if not tweet_text:
-            log("--post-to-community-tweet is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            parser.print_help()
+        if not args.post_to_community_tweet:
+            log("Error: --post-to-community-tweet must be specified when using --post-to-community mode.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
 
-        if not community_name:
-            log("--community-name is required when --post-to-community is active.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            parser.print_help()
-            sys.exit(1)
-        
-        user_data_dir = get_browser_data_dir(profile_name)
-
-        try:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=False)
-            for msg in setup_messages:
-                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-        except Exception as e:
-            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        with Status(f"[white]Posting tweet to community '{community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            success = post_to_community_tweet(driver, tweet_text, community_name, status=status, verbose=args.verbose)
-            status.stop()
-            if success:
-                log(f"Successfully posted tweet to community '{community_name}'.", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-            else:
-                log(f"Failed to post tweet to community '{community_name}'.", args.verbose, is_error=True, status=status, api_info=None, log_caller_file="replies.py")
-        driver.quit()
+        with Status(f"[white]Posting to community {args.community_name} for {profile_name}...[/white]", spinner="dots", console=console) as status:
+            post_to_community_tweet(profile_name, args.post_to_community_tweet, args.community_name, verbose=args.verbose, status=status)
         return
 
     if args.post_tweet:
@@ -385,57 +206,10 @@ def main():
             log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
             sys.exit(1)
-        
+
         profile_name = PROFILES[profile]['name']
-        tweet_text = args.post_tweet
-
-        user_data_dir = get_browser_data_dir(profile_name)
-
-        try:
-            driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=False)
-            for msg in setup_messages:
-                log(msg, args.verbose, status=None, api_info=None, log_caller_file="replies.py")
-        except Exception as e:
-            log(f"Error setting up WebDriver: {e}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-
-        with Status(f"[white]Posting regular tweet for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            success = post_regular_tweet(driver, tweet_text, status=status, verbose=args.verbose)
-            status.stop()
-            if success:
-                log(f"Successfully posted regular tweet.", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-            else:
-                log(f"Failed to post regular tweet.", args.verbose, is_error=True, status=status, api_info=None, log_caller_file="replies.py")
-        driver.quit()
-        return
-
-    if args.specific_target_profiles:
-        profile_key = args.specific_target_profiles
-        if profile_key not in SPECIFIC_TARGET_PROFILES:
-            log(f"Specific target profile '{profile_key}' not found in SPECIFIC_TARGET_PROFILES. Available profiles: {', '.join(SPECIFIC_TARGET_PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your specific target profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-            sys.exit(1)
-        
-        target_profiles_list = SPECIFIC_TARGET_PROFILES[profile_key]
-        profile_names_for_query = [url.split('/')[-1] for url in target_profiles_list]
-        today = datetime.now()
-        yesterday = today - timedelta(days=1)
-        until_date = today.strftime('%Y-%m-%d')
-        since_date = yesterday.strftime('%Y-%m-%d')
-        
-        from_queries = [f"from%3A{name}" for name in profile_names_for_query]
-        query_string = "%20OR%20".join(from_queries)
-        search_url = f"https://x.com/search?q=(({query_string}))%20until%3A{until_date}%20since%3A{since_date}&src=typed_query"
-        
-        login_profile_name = args.profile
-        custom_prompt = PROFILES[login_profile_name]['prompts']['reply_generation']
-        
-        with Status(f"[white]Running Action Mode for specific profiles: Scraping and analyzing tweets for {profile_names_for_query} using login profile {login_profile_name}...[/white]", spinner="dots", console=console) as status:
-            driver = run_action_mode_online(login_profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, api_key=args.api_key, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, specific_search_url=search_url, target_profile_name=profile_key, verbose=args.verbose, headless=not args.no_headless)
-            status.stop()
-            if driver:
-                driver.quit()
-            log(f"Action mode generation for specific profiles finished. Replies saved to Google Sheet: {login_profile_name}_online_replies", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+        with Status(f"[white]Posting regular tweet for {profile_name}...[/white]", spinner="dots", console=console) as status:
+            post_regular_tweet(profile_name, args.post_tweet, verbose=args.verbose, status=status)
         return
 
     if args.action_mode:
@@ -449,14 +223,20 @@ def main():
         custom_prompt = PROFILES[profile]['prompts']['reply_generation']
         
         with Status(f'[white]Running Action Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
-            result = run_action_mode(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
+            driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
             status.stop()
             log("Action Mode Results:", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-            for res in result:
-                log(f"Tweet: {res.get('tweet_text', 'N/A')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-                log(f"Reply: {res.get('generated_reply', 'N/A')[:70]}...", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-                log(f"Status: {res.get('status', 'N/A')}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
-                log("\n", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+            
+            log("Press Enter here when you are done reviewing the generated replies in Google Sheet and want to post approved replies.", args.verbose, status=None, api_info=None, log_caller_file="replies.py")
+            input()
+
+            with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
+                summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose)
+                status.stop()
+                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
+            
+            if driver and not args.post_via_api:
+                driver.quit()
 
     else:
         parser.print_help()

@@ -23,7 +23,8 @@ from services.support.video_download import download_twitter_videos
 from services.platform.x.support.process_container import process_container
 from services.platform.x.support.eternity_html import build_eternity_schedule_html
 from services.platform.x.support.generate_reply_with_key import generate_reply_with_key
-from services.support.sheets_util import get_google_sheets_service, sanitize_sheet_name, get_generated_replies
+from services.support.sheets_util import get_google_sheets_service, sanitize_sheet_name
+from services.support.database import get_data_from_service
 from services.support.path_config import get_browser_data_dir, get_eternity_dir, get_eternity_schedule_file_path, ensure_dir_exists
 
 console = Console()
@@ -183,7 +184,7 @@ def run_eternity_mode(profile_name: str, custom_prompt: str, eternity_browser_pr
 
     service = get_google_sheets_service(verbose=verbose)
     reply_sheet_name = f"{sanitize_sheet_name(profile_name)}_replied_tweets"
-    all_replies = get_generated_replies(service, reply_sheet_name, verbose=verbose)
+    all_replies = get_data_from_service(service_preference="google_sheets", operation_type="generated_replies", profile_name=profile_name, verbose=verbose)
 
     if all_replies:
         all_replies = [r for r in all_replies if r.get('approved')]
