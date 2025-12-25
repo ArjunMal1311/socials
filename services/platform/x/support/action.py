@@ -24,7 +24,7 @@ from services.platform.x.support.action_support import _generate_with_pool, _ens
 
 console = Console()
 
-def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True) -> Any:
+def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, run_number: int = 1, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True, service_preference: str = "google_sheets") -> Any:
     user_data_dir = get_browser_data_dir(profile_name)
     schedule_folder = _ensure_action_mode_folder(profile_name)
     setup_messages = []
@@ -110,7 +110,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
         api_pool.set_explicit_key(api_key)
     rate_limiter = RateLimiter()
 
-    all_replies = get_data_from_service(service_preference="google_sheets", operation_type="generated_replies", profile_name=profile_name, verbose=verbose, status=status)
+    all_replies = get_data_from_service(service_preference=service_preference, operation_type="generated_replies", profile_name=profile_name, verbose=verbose, status=status)
 
     enriched_items: List[Dict[str, Any]] = []
     for td in processed_tweets:
@@ -189,7 +189,7 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
         log(f"Saving {len(results)} generated replies to Google Sheet...", verbose, status=status, log_caller_file="action.py")
         save_data_to_service(
             data=results,
-            service_preference="google_sheets",
+            service_preference=service_preference,
             operation_type="initial_generated_replies",
             profile_name=profile_name,
             verbose=verbose,
@@ -200,9 +200,9 @@ def run_action_mode_online(profile_name: str, custom_prompt: str, max_tweets: in
     return driver
 
 
-def post_approved_action_mode_replies_online(driver, profile_name: str, run_number: int, post_via_api: bool = False, verbose: bool = False) -> Dict[str, Any]:
+def post_approved_action_mode_replies_online(driver, profile_name: str, run_number: int, post_via_api: bool = False, verbose: bool = False, service_preference: str = "google_sheets") -> Dict[str, Any]:
     today_date = datetime.now().strftime('%Y-%m-%d')
-    items_with_indices = get_data_from_service(service_preference="google_sheets", operation_type="online_action_mode_replies", profile_name=profile_name, target_date=today_date, run_number=run_number, verbose=verbose, status=None)
+    items_with_indices = get_data_from_service(service_preference=service_preference, operation_type="online_action_mode_replies", profile_name=profile_name, target_date=today_date, run_number=run_number, verbose=verbose, status=None)
     approved_replies_with_indices = [(item, idx) for item, idx in items_with_indices if item.get('status') == 'approved' and item.get('profile') == profile_name]
 
     if not approved_replies_with_indices:
@@ -283,7 +283,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                         'range': f'{profile_name}_online_replies!H{row_idx}',
                         'values': [[current_posted_date]]
                     })
-                    save_data_to_service(data=tweet_data, service_preference="google_sheets", operation_type="posted_reply", profile_name=profile_name, verbose=verbose)
+                    save_data_to_service(data=tweet_data, service_preference=service_preference, operation_type="posted_reply", profile_name=profile_name, verbose=verbose)
                     time.sleep(2)
                 else:
                     log(f"Failed to post reply to {tweet_url} via API", verbose, is_error=True, log_caller_file="action.py")
@@ -336,7 +336,7 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
                     'range': f'{profile_name}_online_replies!H{row_idx}',
                     'values': [[current_posted_date]]
                 })
-                save_data_to_service(data=tweet_data, service_preference="google_sheets", operation_type="posted_reply", profile_name=profile_name, verbose=verbose)
+                save_data_to_service(data=tweet_data, service_preference=service_preference, operation_type="posted_reply", profile_name=profile_name, verbose=verbose)
 
         except Exception as e:
             log(f"Failed to post reply to {tweet_url}: {e}", verbose, is_error=True, log_caller_file="action.py")
@@ -351,6 +351,6 @@ def post_approved_action_mode_replies_online(driver, profile_name: str, run_numb
             time.sleep(random.uniform(1, 2))
     
     if updates_to_sheet:
-        save_data_to_service(data=updates_to_sheet, service_preference="google_sheets", operation_type="batch_update_online_replies", profile_name=profile_name, verbose=verbose, status=None, updates_to_sheet=updates_to_sheet)
+        save_data_to_service(data=updates_to_sheet, service_preference=service_preference, operation_type="batch_update_online_replies", profile_name=profile_name, verbose=verbose, status=None, updates_to_sheet=updates_to_sheet)
 
     return {"processed": len(approved_replies_with_indices), "posted": posted, "failed": failed}

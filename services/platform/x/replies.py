@@ -31,19 +31,14 @@ def main():
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     # Action Mode
-    # parser.add_argument("--action-review", action="store_true", help="Activate action mode with integrated review workflow. Generates replies, saves them for approval, and opens a review server for manual approval before posting.")
     parser.add_argument("--action-mode", action="store_true", help="Activate action mode to generate replies. In this mode, the system scrapes tweets, generates replies using Gemini AI, and saves them to a Google Sheet for review.")
-    parser.add_argument("--action-port", type=int, default=8765, help="Port number for the action mode review server. Default is 8765. This is separate from the general --port setting.")
-    # Action Mode (Online)
     parser.add_argument("--run-number", type=int, default=1, help="Specify the run number for the current day. Useful for multiple daily runs (e.g., 1 for first run, 2 for second run). Default is 1.")
     # Action Mode (Additional)
     parser.add_argument("--ignore-video-tweets", action="store_true", help="Skip processing of tweets that contain video content during analysis and reply generation. Useful for focusing on text-based interactions.")
-    # Action Generate & Post later via API
-    # parser.add_argument("--action-generate", action="store_true", help="Activate action mode to generate replies and save them for approval without opening a review server or posting. Useful for batch generation.")
     
     # Eternity Mode
-    parser.add_argument("--limit", type=int, default=None, help="Limit the number of approved replies to post. Useful for testing or controlling the volume of posts. Set to 0 for no limit.")
     parser.add_argument("--eternity-mode", action="store_true", help="Activate Eternity mode to collect tweets from specific target profiles, analyze them with Gemini AI, and save generated replies for approval. This mode focuses on targeted profile monitoring.")
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of approved replies to post. Useful for testing or controlling the volume of posts. Set to 0 for no limit.")
     parser.add_argument("--post-approved", action="store_true", help="Post all previously approved replies from the schedule. This will automatically post all replies that have been marked as approved in the review interface.")
     parser.add_argument("--clear-eternity", action="store_true", help="Clear all Eternity schedule files and associated media files for the specified profile. This removes all pending replies and media from the Eternity workflow.")
     parser.add_argument("--eternity-review", action="store_true", help="Start a local web server specifically for reviewing and editing Eternity schedule files. This overrides the general --review flag and uses Eternity-specific settings.")
@@ -76,6 +71,7 @@ def main():
     parser.add_argument("--post-via-api", action="store_true", help="Use X API to post replies instead of browser automation in action mode. This is faster and more reliable than browser-based posting.")
     parser.add_argument("--reply-max-tweets", type=int, default=17, help="Maximum number of tweets to collect and process in Turbin and Action modes. Set to 0 for no limit. Default is 17 tweets.")
     parser.add_argument("--port", type=int, default=8765, help="Port number for the local web server. Default is 8765.")
+    parser.add_argument("--database", type=str, default="google_sheets", help="Specify the database service to use: 'google_sheets' (default) or 'postgres'.")
 
     args = parser.parse_args()
 
@@ -223,7 +219,7 @@ def main():
         custom_prompt = PROFILES[profile]['prompts']['reply_generation']
         
         with Status(f'[white]Running Action Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
-            driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless)
+            driver = run_action_mode_online(profile_name, custom_prompt, max_tweets=args.reply_max_tweets, status=status, ignore_video_tweets=args.ignore_video_tweets, run_number=args.run_number, community_name=args.community_name, post_via_api=args.post_via_api, verbose=args.verbose, headless=not args.no_headless, service_preference=args.database)
             status.stop()
             log("Action Mode Results:", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             
@@ -231,7 +227,7 @@ def main():
             input()
 
             with Status(f"[white]Posting approved replies for {profile_name} from action mode schedule...[/white]", spinner="dots", console=console) as status:
-                summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose)
+                summary = post_approved_action_mode_replies_online(driver, profile_name, run_number=args.run_number, post_via_api=args.post_via_api, verbose=args.verbose, service_preference=args.database)
                 status.stop()
                 log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", args.verbose, status=status, api_info=None, log_caller_file="replies.py")
             
