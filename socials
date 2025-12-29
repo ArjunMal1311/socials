@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+from ast import mod
+import sys
+import os
+
+def main():
+    if len(sys.argv) < 4:
+        print("Usage: socials <platform> <profile> <module> [args...]")
+        sys.exit(1)
+
+    platform = sys.argv[1]
+    profile = sys.argv[2]
+    module = sys.argv[3]
+    remaining_args = sys.argv[4:]
+
+    if len(remaining_args) > 0:
+        if module in ['dm', 'post', 'reply', 'scraper', 'global']:
+            remaining_args = [remaining_args[0], '--profile', profile] + remaining_args[1:]
+
+    if platform != "x":
+        print(f"Platform '{platform}' not supported. Currently only 'x' is supported.")
+        sys.exit(1)
+
+    module_map = {
+        'dm': 'dm.py',
+        'global': 'global.py',
+        'post': 'post.py',
+        'reply': 'reply.py',
+        'scraper': 'scraper.py'
+    }
+
+    if module not in module_map:
+        print(f"Unknown module: {module}")
+        print("Available modules: dm, global, post, reply, scraper")
+        sys.exit(1)
+
+    script_path = os.path.abspath(__file__)
+    if os.path.islink(script_path):
+        script_path = os.readlink(script_path)
+
+    script_dir = os.path.dirname(script_path)
+    module_path = os.path.join(script_dir, "services", "platform", "x", module_map[module])
+    
+    if not os.path.exists(module_path):
+        print(f"Module file not found: {module_path}")
+        sys.exit(1)
+
+    if os.path.islink(os.path.abspath(__file__)):
+        actual_script_path = os.readlink(os.path.abspath(__file__))
+        project_dir = os.path.dirname(actual_script_path)
+    else:
+        project_dir = script_dir
+
+    venv_python = os.path.join(project_dir, "venv", "bin", "python")
+
+    if os.path.exists(venv_python):
+        python_exe = venv_python
+    else:
+        python_exe = sys.executable
+
+    env = os.environ.copy()
+    env['PYTHONPATH'] = project_dir
+
+    cmd = [python_exe, module_path] + remaining_args
+    os.execvpe(python_exe, cmd, env)
+
+if __name__ == "__main__":
+    main()

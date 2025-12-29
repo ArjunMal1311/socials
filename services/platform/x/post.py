@@ -1,3 +1,14 @@
+# socials x <profile> post "content"
+# socials x <profile> post "content" --media path/to/img
+# socials x <profile> post "content" --community "name"
+# socials x <profile> post "content" --community "name" --media path/to/img
+
+# socials x <profile> post queue add "content" --at "2025-01-15 10:00" --media path/to/img --community "name"
+# socials x <profile> post queue list
+# socials x <profile> post queue start
+
+# add api if want to use api (will only work if api is available)
+
 import os
 import argparse
 

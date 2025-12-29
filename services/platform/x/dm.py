@@ -1,3 +1,12 @@
+# socials x <profile> dm @username "message"
+# socials x <profile> dm @username1, @username2 "Bulk Message"
+
+# socials x <profile> dm queue add @username "message" --at "2025-01-15 10:00"
+# socials x <profile> dm queue list
+# socials x <profile> dm queue start
+
+# add api if want to use api (will only work if api is available)
+
 import sys
 import argparse
 
@@ -7,7 +16,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.status import Status
 from services.support.logger_util import _log as log
-from services.platform.x.support.action import setup_driver
+from services.platform.x.support.home import setup_driver
 from services.support.path_config import get_browser_data_dir, initialize_directories
 from services.platform.x.support.x_dm_utils import check_dm_button, send_dm, send_dm_api
 

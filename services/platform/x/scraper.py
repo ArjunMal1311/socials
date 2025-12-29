@@ -1,3 +1,10 @@
+# socials x <profile> scrape home --count 50
+# socials x <profile> scrape community --search "startup" --count 50
+# socials x <profile> scrape profile @username --count 20
+# socials x <profile> scrape url ""
+
+# add api if want to use api (will only work if api is available)
+
 import sys
 import argparse
 

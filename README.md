@@ -139,8 +139,11 @@ cp profiles.sample.py profiles.py
 # Run interactive command generator
 python atg.py
 
-# Or jump straight in (example: Twitter replies)
-python services/platform/x/replies.py --profile YOUR_PROFILE --action-review
+# Or use the unified CLI (example: Twitter replies)
+socials x YOUR_PROFILE reply --action-mode
+
+# Or run modules directly (example: Twitter replies)
+python services/platform/x/reply.py --profile YOUR_PROFILE --action-mode
 ```
 
 **Full docs:** [Setup Guide](docs/SETUP.md) • [Commands](docs/COMMANDS.md) • [Platform Guides](docs/PLATFORMS.md)
