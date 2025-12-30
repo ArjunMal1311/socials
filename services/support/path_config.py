@@ -29,8 +29,20 @@ def get_replies_dir(profile_name: str) -> str:
 def get_schedule_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "schedule", profile_name)
 
-def get_community_dir(profile_name: str) -> str:
-    return os.path.join(BASE_TMP_DIR, "community", profile_name)
+def get_scrape_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "scrape", profile_name)
+
+def get_community_scrape_dir(profile_name: str) -> str:
+    return os.path.join(get_scrape_dir(profile_name), "community")
+
+def get_home_scrape_dir(profile_name: str) -> str:
+    return os.path.join(get_scrape_dir(profile_name), "home")
+
+def get_profiles_scrape_dir(profile_name: str) -> str:
+    return os.path.join(get_scrape_dir(profile_name), "profiles")
+
+def get_url_scrape_dir(profile_name: str) -> str:
+    return os.path.join(get_scrape_dir(profile_name), "url")
 
 def get_instagram_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "instagram", profile_name)
@@ -112,8 +124,18 @@ def get_schedule2_file_path(profile_name: str) -> str:
 def get_profiles_file_path() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'profiles.py'))
 
-def get_community_output_file_path(profile_name: str, community_name: str, timestamp: str) -> str:
-    return os.path.join(get_community_dir(profile_name), f"{community_name}_{timestamp}.json")
+def get_scrape_output_file_path(profile_name: str, scrape_type: str, target_name: str, timestamp: str) -> str:
+    if scrape_type == "community":
+        base_dir = get_community_scrape_dir(profile_name)
+    elif scrape_type == "home":
+        base_dir = get_home_scrape_dir(profile_name)
+    elif scrape_type == "profiles":
+        base_dir = get_profiles_scrape_dir(profile_name)
+    elif scrape_type == "url":
+        base_dir = get_url_scrape_dir(profile_name)
+    else:
+        base_dir = get_scrape_dir(profile_name)
+    return os.path.join(base_dir, f"{target_name}_{timestamp}.json")
 
 def get_linkedin_output_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)

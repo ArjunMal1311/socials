@@ -1,12 +1,14 @@
 import os
+import time
 import random
+
 from typing import Optional, Tuple
+
+from services.support.logger_util import _log as log
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from services.support.logger_util import _log as log
-import time
 
 def _resolve_credentials(profile_name: Optional[str]) -> Tuple[str, str, str, str]:
     prefix = (profile_name or '').strip().upper()
@@ -96,7 +98,7 @@ def send_dm(driver, username: str, message: str, verbose: bool = False, status=N
         time.sleep(10)
 
         message_input = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="dmComposerTextInput"]'))
+            EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="dm-composer-textarea"]'))
         )
         for char in message:
             message_input.send_keys(char)
@@ -105,7 +107,7 @@ def send_dm(driver, username: str, message: str, verbose: bool = False, status=N
         time.sleep(2)
 
         send_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="dmComposerSendButton"]'))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="dm-composer-send-button"]'))
         )
         send_button.click()
         log(f"Send button clicked for {username}. DM sent.", verbose, status, log_caller_file="x_dm_utils.py")

@@ -4,11 +4,11 @@ from rich.console import Console
 from selenium.webdriver.common.by import By
 from services.support.logger_util import _log as log
 from selenium.webdriver.support.ui import WebDriverWait
+from services.support.database import save_data_to_service
 from selenium.webdriver.support import expected_conditions as EC
 from services.platform.x.support.process_container import process_container
 from services.platform.x.support.capture_containers_scroll import capture_containers_and_scroll
 from services.support.sheets_util import get_google_sheets_service, create_sheet_if_not_exists
-from services.support.database import save_data_to_service
 
 console = Console()
 

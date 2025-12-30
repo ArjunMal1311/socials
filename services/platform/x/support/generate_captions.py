@@ -6,6 +6,7 @@ from profiles import PROFILES
 
 from rich.status import Status
 from rich.console import Console
+
 from services.support.logger_util import _log as log
 from services.support.gemini_util import generate_gemini
 from services.support.path_config import get_schedule_file_path

@@ -1,13 +1,14 @@
-import re
 import os
 import time
 
 from datetime import datetime
 from rich.console import Console
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+
 from services.support.logger_util import _log as log
 from services.support.path_config import get_schedule_dir
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 

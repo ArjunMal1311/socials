@@ -1,10 +1,11 @@
-# socials x <profile> scrape home --count 50
-# socials x <profile> scrape community --search "startup" --count 50
-# socials x <profile> scrape profile @username --count 20
-# socials x <profile> scrape url ""
+# socials x <profile> scrape home
+# socials x <profile> scrape community "startup"
+# socials x <profile> scrape profiles
+# socials x <profile> scrape url
 
 # add api if want to use api (will only work if api is available)
 
+import os
 import sys
 import argparse
 
@@ -14,81 +15,89 @@ from rich.console import Console
 
 from profiles import PROFILES
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from services.support.logger_util import _log as log
-from services.platform.x.support.community_scraper_utils import scrape_community_tweets
-from services.platform.x.support.tweet_analyzer import analyze_community_tweets_for_engagement
+from services.support.path_config import initialize_directories
+from services.platform.x.support.scraper_utils import scrape_tweets
 
 console = Console()
 
 def main():
     load_dotenv()
+    initialize_directories()
     parser = argparse.ArgumentParser(description="X Scraper CLI Tool")
 
-    # profile
+    # Profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
-    # community
-    parser.add_argument("--community-name", type=str, help="Name of the X community to scrape tweets from. This is required when using --community-scrape mode.")
-    # use other browser profile for scraping (will use different account but data will be saved under --profile mentioned)
-    parser.add_argument("--browser-profile", type=str, default=None, help="Browser profile to use for community scraping. Useful for different authentication contexts. Defaults to the main profile if not specified.")
-    parser.add_argument("--max-tweets", type=int, default=500, help="Maximum number of tweets to scrape in community mode. Set to 0 for no limit. Default is 1000 tweets.")
-    parser.add_argument("--community-scrape", action="store_true", help="Activate community scraping mode to collect tweets from specific X communities. Requires --community-name to be specified.")
-
-    # analysis
-    parser.add_argument("--suggest-engaging-tweets", action="store_true", help="Analyze scraped community tweets using AI to identify the most engaging content and suggest optimal tweets for interaction. Requires --community-name.")
-
-    # additional
-    parser.add_argument("--api-key", type=str, default=None, help="Override the default Gemini API key from environment variables. Provide a specific API key for this session only.")
-    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
-    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
+    # Mode and target
+    parser.add_argument("mode", choices=["home", "community", "profiles", "url"], help="Scrape mode: 'home' for home feed, 'community' for community scraping, 'profiles' for target profiles, 'url' for specific URL")
+    parser.add_argument("target", nargs='?', help="Target for scraping (community name, or optional for other modes)")
 
     args = parser.parse_args()
 
-    if args.community_scrape:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="scraper.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, log_caller_file="scraper.py")
-            sys.exit(1)
-        profile_name = PROFILES[profile]['name']
+    profile = args.profile
+    if profile not in PROFILES:
+        log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="scraper.py")
+        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", False, is_error=True, status=None, api_info=None, log_caller_file="scraper.py")
+        sys.exit(1)
 
-        if not args.community_name:
-            log("--community-name is required for community scraping.", args.verbose, is_error=True, log_caller_file="scraper.py")
-            parser.print_help()
-            sys.exit(1)
+    profile_name = PROFILES[profile]['name']
 
-        with Status(f"[white]Scraping community '{args.community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            scraped_tweets = scrape_community_tweets(community_name=args.community_name, profile_name=profile_name, browser_profile=args.browser_profile, max_tweets=args.max_tweets, headless=not args.no_headless, status=status, verbose=args.verbose)
+    profile_props = PROFILES[profile].get('properties', {})
+    browser_profile = profile_props.get('browser_profile')
+    max_tweets = profile_props.get('max_tweets', 500)
+    verbose = profile_props.get('verbose', False)
+    headless = profile_props.get('headless', True)
+
+    if args.mode == "home":
+        with Status(f"[white]Scraping home feed for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
+            scraped_tweets = scrape_tweets(scrape_type="home", target_name="feed", profile_name=profile_name, browser_profile=None, max_tweets=max_tweets, headless=headless, status=status, verbose=verbose)
             status.stop()
-            log(f"Community scraping complete. Scraped {len(scraped_tweets)} tweets.", args.verbose, log_caller_file="scraper.py")
-        return
+            log(f"Home feed scraping complete. Scraped {len(scraped_tweets)} tweets.", verbose, log_caller_file="scraper.py")
 
-    if args.suggest_engaging_tweets:
-        profile = args.profile
-        if profile not in PROFILES:
-            log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, log_caller_file="scraper.py")
-            log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, log_caller_file="scraper.py")
+    elif args.mode == "community":
+        community_name = args.target
+        if not community_name:
+            log("Community name is required for community scraping.", verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
-        profile_name = PROFILES[profile]['name']
 
-        if not args.community_name:
-            log("--community-name is required for suggesting engaging tweets.", args.verbose, is_error=True, log_caller_file="scraper.py")
-            parser.print_help()
-            sys.exit(1)
-        
-        with Status(f"[white]Analyzing tweets from '{args.community_name}' for engagement for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
-            suggestions = analyze_community_tweets_for_engagement(profile_key=args.profile, community_name=args.community_name, api_key=args.api_key, verbose=args.verbose)
+        with Status(f"[white]Scraping community '{community_name}' for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
+            log(f"DEBUG: Using max_tweets = {max_tweets}", verbose, log_caller_file="scraper.py")
+            scraped_tweets = scrape_tweets(scrape_type="community", target_name=community_name, profile_name=profile_name, browser_profile=browser_profile, max_tweets=max_tweets, headless=headless, status=status, verbose=verbose)
             status.stop()
+            log(f"Community scraping complete. Scraped {len(scraped_tweets)} tweets.", verbose, log_caller_file="scraper.py")
 
-            if suggestions:
-                log("Engagement Suggestions:", args.verbose, log_caller_file="scraper.py")
-                for suggestion in suggestions:
-                    log(f"- {suggestion.get('suggestion', 'N/A')}", args.verbose, log_caller_file="scraper.py")
-            else:
-                log("No engagement suggestions generated.", args.verbose, is_error=False, log_caller_file="scraper.py")
-        return
+    elif args.mode == "profiles":
+        target_profiles = PROFILES[profile].get('target_profiles', [])
+        if not target_profiles:
+            log(f"No target profiles found for {profile}. Add target_profiles to profiles.py", verbose, is_error=True, log_caller_file="scraper.py")
+            sys.exit(1)
 
-    parser.print_help()
+        from urllib.parse import quote
+        query_parts = [f"from:{p}" for p in target_profiles]
+        search_query = f"({' OR '.join(query_parts)})"
+        encoded_query = quote(search_query)
+        specific_search_url = f"https://x.com/search?q={encoded_query}&src=typed_query&f=live"
+
+        with Status(f"[white]Scraping profiles {', '.join(target_profiles)} for {profile_name}...[/white]", spinner="dots", console=console) as status:
+            scraped_tweets = scrape_tweets(scrape_type="profiles", target_name="search", profile_name=profile_name, browser_profile=browser_profile, max_tweets=max_tweets, headless=headless, status=status, verbose=verbose, specific_search_url=specific_search_url)
+            status.stop()
+            log(f"Profiles scraping complete. Scraped {len(scraped_tweets)} tweets.", verbose, log_caller_file="scraper.py")
+
+    elif args.mode == "url":
+        specific_url = profile_props.get('specific_url')
+        if not specific_url:
+            log(f"No specific_url found in properties for profile {profile}. Add specific_url to profiles.py", verbose, is_error=True, log_caller_file="scraper.py")
+            sys.exit(1)
+
+        with Status(f"[white]Scraping specific URL for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
+            scraped_tweets = scrape_tweets(scrape_type="url", target_name="custom", profile_name=profile_name, browser_profile=browser_profile, max_tweets=max_tweets, headless=headless, status=status, verbose=verbose, specific_search_url=specific_url)
+            status.stop()
+            log(f"URL scraping complete. Scraped {len(scraped_tweets)} tweets.", verbose, log_caller_file="scraper.py")
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

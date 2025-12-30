@@ -1,8 +1,10 @@
 import time
 
 from rich.console import Console
-from selenium.webdriver.common.by import By
+
 from services.support.logger_util import _log as log
+
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 

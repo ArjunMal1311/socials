@@ -3,6 +3,7 @@ import os
 from rich.console import Console
 from services.support.logger_util import _log as log
 from services.support.path_config import get_schedule_dir
+
 from services.platform.x.support.load_tweet_schedules import load_tweet_schedules
 
 console = Console()

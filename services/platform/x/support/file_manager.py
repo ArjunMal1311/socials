@@ -1,8 +1,8 @@
 import os
 
+from typing import Optional
 from datetime import datetime
 from rich.console import Console
-from typing import Optional, Dict, Any
 from services.support.logger_util import _log as log
 
 console = Console()
