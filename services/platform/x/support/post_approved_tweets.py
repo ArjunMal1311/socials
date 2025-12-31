@@ -1,36 +1,10 @@
 import os
-import json
 
-from datetime import datetime
 from rich.console import Console
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple
 from services.support.logger_util import _log as log
-from services.support.path_config import get_eternity_schedule_file_path
 
 console = Console()
-
-def _eternity_schedule_paths(profile_name: str) -> Tuple[str, str]:
-    schedule_path = get_eternity_schedule_file_path(profile_name)
-    schedule_folder = os.path.dirname(schedule_path)
-    return schedule_folder, schedule_path
-
-
-def _load_eternity_schedule(profile_name: str) -> List[Dict[str, Any]]:
-    _, schedule_path = _eternity_schedule_paths(profile_name)
-    if not os.path.exists(schedule_path):
-        return []
-    with open(schedule_path, 'r') as f:
-        try:
-            return json.load(f)
-        except Exception:
-            return []
-
-
-def _save_eternity_schedule(profile_name: str, items: List[Dict[str, Any]]) -> None:
-    _, schedule_path = _eternity_schedule_paths(profile_name)
-    with open(schedule_path, 'w') as f:
-        json.dump(items, f, indent=2)
-
 
 def _resolve_credentials(profile_name: Optional[str]) -> Tuple[str, str, str, str]:
     prefix = (profile_name or '').strip().upper()
@@ -86,39 +60,7 @@ def post_tweet_reply(tweet_id: str, reply_text: str, profile_name: Optional[str]
     except Exception as e:
         log(f"Twitter API error posting reply to {tweet_id}: {e}", verbose, is_error=True, log_caller_file="post_approved_tweets.py")
         return False
-
-
-def post_approved_replies(profile_name: str, limit: Optional[int] = None, mode: str = "eternity", verbose: bool = False) -> Dict[str, Any]:
-    items = _load_eternity_schedule(profile_name)
-    if not items:
-        return {"processed": 0, "posted": 0, "failed": 0}
-
-    approved = [it for it in items if str(it.get('status', '')).lower() == 'approved']
-    if limit is not None:
-        approved = approved[:max(0, int(limit))]
-
-    posted = 0
-    failed = 0
-    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    for it in approved:
-        tweet_id = it.get('tweet_id')
-        reply = it.get('generated_reply')
-        if not tweet_id or not reply:
-            failed += 1
-            continue
-        ok = post_tweet_reply(str(tweet_id), str(reply), profile_name=profile_name, verbose=verbose)
-        if ok:
-            posted += 1
-            it['status'] = 'posted'
-            it['posted_date'] = now_str
-        else:
-            failed += 1
-
-    _save_eternity_schedule(profile_name, items)
-
-    return {"processed": len(approved), "posted": posted, "failed": failed} 
-
+    
 
 def check_profile_credentials(profile_name: str, verbose: bool = False) -> Dict[str, Any]:
     prefix = (profile_name or '').strip().upper()

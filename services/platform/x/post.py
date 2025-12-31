@@ -1,15 +1,10 @@
-# socials x <profile> post "content"
-# socials x <profile> post "content" --media path/to/img
-# socials x <profile> post "content" --community "name"
-# socials x <profile> post "content" --community "name" --media path/to/img
-
-# socials x <profile> post queue add "content" --at "2025-01-15 10:00" --media path/to/img --community "name"
-# socials x <profile> post queue list
-# socials x <profile> post queue start
-
-# add api if want to use api (will only work if api is available)
+# socials x <profile> post generate --days 3
+# socials x <profile> post process
+# socials x <profile> post clear-media
+# socials x <profile> post watch
 
 import os
+import sys
 import argparse
 
 from dotenv import load_dotenv
@@ -17,118 +12,77 @@ from rich.console import Console
 
 from profiles import PROFILES
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
 from services.platform.x.support.post_watcher import run_watcher
 from services.platform.x.support.clear_media_files import clear_media
-from services.platform.x.support.display_tweets import display_scheduled_tweets
 from services.platform.x.support.generate_sample_posts import generate_sample_posts
-from services.platform.x.support.generate_captions import generate_captions_for_schedule
 from services.platform.x.support.process_scheduled_tweets import process_scheduled_tweets
-from services.platform.x.support.move_tomorrow_schedules import move_tomorrows_from_schedule2
 
 console = Console()
 
 def main():
     load_dotenv()
     initialize_directories()
-    parser = argparse.ArgumentParser(description="Twitter Scheduler CLI Tool")
-    
+    parser = argparse.ArgumentParser(description="X Post Scheduler CLI Tool")
+
     # Profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use")
-    
-    # Processing Tweets (Scheduling)
-    parser.add_argument("--process-tweets", action="store_true", help="Process and schedule tweets.")
-    # Make content for multiple days (--sched-tom will just schedule posts for the next day)
-    parser.add_argument("--sched-tom", action="store_true", help="Before processing, move tomorrow's tweets from schedule2.json to schedule.json and schedule them.")
 
-    # Generating sample
-    parser.add_argument("--generate-sample", action="store_true", help="Generate sample posts.")
-    parser.add_argument("--gap-type", type=str, choices=["random", "fixed"], default="random", help="Type of gap for sample post generation.")
-    parser.add_argument("--min-gap-hours", type=int, default=0, help="Minimum gap hours for random gap.")
-    parser.add_argument("--min-gap-minutes", type=int, default=1, help="Minimum gap minutes for random gap.")
-    parser.add_argument("--max-gap-hours", type=int, default=0, help="Maximum gap hours for random gap.")
-    parser.add_argument("--max-gap-minutes", type=int, default=50, help="Maximum gap minutes for random gap.")
-    parser.add_argument("--fixed-gap-hours", type=int, default=2, help="Fixed gap hours.")
-    parser.add_argument("--fixed-gap-minutes", type=int, default=0, help="Fixed gap minutes.")
-    parser.add_argument("--tweet-text", type=str, default="This is a sample tweet!", help="Default tweet text for sample posts.")
-    parser.add_argument("--start-image-number", type=int, default=1, help="Starting image number for sample posts.")
-    parser.add_argument("--num-days", type=int, default=1, help="Number of days to schedule sample posts for.")
-    parser.add_argument("--start-date", type=str, help="Start date for scheduling in YYYY-MM-DD format.")
-    
-    # Generate Captions
-    parser.add_argument("--generate-captions", action="store_true", help="Generate Gemini captions for scheduled media.")
-    
-    # Display Scheduled Tweets
-    parser.add_argument("--display-tweets", action="store_true", help="Display scheduled tweets.")
-    # can pass but .env can handle 
-    parser.add_argument("--gemini-api-key", type=str, help="Gemini API key for caption generation.")
-    
-    # Clear All media
-    parser.add_argument("--clear-media", action="store_true", help="Delete all media files for the profile in the schedule folder.")
+    # Mode
+    parser.add_argument("mode", choices=["generate", "process", "clear-media", "watch"], help="Post mode: 'generate' for sample posts, 'process' for scheduling, 'clear-media' for cleanup, 'watch' for post watcher")
 
-    # Additional
-    parser.add_argument("--show-complete", action="store_true", help="Show complete logs (INFO level and above).") 
-    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging output for debugging and monitoring. Shows comprehensive information about the execution process.")
-    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation. The browser UI will be visible.")
+    # Generate options
+    parser.add_argument("--days", type=int, help="Number of days to generate sample posts for")
 
-    # Post Watcher
-    parser.add_argument("--post-watch", action="store_true", help="Continuously watch and post scheduled tweets/community posts.")
-    parser.add_argument("--post-watch-profiles", type=str, help="Comma-separated profile keys for post watcher.")
-    parser.add_argument("--post-watch-interval", type=int, default=60, help="Polling interval in seconds for post watcher (default: 60).")
-    parser.add_argument("--post-watch-run-once", action="store_true", help="Run post watcher a single scan and exit.")
+    # Watch options (none needed - uses profile settings)
 
     args = parser.parse_args()
 
-    if args.profile not in PROFILES:
-        log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="scheduler.py")
-        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="scheduler.py")
-        return
+    profile = args.profile
+    if profile not in PROFILES:
+        log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="post.py")
+        sys.exit(1)
 
-    if args.post_watch:
-        profile_keys = [p.strip() for p in (args.post_watch_profiles or args.profile).split(',') if p.strip()]
-        run_watcher(profile_keys=profile_keys, interval_seconds=args.post_watch_interval, run_once=args.post_watch_run_once, verbose=args.verbose)
-        return
+    profile_props = PROFILES[profile].get('properties', {})
+    verbose = profile_props.get('verbose', False)
+    headless = profile_props.get('headless', True)
+    post_watcher_interval = profile_props.get('post_watcher_interval', 60)
+    gap_type = profile_props.get('gap_type', 'random')
+    min_gap_hours = profile_props.get('min_gap_hours', 0)
+    min_gap_minutes = profile_props.get('min_gap_minutes', 1)
+    max_gap_hours = profile_props.get('max_gap_hours', 0)
+    max_gap_minutes = profile_props.get('max_gap_minutes', 50)
+    fixed_gap_hours = profile_props.get('fixed_gap_hours', 2)
+    fixed_gap_minutes = profile_props.get('fixed_gap_minutes', 0)
+    tweet_text = profile_props.get('tweet_text', 'This is a sample tweet!')
+    start_image_number = profile_props.get('start_image_number', 1)
+    num_days = args.days if args.days is not None else profile_props.get('num_days', 1)
 
-    if getattr(args, 'sched_tom', False) and not args.process_tweets and not args.display_tweets and not args.generate_sample and not args.generate_captions and not args.clear_media:
-        moved = move_tomorrows_from_schedule2(args.profile, verbose=args.verbose)
-        if moved:
-            log(f"{moved} tweet(s) moved from schedule2.json to schedule.json for tomorrow.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-        else:
-            log("No tomorrow tweets found in schedule2.json. schedule.json was cleared if present.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-        return
-
-    if args.display_tweets:
-        display_scheduled_tweets(args.profile, verbose=args.verbose)
-    elif args.generate_sample:
-        if args.gap_type == "random":
-            gap_minutes_min = args.min_gap_hours * 60 + args.min_gap_minutes
-            gap_minutes_max = args.max_gap_hours * 60 + args.max_gap_minutes
+    if args.mode == "generate":
+        if gap_type == "random":
+            gap_minutes_min = min_gap_hours * 60 + min_gap_minutes
+            gap_minutes_max = max_gap_hours * 60 + max_gap_minutes
             if gap_minutes_min > gap_minutes_max:
-                log("Minimum gap cannot be greater than maximum gap. Adjusting maximum to minimum.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
+                log("Minimum gap cannot be greater than maximum gap. Adjusting maximum to minimum.", verbose, status=None, api_info=None, log_caller_file="post.py")
                 gap_minutes_max = gap_minutes_min
-            generate_sample_posts(gap_minutes_min=gap_minutes_min, gap_minutes_max=gap_minutes_max, scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, profile_name=args.profile, num_days=args.num_days, start_date=args.start_date, verbose=args.verbose)
+            generate_sample_posts(gap_minutes_min=gap_minutes_min, gap_minutes_max=gap_minutes_max, scheduled_tweet_text=tweet_text, start_image_number=start_image_number, profile_name=profile, num_days=num_days, verbose=verbose)
         else:
-            generate_sample_posts(fixed_gap_hours=args.fixed_gap_hours, fixed_gap_minutes=args.fixed_gap_minutes, scheduled_tweet_text=args.tweet_text, start_image_number=args.start_image_number, profile_name=args.profile, num_days=args.num_days, start_date=args.start_date, verbose=args.verbose)
-        log("Sample posts generated and saved to schedule.json", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-        
-    elif args.process_tweets:
-        if args.sched_tom:
-            moved = move_tomorrows_from_schedule2(args.profile, verbose=args.verbose)
-            if moved:
-                log(f"{moved} tweet(s) moved from schedule2.json to schedule.json for tomorrow.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-            else:
-                log("No tomorrow tweets found in schedule2.json.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-        process_scheduled_tweets(args.profile, headless=not args.no_headless, verbose=args.verbose)
-        log("Processing complete.", args.verbose, status=None, api_info=None, log_caller_file="scheduler.py")
-    elif args.generate_captions:
-        gemini_api_key = args.gemini_api_key or os.environ.get("GEMINI_API_KEY")
-        if not gemini_api_key:
-            log("Please provide a Gemini API key using --gemini-api-key argument or set GEMINI_API_KEY environment variable.", args.verbose, is_error=True, status=None, api_info=None, log_caller_file="scheduler.py")
-            return
-        generate_captions_for_schedule(args.profile, gemini_api_key, verbose=args.verbose)
-    elif args.clear_media:
-        clear_media(args.profile, verbose=args.verbose)
+            generate_sample_posts(fixed_gap_hours=fixed_gap_hours, fixed_gap_minutes=fixed_gap_minutes, scheduled_tweet_text=tweet_text, start_image_number=start_image_number, profile_name=profile, num_days=num_days, verbose=verbose)
+        log("Sample posts generated and saved to schedule.json", verbose, status=None, api_info=None, log_caller_file="post.py")
+
+    elif args.mode == "process":
+        process_scheduled_tweets(profile, headless=headless, verbose=verbose)
+        log("Processing complete.", verbose, status=None, api_info=None, log_caller_file="post.py")
+
+    elif args.mode == "clear-media":
+        clear_media(profile, verbose=verbose)
+
+    elif args.mode == "watch":
+        run_watcher(profile_keys=[profile], interval_seconds=post_watcher_interval, verbose=verbose)
+
     else:
         parser.print_help()
 

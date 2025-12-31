@@ -2,15 +2,19 @@ import os
 import sys
 import json
 import time
-import subprocess
 
 from profiles import PROFILES
 
 from datetime import datetime
 from rich.status import Status
 from rich.console import Console
+
 from services.support import path_config
 from services.support.logger_util import _log as log
+from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_browser_data_dir
+
+from services.platform.x.support.post_to_community import post_regular_tweet, post_to_community_tweet
 
 console = Console()
 
@@ -33,33 +37,39 @@ def save_schedule(profile_name: str, schedule: list) -> None:
     os.replace(tmp_path, schedule_path)
 
 
-def post_tweet(profile_key: str, tweet_text: str, community_name: str = None, verbose: bool = False) -> bool:
-    cmd = [
-        "python3",
-        os.path.join(os.path.dirname(__file__), '..', 'replies.py'),
-        "--profile", profile_key,
-    ]
-    if community_name:
-        cmd.extend([
-            "--post-to-community",
-            "--post-to-community-tweet", tweet_text,
-            "--community-name", community_name,
-        ])
-    else:
-        cmd.extend([
-            "--post-tweet", tweet_text,
-        ])
+def post_tweet(profile_key: str, tweet_text: str, media_file: str = None, community_name: str = None, verbose: bool = False) -> bool:
+    user_data_dir = get_browser_data_dir(profile_key)
 
+    profile_props = PROFILES.get(profile_key, {}).get('properties', {})
+    headless = profile_props.get('headless', True)
+
+    driver = None
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        if result.stdout:
-            log(result.stdout.strip(), verbose=verbose, log_caller_file="post_watcher.py")
-        if result.stderr:
-            log(result.stderr.strip(), verbose=verbose, is_error=True, log_caller_file="post_watcher.py")
-        return True
-    except subprocess.CalledProcessError as e:
-        log(f"Failed to post tweet for profile '{profile_key}': {e.stderr}", verbose=verbose, is_error=True, log_caller_file="post_watcher.py")
+        driver, _ = setup_driver(user_data_dir, profile=profile_key, headless=headless, verbose=verbose)
+
+        driver.get("https://x.com/home")
+        time.sleep(3)
+
+        if community_name:
+            log(f"Posting community tweet for '{profile_key}' in '{community_name}' with text: '{tweet_text[:50]}'...", verbose, log_caller_file="post_watcher.py")
+            success = post_to_community_tweet(driver, tweet_text, community_name, media_file, profile_key, verbose=verbose)
+        else:
+            log(f"Posting regular tweet for '{profile_key}' with text: '{tweet_text[:50]}'...", verbose, log_caller_file="post_watcher.py")
+            success = post_regular_tweet(driver, tweet_text, media_file, profile_key, verbose=verbose)
+
+        if success:
+            log(f"Successfully posted tweet for profile '{profile_key}'", verbose, log_caller_file="post_watcher.py")
+            return True
+        else:
+            log(f"Failed to post tweet for profile '{profile_key}'", verbose, is_error=True, log_caller_file="post_watcher.py")
+            return False
+
+    except Exception as e:
+        log(f"Error posting tweet for profile '{profile_key}': {e}", verbose, is_error=True, log_caller_file="post_watcher.py")
         return False
+    finally:
+        if driver:
+            driver.quit()
 
 
 def process_profile(profile_key: str, start_dt: datetime, verbose: bool = False) -> int:
@@ -85,6 +95,7 @@ def process_profile(profile_key: str, start_dt: datetime, verbose: bool = False)
         community_name = post.get("community-tweet")
         already_posted = post.get("community_posted") is True
         tweet_text = post.get("x_captions", "").strip() or post.get("scheduled_tweet", "").strip()
+        media_file = post.get("scheduled_image", "").strip()
         scheduled_time_str = post.get("scheduled_time", "").strip()
 
         if not scheduled_time_str:
@@ -138,10 +149,10 @@ def process_profile(profile_key: str, start_dt: datetime, verbose: bool = False)
         
         if community_name:
             log(f"Posting community tweet for '{profile_key}' in '{community_name}' at {post_dt.strftime('%Y-%m-%d %H:%M')}.", verbose, log_caller_file="post_watcher.py")
-            success = post_tweet(profile_key, tweet_text, community_name, verbose=verbose)
+            success = post_tweet(profile_key, tweet_text, media_file, community_name, verbose=verbose)
         else:
             log(f"Posting regular tweet for '{profile_key}' at {post_dt.strftime('%Y-%m-%d %H:%M')}.", verbose, log_caller_file="post_watcher.py")
-            success = post_tweet(profile_key, tweet_text, verbose=verbose)
+            success = post_tweet(profile_key, tweet_text, media_file, verbose=verbose)
 
         if success:
             posted_count += 1
@@ -195,7 +206,7 @@ def has_future_posts(profile_key: str, start_dt: datetime, verbose: bool = False
     return False
 
 
-def run_watcher(profile_keys: list[str], interval_seconds: int, run_once: bool, verbose: bool = False):
+def run_watcher(profile_keys: list[str], interval_seconds: int, verbose: bool = False):
     if not profile_keys:
         log("No profiles provided.", verbose, is_error=True, log_caller_file="post_watcher.py")
         sys.exit(1)
@@ -224,12 +235,6 @@ def run_watcher(profile_keys: list[str], interval_seconds: int, run_once: bool, 
         else:
             log("No posts to make.", verbose, log_caller_file="post_watcher.py")
         return total_posted, any_future_pending
-
-    if run_once:
-        _, any_future = scan_and_post()
-        if not any_future:
-            log("No future posts remaining. Exiting.", verbose, log_caller_file="post_watcher.py")
-        return
 
     start_dt = datetime.now()
     try:

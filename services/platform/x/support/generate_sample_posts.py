@@ -2,6 +2,7 @@ import random
 
 from rich.status import Status
 from rich.console import Console
+
 from datetime import datetime, timedelta
 from services.support.logger_util import _log as log
 from services.platform.x.support.save_tweet_schedules import save_tweet_schedules
@@ -39,7 +40,8 @@ def generate_sample_posts(gap_minutes_min=None, gap_minutes_max=None, fixed_gap_
                 sample_posts.append({
                     "scheduled_time": scheduled_time_str,
                     "scheduled_tweet": scheduled_tweet_text,
-                    "scheduled_image": f"{image_index}.png"
+                    "scheduled_image": f"{image_index}.png",
+                    "community-tweet": None
                 })
                 current_time += time_delta
                 elapsed_minutes += (time_delta.total_seconds() // 60)

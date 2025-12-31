@@ -3,6 +3,8 @@ import base64
 import mimetypes
 import google.generativeai as genai
 
+from profiles import PROFILES
+
 from rich.console import Console
 from services.support.logger_util import _log as log
 from services.support.api_call_tracker import APICallTracker
@@ -13,8 +15,9 @@ api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
 
 def generate_reply_with_key(args, status=None, verbose: bool = False):
     tweet_text, media_urls, profile_name, api_key, rate_limiter, custom_prompt, tweet_id, all_replies = args
-    
-    model_name = 'gemini-2.5-flash-lite'
+
+    profile_props = PROFILES.get(profile_name, {}).get('properties', {})
+    model_name = profile_props.get('model_name', 'gemini-2.5-flash-lite')
 
     try:
         rate_limiter.wait_if_needed(api_key)
