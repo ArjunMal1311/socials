@@ -1,7 +1,7 @@
-# socials x <profile> scrape home
-# socials x <profile> scrape community "startup"
-# socials x <profile> scrape profiles
-# socials x <profile> scrape url
+# socials x <profile> scraper home
+# socials x <profile> scraper community "startup"
+# socials x <profile> scraper profiles
+# socials x <profile> scraper url
 
 # add api if want to use api (will only work if api is available)
 

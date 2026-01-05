@@ -27,13 +27,13 @@ def main():
     load_dotenv()
     initialize_directories()
     parser = argparse.ArgumentParser(description="X Post Scheduler CLI Tool")
-
+    
     # Profile
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use")
-
+    
     # Mode
     parser.add_argument("mode", choices=["generate", "process", "clear-media", "watch"], help="Post mode: 'generate' for sample posts, 'process' for scheduling, 'clear-media' for cleanup, 'watch' for post watcher")
-
+    
     # Generate options
     parser.add_argument("--days", type=int, help="Number of days to generate sample posts for")
 
@@ -72,7 +72,7 @@ def main():
         else:
             generate_sample_posts(fixed_gap_hours=fixed_gap_hours, fixed_gap_minutes=fixed_gap_minutes, scheduled_tweet_text=tweet_text, start_image_number=start_image_number, profile_name=profile, num_days=num_days, verbose=verbose)
         log("Sample posts generated and saved to schedule.json", verbose, status=None, api_info=None, log_caller_file="post.py")
-
+        
     elif args.mode == "process":
         process_scheduled_tweets(profile, headless=headless, verbose=verbose)
         log("Processing complete.", verbose, status=None, api_info=None, log_caller_file="post.py")
