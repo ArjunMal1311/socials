@@ -9,7 +9,8 @@ MODULE_CONFIGS = {
         'modules': {
             'action': 'action.py',
             'ideas': 'idea.py',
-            'networking': 'networking.py'
+            'networking': 'networking.py',
+            'suggestions': 'suggestions.py'
         },
         'profile_required': True
     },

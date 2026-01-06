@@ -9,8 +9,8 @@ import argparse
 from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
 
-from services.platform.x.support.global_support import delete_profile, init_profile, login_profile
 from services.platform.x.support.post_approved_tweets import check_profile_credentials
+from services.platform.x.support.global_support import delete_profile, init_profile, login_profile
 
 def main():
     initialize_directories()

@@ -44,6 +44,9 @@ def get_profiles_scrape_dir(profile_name: str) -> str:
 def get_url_scrape_dir(profile_name: str) -> str:
     return os.path.join(get_scrape_dir(profile_name), "url")
 
+def get_suggestions_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "suggestions", profile_name)
+
 def get_instagram_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "instagram", profile_name)
 
