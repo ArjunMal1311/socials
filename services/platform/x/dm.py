@@ -55,7 +55,7 @@ def main():
     elif args.mode == "check":
         if args.message:
             log("Message not allowed for check mode.", verbose, is_error=True, log_caller_file="dm.py")
-            sys.exit(1)
+        sys.exit(1)
 
     if args.mode == "bulk":
         usernames = [username.strip() for username in args.target.split(',') if username.strip()]
@@ -66,7 +66,7 @@ def main():
         usernames = [args.target.strip()]
         if not usernames[0]:
             log("Username is required.", verbose, is_error=True, log_caller_file="dm.py")
-            sys.exit(1)
+        sys.exit(1)
 
     user_data_dir = get_browser_data_dir(profile)
     driver = None

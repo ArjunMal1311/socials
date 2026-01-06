@@ -72,8 +72,6 @@ def process_container(container, verbose: bool = False):
                 log(f"Error processing metrics: {str(e)}", verbose, is_error=True, log_caller_file="process_container.py")
                 continue
         
-        media_urls_str = ';'.join(media_urls) if media_urls else ''
-        
         tweet_data = {
             'text': tweet_text,
             'tweet_text': tweet_text,
@@ -83,7 +81,7 @@ def process_container(container, verbose: bool = False):
             'replies': metrics['replies'],
             'views': metrics['views'],
             'bookmarks': metrics['bookmarks'],
-            'media_urls': media_urls_str,
+            'media_urls': media_urls,
             'source_url': container['url'],
             'scraped_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'tweet_date': tweet_date,

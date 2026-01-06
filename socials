@@ -1,68 +1,171 @@
 #!/usr/bin/env python3
-from ast import mod
 import sys
 import os
+from typing import Dict, List, Optional
 
-def main():
-    if len(sys.argv) < 4:
-        print("Usage: socials <platform> <profile> <module> [args...]")
-        sys.exit(1)
+MODULE_CONFIGS = {
+    'utils': {
+        'path_template': 'services/utils/{module}/{filename}',
+        'modules': {
+            'action': 'action.py',
+            'ideas': 'idea.py',
+            'networking': 'networking.py',
+            'suggestions': 'suggestions.py'
+        },
+        'profile_required': True
+    },
+    'x': {
+        'path_template': 'services/platform/x/{filename}',
+        'modules': {
+            'dm': 'dm.py',
+            'global': 'global.py',
+            'post': 'post.py',
+            'reply': 'reply.py',
+            'scraper': 'scraper.py'
+        }
+    }
+}
 
-    platform = sys.argv[1]
-    profile = sys.argv[2]
-    module = sys.argv[3]
-    remaining_args = sys.argv[4:]
+def get_usage():
+    return """
+        Usage:
+        socials <platform> <profile> <module> [args...]     # Platform modules
+        socials utils <profile> <module>                   # Utils modules with profile
 
-    if len(remaining_args) > 0:
-        if module in ['dm', 'post', 'reply', 'scraper', 'global']:
-            remaining_args = [remaining_args[0], '--profile', profile] + remaining_args[1:]
+        Examples:
+        socials x akgscrape scraper --verbose
+        socials utils akgscrape action
+    """
 
-    if platform != "x":
-        print(f"Platform '{platform}' not supported. Currently only 'x' is supported.")
-        sys.exit(1)
+def parse_args() -> Optional[Dict]:
+    if len(sys.argv) < 3:
+        print(get_usage())
+        return None
 
-    module_map = {
-        'dm': 'dm.py',
-        'global': 'global.py',
-        'post': 'post.py',
-        'reply': 'reply.py',
-        'scraper': 'scraper.py'
+    category = sys.argv[1]
+
+    if category not in MODULE_CONFIGS:
+        available_categories = ', '.join(MODULE_CONFIGS.keys())
+        print(f"Unknown category: {category}")
+        print(f"Available categories: {available_categories}")
+        return None
+
+    config = MODULE_CONFIGS[category]
+
+    # Handle platform categories (socials x akgscrape scraper)
+    if 'platform' in config.get('path_template', ''):
+        if len(sys.argv) < 4:
+            print("Usage: socials <platform> <profile> <module> [args...]")
+            return None
+
+        profile = sys.argv[2]
+        module = sys.argv[3]
+        args = sys.argv[4:]
+
+        if module not in config['modules']:
+            available = ', '.join(config['modules'].keys())
+            print(f"Unknown {category} module: {module}")
+            print(f"Available {category} modules: {available}")
+            return None
+
+        if args and module in ['dm', 'post', 'reply', 'scraper', 'global']:
+            args = [args[0], '--profile', profile] + args[1:]
+
+        return {
+            'category': category,
+            'profile': profile,
+            'module': module,
+            'args': args
+        }
+
+    if config.get('profile_required', False):
+        if len(sys.argv) < 4:
+            print(f"Usage: socials {category} <profile> <module> [args...]")
+            return None
+
+        profile = sys.argv[2]
+        module = sys.argv[3]
+        args = [profile]
+
+        if module not in config['modules']:
+            available = ', '.join(config['modules'].keys())
+            print(f"Unknown {category} module: {module}")
+            print(f"Available {category} modules: {available}")
+            return None
+
+        return {
+            'category': category,
+            'profile': profile,
+            'module': module,
+            'args': args
+        }
+
+    module = sys.argv[2]
+    args = sys.argv[3:]
+
+    if module not in config['modules']:
+        available = ', '.join(config['modules'].keys())
+        print(f"Unknown {category} module: {module}")
+        print(f"Available {category} modules: {available}")
+        return None
+
+    return {
+        'category': category,
+        'module': module,
+        'args': args
     }
 
-    if module not in module_map:
-        print(f"Unknown module: {module}")
-        print("Available modules: dm, global, post, reply, scraper")
-        sys.exit(1)
+def get_module_path(config: Dict) -> str:
+    category_config = MODULE_CONFIGS[config['category']]
+    filename = category_config['modules'][config['module']]
+    path_template = category_config['path_template']
+    relative_path = path_template.format(module=config['module'], filename=filename)
+
+    module_path = os.path.join(os.getcwd(), relative_path)
+    if os.path.exists(module_path):
+        return module_path
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    module_path = os.path.join(script_dir, relative_path)
+    if os.path.exists(module_path):
+        return module_path
 
     script_path = os.path.abspath(__file__)
     if os.path.islink(script_path):
-        script_path = os.readlink(script_path)
+        actual_script_dir = os.path.dirname(os.readlink(script_path))
+        module_path = os.path.join(actual_script_dir, relative_path)
+        if os.path.exists(module_path):
+            return module_path
 
-    script_dir = os.path.dirname(script_path)
-    module_path = os.path.join(script_dir, "services", "platform", "x", module_map[module])
-    
+    return os.path.join(os.getcwd(), relative_path)
+
+def execute_module(module_path: str, args: List[str]):
     if not os.path.exists(module_path):
         print(f"Module file not found: {module_path}")
         sys.exit(1)
 
-    if os.path.islink(os.path.abspath(__file__)):
-        actual_script_path = os.readlink(os.path.abspath(__file__))
-        project_dir = os.path.dirname(actual_script_path)
+    script_path = os.path.abspath(__file__)
+    if os.path.islink(script_path):
+        project_dir = os.path.dirname(os.readlink(script_path))
     else:
-        project_dir = script_dir
+        project_dir = os.path.dirname(script_path)
 
     venv_python = os.path.join(project_dir, "venv", "bin", "python")
-
-    if os.path.exists(venv_python):
-        python_exe = venv_python
-    else:
-        python_exe = sys.executable
+    python_exe = venv_python if os.path.exists(venv_python) else sys.executable
 
     env = os.environ.copy()
     env['PYTHONPATH'] = project_dir
 
-    cmd = [python_exe, module_path] + remaining_args
+    cmd = [python_exe, module_path] + args
     os.execvpe(python_exe, cmd, env)
+
+def main():
+    config = parse_args()
+    if config is None:
+        sys.exit(1)
+
+    module_path = get_module_path(config)
+    execute_module(module_path, config['args'])
 
 if __name__ == "__main__":
     main()

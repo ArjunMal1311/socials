@@ -25,10 +25,6 @@ class APICallTracker:
                 "gemini-flash-latest": {"rpm": 15, "tpm": 1000000, "rpd": 200},
                 "gemini-flash-latest-lite": {"rpm": 30, "tpm": 1000000, "rpd": 200}
             },
-            "sheets": {
-                "read": {"rpm": 60, "tpm": -1, "rpd": -1},
-                "write": {"rpm": 60, "tpm": -1, "rpd": -1},
-            },
             "reddit": {
                 "subreddit_hot": {"rpm": 60, "tpm": -1, "rpd": 1000},
                 "subreddit_new": {"rpm": 60, "tpm": -1, "rpd": 1000},
@@ -109,10 +105,6 @@ class APICallTracker:
             if model not in self.service_quotas["gemini"]:
                 return False, f"Unknown Gemini model: {model}"
             quotas = self.service_quotas["gemini"][model]
-        elif service == "sheets":
-            if method not in self.service_quotas["sheets"]:
-                return False, f"Unknown Sheets method: {method}"
-            quotas = self.service_quotas["sheets"][method]
         elif service == "reddit":
             if method not in self.service_quotas["reddit"]:
                 return False, f"Unknown Reddit method: {method}"
@@ -138,8 +130,6 @@ class APICallTracker:
         quotas = None
         if service == "gemini":
             quotas = self.service_quotas["gemini"].get(method_name)
-        elif service == "sheets":
-            quotas = self.service_quotas["sheets"].get(method_name)
         elif service == "reddit":
             quotas = self.service_quotas["reddit"].get(method_name)
         elif service == "google_search":

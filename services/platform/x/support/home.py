@@ -144,11 +144,12 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
                     'tweet_url': td.get('tweet_url'),
                     'tweet_text': td.get('tweet_text'),
                     'tweet_date': td.get('tweet_date'),
-                    'likes': td.get('likes', ''), 
-                    'retweets': td.get('retweets', ''), 
-                    'replies': td.get('replies', ''), 
-                    'views': td.get('views', ''), 
-                    'bookmarks': td.get('bookmarks', '') 
+                    'likes': td.get('likes', ''),
+                    'retweets': td.get('retweets', ''),
+                    'replies': td.get('replies', ''),
+                    'views': td.get('views', ''),
+                    'bookmarks': td.get('bookmarks', ''),
+                    'media_urls': td.get('media_urls', [])
                 })
 
         for future, item in future_map.items():
@@ -165,6 +166,7 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
                     'replies': td.get('replies', ''),
                     'views': td.get('views', ''),
                     'bookmarks': td.get('bookmarks', ''),
+                    'media_urls': td.get('media_urls', []),
                     'generated_reply': generated_reply,
                     'profile': target_profile_name if target_profile_name else profile_name,
                     'status': 'ready_for_approval',
@@ -190,7 +192,7 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
 
     _cleanup_temp_media_dir(temp_processing_dir, verbose)
 
-    return driver
+    return driver, results
 
 
 def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: bool = False, verbose: bool = False) -> Dict[str, Any]:
@@ -206,6 +208,13 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
             items: List[Dict[str, Any]] = json.load(f)
         except Exception as e:
             log(f"Failed to read replies file: {e}", verbose, is_error=True, log_caller_file="home.py")
+            try:
+                f.seek(0)
+                content = f.read()
+                log(f"Debug: File exists, content length: {len(content)}", verbose, is_error=True, log_caller_file="home.py")
+                log(f"Debug: Content preview: {content[:300]}", verbose, is_error=True, log_caller_file="home.py")
+            except:
+                log("Debug: Could not read file content", verbose, is_error=True, log_caller_file="home.py")
             return {"processed": 0, "posted": 0, "failed": 0}
 
     generated_replies = [item for item in items if item.get('generated_reply') and item.get('status') == 'approved']

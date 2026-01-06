@@ -1,7 +1,7 @@
-# socials x <profile> scrape home
-# socials x <profile> scrape community "startup"
-# socials x <profile> scrape profiles
-# socials x <profile> scrape url
+# socials x <profile> scraper home
+# socials x <profile> scraper community "startup"
+# socials x <profile> scraper profiles
+# socials x <profile> scraper url
 
 # add api if want to use api (will only work if api is available)
 
@@ -10,6 +10,8 @@ import sys
 import argparse
 
 from dotenv import load_dotenv
+from urllib.parse import quote
+
 from rich.status import Status
 from rich.console import Console
 
@@ -75,7 +77,6 @@ def main():
             log(f"No target profiles found for {profile}. Add target_profiles to profiles.py", verbose, is_error=True, log_caller_file="scraper.py")
             sys.exit(1)
 
-        from urllib.parse import quote
         query_parts = [f"from:{p}" for p in target_profiles]
         search_query = f"({' OR '.join(query_parts)})"
         encoded_query = quote(search_query)
