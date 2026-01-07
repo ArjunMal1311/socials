@@ -17,12 +17,12 @@ MODULE_CONFIGS = {
     'x': {
         'path_template': 'services/platform/x/{filename}',
         'modules': {
-            'dm': 'dm.py',
-            'global': 'global.py',
-            'post': 'post.py',
-            'reply': 'reply.py',
-            'scraper': 'scraper.py'
-        }
+        'dm': 'dm.py',
+        'global': 'global.py',
+        'post': 'post.py',
+        'reply': 'reply.py',
+        'scraper': 'scraper.py'
+    }
     }
 }
 
@@ -85,13 +85,18 @@ def parse_args() -> Optional[Dict]:
 
         profile = sys.argv[2]
         module = sys.argv[3]
-        args = [profile]
 
         if module not in config['modules']:
             available = ', '.join(config['modules'].keys())
             print(f"Unknown {category} module: {module}")
             print(f"Available {category} modules: {available}")
             return None
+
+        if module == 'suggestions' and len(sys.argv) > 4:
+            subcommand = sys.argv[4]
+            args = [profile, subcommand]
+        else:
+            args = [profile]
 
         return {
             'category': category,
@@ -138,7 +143,7 @@ def get_module_path(config: Dict) -> str:
             return module_path
 
     return os.path.join(os.getcwd(), relative_path)
-
+    
 def execute_module(module_path: str, args: List[str]):
     if not os.path.exists(module_path):
         print(f"Module file not found: {module_path}")
