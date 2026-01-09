@@ -18,8 +18,7 @@ def upload_media(driver, media_file, profile_name="Default", status=None, verbos
         if isinstance(media_file, str) and media_file.startswith('http'):
             local_media_path = media_file
         else:
-            schedule_folder = get_schedule_dir(profile_name)
-            candidate_path = os.path.join(schedule_folder, media_file)
+            candidate_path = os.path.join(os.getcwd(), media_file)
             if verbose:
                 log(f"Looking for media file at: {candidate_path}", verbose, log_caller_file="post_to_community.py")
             if os.path.exists(candidate_path):

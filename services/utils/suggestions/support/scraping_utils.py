@@ -224,3 +224,27 @@ def run_suggestions_workflow(profile_name: str, max_tweets_profile: int = 20, ma
     }
 
     return result
+
+def get_latest_approved_file(profile_name: str) -> str:
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return ""
+
+    approved_files = [f for f in os.listdir(suggestions_dir) if f.startswith('approved_content_') and f.endswith('.json')]
+    if not approved_files:
+        return ""
+
+    approved_files.sort(reverse=True)
+    return os.path.join(suggestions_dir, approved_files[0])
+
+def get_latest_suggestions_file(profile_name: str) -> str:
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return ""
+
+    suggestions_files = [f for f in os.listdir(suggestions_dir) if f.startswith('suggestions_content_') and f.endswith('.json')]
+    if not suggestions_files:
+        return ""
+
+    suggestions_files.sort(reverse=True)
+    return os.path.join(suggestions_dir, suggestions_files[0])
