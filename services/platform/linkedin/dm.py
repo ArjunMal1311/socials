@@ -1,16 +1,24 @@
+# socials linkedin <profile> dm
+
+import os
 import sys
+import json
 import time
 import argparse
 
 from profiles import PROFILES
 
+from datetime import datetime
 from dotenv import load_dotenv
-from rich.console import Console
+
 from rich.status import Status
+from rich.console import Console
+
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_browser_data_dir, get_linkedin_profile_dir, initialize_directories
+
 from services.platform.linkedin.support.connection_utils import send_linkedin_dm
-from services.support.path_config import get_browser_data_dir, initialize_directories
 
 console = Console()
 
@@ -20,43 +28,72 @@ def main():
 
     parser = argparse.ArgumentParser(description="LinkedIn DM CLI Tool")
     parser.add_argument("--profile", type=str, default="Default", help="Browser profile name to use.")
-    parser.add_argument("--linkedin-usernames", type=str, required=True, help="Comma-separated list of LinkedIn usernames.")
-    parser.add_argument("--message", type=str, required=True, help="The message to send to the LinkedIn user(s).")
-    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging.")
-    parser.add_argument("--no-headless", action="store_true", help="Disable headless browser mode for debugging and observation.")
-    
+
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
         log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
-    usernames = [username.strip() for username in args.linkedin_usernames.split(',') if username.strip()]
-    if not usernames:
-        log("No LinkedIn usernames provided.", verbose=True, is_error=True, log_caller_file="dm.py")
+    profile_props = PROFILES[args.profile].get('properties', {})
+    verbose = profile_props.get('verbose', False)
+    headless = profile_props.get('headless', True)
+
+    browser_profile = args.profile
+
+    messages_file = os.path.join(get_linkedin_profile_dir(args.profile), "messages.json")
+    if not os.path.exists(messages_file):
+        log(f"messages.json not found at {messages_file}", verbose=verbose, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
-    user_data_dir = get_browser_data_dir(args.profile)
+    try:
+        with open(messages_file, 'r', encoding='utf-8') as f:
+            messages_data = json.load(f)
+    except Exception as e:
+        log(f"Error reading messages.json: {e}", verbose=verbose, is_error=True, log_caller_file="dm.py")
+        sys.exit(1)
+
+    if not messages_data or not isinstance(messages_data, list):
+        log("messages.json must contain a non-empty array of message objects", verbose=verbose, is_error=True, log_caller_file="dm.py")
+        sys.exit(1)
+
+    user_data_dir = get_browser_data_dir(browser_profile)
     driver = None
     try:
         with Status("[white]Setting up WebDriver...[/white]", spinner="dots", console=console) as status:
-            driver, setup_messages = setup_driver(user_data_dir, profile=args.profile, headless=not args.no_headless)
+            driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile, headless=headless)
             for msg in setup_messages:
-                log(msg, args.verbose, status, log_caller_file="dm.py")
+                log(msg, verbose, status, log_caller_file="dm.py")
             status.update("[white]WebDriver setup complete.[/white]")
 
-        for username in usernames:
+        for i, message_obj in enumerate(messages_data):
+            username = message_obj.get('username')
+            message = message_obj.get('message')
+
+            if not username or not message:
+                log(f"Skipping invalid message object at index {i}: missing username or message", verbose=verbose, is_error=True, log_caller_file="dm.py")
+                continue
+
             profile_url = f"https://www.linkedin.com/in/{username}/"
-            log(f"Attempting to send DM to {username} with message: '{args.message}'", args.verbose, log_caller_file="dm.py")
-            dm_success = send_linkedin_dm(driver, profile_url, args.message, verbose=args.verbose, status=status)
+            log(f"Sending DM to {username}", verbose, status=status, log_caller_file="dm.py")
+            dm_success = send_linkedin_dm(driver, profile_url, message, verbose=verbose, status=status)
+
+            message_obj['success'] = dm_success
+            message_obj['sent_at'] = datetime.now().isoformat() + "Z"
+
             if dm_success:
-                log(f"Successfully sent DM to {username}.", args.verbose, log_caller_file="dm.py")
+                log(f"Successfully sent DM to {username}", verbose, log_caller_file="dm.py")
             else:
-                log(f"Failed to send DM to {username}.", args.verbose, is_error=True, log_caller_file="dm.py")
-            
-            if username != usernames[-1]:
-                log(f"Waiting for 10 seconds before proceeding to the next profile...", args.verbose, log_caller_file="dm.py")
+                log(f"Failed to send DM to {username}", verbose, is_error=True, log_caller_file="dm.py")
+
+            if i < len(messages_data) - 1:
+                log(f"Waiting for 10 seconds before next message...", verbose, log_caller_file="dm.py")
                 time.sleep(10)
+
+        with open(messages_file, 'w', encoding='utf-8') as f:
+            json.dump(messages_data, f, indent=2, ensure_ascii=False)
+
+        log(f"DM campaign completed. Processed {len(messages_data)} messages.", verbose, log_caller_file="dm.py")
 
     except Exception as e:
         log(f"An error occurred: {e}", verbose=True, is_error=True, log_caller_file="dm.py")

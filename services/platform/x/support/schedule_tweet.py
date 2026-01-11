@@ -21,9 +21,8 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
             if isinstance(media_urls, str) and media_urls.startswith('http'):
                 local_media_paths = [media_urls]
             else:
-                schedule_folder = get_schedule_dir(profile_name)
                 if isinstance(media_urls, str):
-                    candidate_path = os.path.join(schedule_folder, media_urls)
+                    candidate_path = os.path.join(os.getcwd(), media_urls)
                     log(f"Looking for media file at: {candidate_path}", verbose, status=status, log_caller_file="schedule_tweet.py")
                     if os.path.exists(candidate_path):
                         local_media_paths = [os.path.abspath(candidate_path)]
@@ -32,7 +31,7 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
                 else:
                     local_media_paths = []
                     for fname in media_urls:
-                        candidate_path = os.path.join(schedule_folder, fname)
+                        candidate_path = os.path.join(os.getcwd(), fname)
                         log(f"Looking for media file at: {candidate_path}", verbose, status=status, log_caller_file="schedule_tweet.py")
                         if os.path.exists(candidate_path):
                             local_media_paths.append(os.path.abspath(candidate_path))

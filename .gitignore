@@ -32,3 +32,4 @@ logs
 scripts
 .venv
 .pytest_cache
+tests

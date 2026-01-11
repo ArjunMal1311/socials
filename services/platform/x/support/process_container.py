@@ -82,11 +82,9 @@ def process_container(container, verbose: bool = False):
             'views': metrics['views'],
             'bookmarks': metrics['bookmarks'],
             'media_urls': media_urls,
-            'source_url': container['url'],
             'scraped_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'tweet_date': tweet_date,
             'tweet_url': container['url'],
-            'url': container['url'],
             'tweet_id': container['tweet_id'],
             'profile_image_url': container.get('profile_image_url', '')
         }

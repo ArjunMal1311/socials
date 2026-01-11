@@ -140,6 +140,9 @@ def get_scrape_output_file_path(profile_name: str, scrape_type: str, target_name
         base_dir = get_scrape_dir(profile_name)
     return os.path.join(base_dir, f"{target_name}_{timestamp}.json")
 
+def get_linkedin_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
+
 def get_linkedin_output_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
 
