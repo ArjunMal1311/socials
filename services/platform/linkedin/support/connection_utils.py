@@ -1,9 +1,11 @@
+import time
+import random
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
 from services.support.logger_util import _log as log
-import time
-import random
 
 def send_connection_request(driver, profile_url: str, verbose: bool = False, status=None) -> bool:
     try:

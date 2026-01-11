@@ -1,3 +1,10 @@
+# socials utils <profile> suggestions scrape
+# socials utils <profile> suggestions filter  
+# socials utils <profile> suggestions web
+# socials utils <profile> suggestions generate
+# socials utils <profile> suggestions schedule
+# socials utils <profile> suggestions post
+
 import os
 import sys
 import json

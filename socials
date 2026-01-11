@@ -23,6 +23,16 @@ MODULE_CONFIGS = {
         'reply': 'reply.py',
         'scraper': 'scraper.py'
     }
+    },
+    'linkedin': {
+        'path_template': 'services/platform/linkedin/{filename}',
+        'modules': {
+        'connection': 'connection.py',
+        'dm': 'dm.py',
+        'scraper': 'scraper.py',
+        'post': 'post.py',
+        'reply': 'reply.py'
+    }
     }
 }
 
@@ -68,8 +78,10 @@ def parse_args() -> Optional[Dict]:
             print(f"Available {category} modules: {available}")
             return None
 
-        if args and module in ['dm', 'post', 'reply', 'scraper', 'global']:
+        if args and module in ['post', 'reply', 'scraper', 'global', 'connection']:
             args = [args[0], '--profile', profile] + args[1:]
+        elif module in ['dm', 'post']:
+            args = ['--profile', profile]
 
         return {
             'category': category,
