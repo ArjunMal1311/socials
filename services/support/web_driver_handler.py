@@ -1,4 +1,3 @@
-import re
 import os
 import glob
 import subprocess
@@ -58,7 +57,6 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     options.add_argument('--disable-notifications')
     options.add_argument('--disable-popup-blocking')
     options.add_argument('--start-maximized')
-    options.add_argument('--disable-extensions')
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--disable-infobars')
     options.add_argument('--log-level=3')
