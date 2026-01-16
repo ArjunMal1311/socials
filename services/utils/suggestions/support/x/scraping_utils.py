@@ -188,7 +188,7 @@ def save_scraped_content(scraped_tweets: List[Dict[str, Any]], profile_name: str
     suggestions_dir = get_suggestions_dir(profile_name)
     os.makedirs(suggestions_dir, exist_ok=True)
 
-    filename = f"scraped_content_{timestamp}.json"
+    filename = f"scraped_content_x_{timestamp}.json"
     filepath = os.path.join(suggestions_dir, filename)
 
     try:

@@ -104,9 +104,16 @@ def parse_args() -> Optional[Dict]:
             print(f"Available {category} modules: {available}")
             return None
 
-        if module == 'suggestions' and len(sys.argv) > 4:
-            subcommand = sys.argv[4]
-            args = [profile, subcommand]
+        if module == 'suggestions':
+            if len(sys.argv) > 5:
+                platform = sys.argv[4]
+                command = sys.argv[5]
+                args = [profile, platform, command]
+            elif len(sys.argv) > 4:
+                subcommand = sys.argv[4]
+                args = [profile, subcommand]
+            else:
+                args = [profile]
         else:
             args = [profile]
 

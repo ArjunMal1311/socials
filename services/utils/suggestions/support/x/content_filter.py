@@ -119,7 +119,7 @@ def filter_and_sort_content(scraped_file_path: str, profile_name: str) -> Dict[s
     suggestions_dir = get_suggestions_dir(profile_name)
     os.makedirs(suggestions_dir, exist_ok=True)
 
-    filtered_filename = f"filtered_content_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    filtered_filename = f"filtered_content_x_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     filtered_filepath = os.path.join(suggestions_dir, filtered_filename)
 
     try:
@@ -143,7 +143,7 @@ def get_latest_scraped_file(profile_name: str) -> str:
     if not os.path.exists(suggestions_dir):
         return ""
 
-    scraped_files = [f for f in os.listdir(suggestions_dir) if f.startswith('scraped_content_') and f.endswith('.json')]
+    scraped_files = [f for f in os.listdir(suggestions_dir) if f.startswith('scraped_content_x_') and f.endswith('.json')]
     if not scraped_files:
         return ""
 

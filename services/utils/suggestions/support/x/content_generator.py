@@ -1,15 +1,22 @@
 import os
+import json
+import time
+
 from datetime import datetime
 from typing import Dict, Any, List
 
 from profiles import PROFILES
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
-from services.support.path_config import get_gemini_log_file_path
+from services.support.path_config import get_gemini_log_file_path, get_suggestions_dir
 from services.support.gemini_util import generate_gemini_with_inline_media, create_inline_media_data
+
+from services.utils.suggestions.support.x.media_downloader import download_post_media
+from services.utils.suggestions.support.x.scraping_utils import get_latest_approved_file
 
 api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
 rate_limiter = RateLimiter()
@@ -59,8 +66,6 @@ def generate_caption_with_key(post_data: Dict[str, Any], media_paths: List[str],
         return "Error generating caption: Failed to generate content"
 
 def process_single_post(post_data: Dict[str, Any], api_key_pool: APIKeyPool, media_dir: str, verbose: bool = False) -> Dict[str, Any]:
-    from services.utils.suggestions.support.media_downloader import download_post_media
-
     tweet_id = post_data.get('tweet_id', 'unknown')
 
     try:
@@ -116,13 +121,6 @@ def process_single_post(post_data: Dict[str, Any], api_key_pool: APIKeyPool, med
         }
 
 def run_content_generation(profile_name: str) -> Dict[str, Any]:
-    """Run the complete content generation workflow for a profile."""
-    from services.support.api_key_pool import APIKeyPool
-    from services.support.path_config import get_suggestions_dir
-    from services.utils.suggestions.support.scraping_utils import get_latest_approved_file
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import json
-
     approved_file = get_latest_approved_file(profile_name)
     if not approved_file:
         return {"error": "No approved content found. Run 'web' command and approve content first."}
@@ -175,7 +173,7 @@ def run_content_generation(profile_name: str) -> Dict[str, Any]:
             }
         }
 
-        output_file = os.path.join(get_suggestions_dir(profile_name), f"suggestions_content_{datetime.now().strftime('%Y%m%d')}.json")
+        output_file = os.path.join(get_suggestions_dir(profile_name), f"suggestions_content_x_{datetime.now().strftime('%Y%m%d')}.json")
         with open(output_file, 'w') as f:
             json.dump(suggestions_content, f, indent=2)
 
@@ -187,3 +185,102 @@ def run_content_generation(profile_name: str) -> Dict[str, Any]:
 
     except Exception as e:
         return {"error": f"Error during content generation: {str(e)}"}
+
+def generate_new_tweets_from_filtered(profile_name: str) -> Dict[str, Any]:
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return {"error": "No filtered content found. Run 'filter' command first."}
+
+    x_files = [f for f in os.listdir(suggestions_dir) if f.startswith('filtered_content_x_') and f.endswith('.json')]
+
+    if not x_files:
+        return {"error": "No filtered content found. Run 'filter' command first."}
+
+    x_files.sort(reverse=True)
+    filtered_file = os.path.join(suggestions_dir, x_files[0])
+    if not filtered_file:
+        return {"error": "No filtered content found. Run 'filter' command first."}
+
+    try:
+        with open(filtered_file, 'r') as f:
+            filtered_data = json.load(f)
+
+        filtered_tweets = filtered_data.get('filtered_tweets', [])
+        if not filtered_tweets:
+            return {"error": "No filtered tweets found."}
+
+        profile_config = PROFILES.get(profile_name, {})
+        prompts = profile_config.get('prompts', {})
+        new_tweets_prompt = prompts.get('new_tweets_generation', 'Generate 5 new original tweets inspired by the themes and trends in these tweets. Make them engaging and viral. Return only the tweets, one per line.')
+
+        profile_props = profile_config.get('properties', {})
+        model_name = profile_props.get('model_name', 'gemini-2.5-flash-lite')
+        num_tweets = profile_props.get('num_new_tweets', 5)
+
+        api_key_pool = APIKeyPool(verbose=False)
+        if api_key_pool.size() == 0:
+            return {"error": "No API keys available. Set GEMINI_API environment variable."}
+
+        tweet_texts = []
+        for tweet in filtered_tweets[:10]:
+            text = tweet.get('tweet_text', '')
+            if text:
+                tweet_texts.append(text[:200])
+
+        prompt_parts = []
+        prompt_parts.append(f"Here are {len(tweet_texts)} example tweets:")
+        for i, text in enumerate(tweet_texts, 1):
+            prompt_parts.append(f"{i}. {text}")
+        prompt_parts.append(f"\n\n{new_tweets_prompt}")
+        prompt_parts.append(f"\n\nReturn exactly {num_tweets} new tweets, one per line. Do not include analysis or explanations - only the tweet text.")
+
+        result, _ = generate_gemini_with_inline_media(
+            prompt_parts=prompt_parts,
+            api_key_pool=api_key_pool,
+            api_call_tracker=api_call_tracker,
+            rate_limiter=rate_limiter,
+            model_name=model_name,
+            verbose=False
+        )
+
+        new_tweets = []
+        if result:
+            lines = result.strip().split('\n')
+            tweet_count = 0
+            for line in lines:
+                line = line.strip()
+                if line and len(line) > 10 and tweet_count < num_tweets:
+                    new_tweets.append({
+                        "id": f"new_x_{int(time.time())}_{tweet_count}",
+                        "text": line,
+                        "approved": False
+                    })
+                    tweet_count += 1
+
+        if not new_tweets:
+            return {"error": "Failed to generate new tweets"}
+
+        new_tweets_content = {
+            "timestamp": datetime.now().isoformat(),
+            "profile_name": profile_name,
+            "platform": "x",
+            "new_tweets": new_tweets,
+            "metadata": {
+                "total_filtered_tweets_analyzed": len(filtered_tweets),
+                "total_new_tweets_generated": len(new_tweets),
+                "generation_date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+        }
+
+        output_file = os.path.join(get_suggestions_dir(profile_name), f"new_tweets_content_x_{datetime.now().strftime('%Y%m%d')}.json")
+        with open(output_file, 'w') as f:
+            json.dump(new_tweets_content, f, indent=2)
+
+        return {
+            "success": True,
+            "total_generated": len(new_tweets),
+            "output_file": output_file
+        }
+
+    except Exception as e:
+        return {"error": f"Error during new tweets generation: {str(e)}"}

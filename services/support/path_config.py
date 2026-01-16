@@ -143,6 +143,9 @@ def get_scrape_output_file_path(profile_name: str, scrape_type: str, target_name
 def get_linkedin_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
 
+def get_linkedin_suggestions_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "suggestions", profile_name)
+
 def get_linkedin_output_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
 

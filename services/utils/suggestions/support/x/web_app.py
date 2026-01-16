@@ -14,7 +14,45 @@ from services.support.path_config import get_suggestions_dir
 from services.utils.suggestions.support.x.content_filter import get_latest_scraped_file
 from services.utils.suggestions.support.x.scraping_utils import get_latest_approved_file, get_latest_suggestions_file
 
+from services.utils.suggestions.support.linkedin.content_filter import get_latest_scraped_linkedin_file
+
 def load_filtered_content(profile_name):
+    log(f"Loading filtered content for profile: {profile_name}", verbose=False, log_caller_file="web_app.py")
+
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))))
+
+    try:
+        import sys
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+
+        from services.utils.suggestions.support.linkedin.content_filter import get_latest_filtered_linkedin_file
+        filepath = get_latest_filtered_linkedin_file(profile_name)
+        log(f"LinkedIn filtered file path: {filepath}", verbose=False, log_caller_file="web_app.py")
+
+        if filepath:
+            if not os.path.isabs(filepath):
+                filepath = os.path.join(project_root, filepath)
+
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if 'filtered_posts' in data:
+                    log(f"Found LinkedIn filtered content with {len(data['filtered_posts'])} posts", verbose=False, log_caller_file="web_app.py")
+                    return data
+                else:
+                    log(f"LinkedIn file doesn't have filtered_posts key", verbose=False, is_error=True, log_caller_file="web_app.py")
+            except Exception as e:
+                log(f"Error reading LinkedIn filtered file: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+                pass
+        else:
+            log(f"No LinkedIn filtered file found", verbose=False, is_error=True, log_caller_file="web_app.py")
+    except Exception as e:
+        log(f"Error loading LinkedIn content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+        pass
+    
     filepath = get_latest_scraped_file(profile_name)
     if not filepath:
         return None
@@ -29,7 +67,60 @@ def load_filtered_content(profile_name):
         log(f"Error loading filtered content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
         return None
 
+def load_new_generated_content(profile_name):
+    import os
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return None
+
+    linkedin_files = [f for f in os.listdir(suggestions_dir) if f.startswith('new_posts_content_linkedin_') and f.endswith('.json')]
+    if linkedin_files:
+        linkedin_files.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, linkedin_files[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading LinkedIn new posts: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
+    x_files = [f for f in os.listdir(suggestions_dir) if f.startswith('new_tweets_content_x_') and f.endswith('.json')]
+    if x_files:
+        x_files.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, x_files[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading X new tweets: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
+    return None
+
 def load_approved_content(profile_name):
+    import os
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return None
+
+    linkedin_files_with_media = [f for f in os.listdir(suggestions_dir) if f.startswith('approved_content_linkedin_') and f.endswith('_with_media.json')]
+    if linkedin_files_with_media:
+        linkedin_files_with_media.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, linkedin_files_with_media[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading LinkedIn approved content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
+    linkedin_files = [f for f in os.listdir(suggestions_dir) if f.startswith('approved_content_linkedin_') and f.endswith('.json') and not f.endswith('_with_media.json')]
+    if linkedin_files:
+        linkedin_files.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, linkedin_files[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading LinkedIn approved content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
     filepath = get_latest_approved_file(profile_name)
     if not filepath:
         return None
@@ -38,10 +129,35 @@ def load_approved_content(profile_name):
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        log(f"Error loading approved content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+        log(f"Error loading X approved content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
         return None
 
 def load_generated_content(profile_name):
+    import os
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return None
+
+    linkedin_files = [f for f in os.listdir(suggestions_dir) if f.startswith('suggestions_content_linkedin_') and f.endswith('_reviewed.json')]
+    if linkedin_files:
+        linkedin_files.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, linkedin_files[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading LinkedIn reviewed content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
+    linkedin_files = [f for f in os.listdir(suggestions_dir) if f.startswith('suggestions_content_linkedin_') and f.endswith('.json') and not f.endswith('_reviewed.json')]
+    if linkedin_files:
+        linkedin_files.sort(reverse=True)
+        filepath = os.path.join(suggestions_dir, linkedin_files[0])
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            log(f"Error loading LinkedIn generated content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
     filepath = get_latest_suggestions_file(profile_name)
     if not filepath:
         return None
@@ -50,15 +166,16 @@ def load_generated_content(profile_name):
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        log(f"Error loading generated content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+        log(f"Error loading X generated content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
         return None
 
-def save_approved_content(profile_name, approved_posts):
+def save_approved_content(profile_name, approved_posts, platform='x'):
     suggestions_dir = get_suggestions_dir(profile_name)
     os.makedirs(suggestions_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"approved_content_{timestamp}.json"
+    platform_prefix = f"{platform}_" if platform != 'x' else ""
+    filename = f"approved_content_{platform_prefix}{timestamp}.json"
 
     data = {
         "timestamp": datetime.now().isoformat(),
@@ -76,12 +193,13 @@ def save_approved_content(profile_name, approved_posts):
 
     return filepath
 
-def save_reviewed_content(profile_name, generated_posts):
+def save_reviewed_content(profile_name, generated_posts, platform='x'):
     suggestions_dir = get_suggestions_dir(profile_name)
     os.makedirs(suggestions_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"suggestions_content_{timestamp}_reviewed.json"
+    platform_prefix = f"{platform}_" if platform != 'x' else ""
+    filename = f"suggestions_content_{platform_prefix}{timestamp}_reviewed.json"
 
     data = {
         "timestamp": datetime.now().isoformat(),
@@ -106,221 +224,224 @@ def save_reviewed_content(profile_name, generated_posts):
 def get_css_styles():
     return """
         body {
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 15px;
-            background: #0a0a0a;
-            color: #e0e0e0;
-            min-height: 100vh;
+            padding: 20px;
+            background: white;
+            color: black;
+            line-height: 1.5;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 2px;
         }
         .top-bar {
             text-align: center;
-            background: #1a1a1a;
-            padding: 15px 20px;
-            border-radius: 6px;
-            border: 1px solid #333;
+            padding: 20px;
+            border-bottom: 1px solid #ccc;
             margin-bottom: 20px;
         }
         .title {
-            color: #00ffff;
-            margin: 0;
-            font-size: 18px;
-            font-weight: 500;
+            color: black;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            font-weight: 600;
         }
         .stats {
-            color: #888;
-            font-size: 12px;
-            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 14px;
+            margin: 0;
         }
         .nav-links {
-            margin-top: 10px;
+            margin-top: 15px;
         }
         .nav-link {
-            color: #00ffff;
+            color: black;
             text-decoration: none;
             font-size: 14px;
             margin: 0 10px;
+            padding: 5px 10px;
+            border: 1px solid black;
+            border-radius: 2px;
         }
         .nav-link:hover {
-            text-decoration: underline;
+            background: #f0f0f0;
         }
         .post-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
-            max-width: 600px;
-            margin: 0 auto;
+            gap: 20px;
         }
         .post {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 6px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
             padding: 20px;
-            position: relative;
-            width: 100%;
-            box-sizing: border-box;
+            background: #f9f9f9;
         }
         .post-header {
             display: flex;
             justify-content: space-between;
-            align-items: start;
-            margin-bottom: 10px;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .post-actions {
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            align-items: center;
         }
         .radio-option, .checkbox-option {
             display: flex;
             align-items: center;
             gap: 5px;
-            font-size: 12px;
-            color: #e0e0e0;
+            font-size: 14px;
         }
         .radio-option input[type="radio"],
         .checkbox-option input[type="checkbox"] {
             margin: 0;
-            accent-color: #00ffff;
         }
         .caption-textarea {
             width: 100%;
-            min-height: 80px;
-            background: #000;
-            color: #00ff00;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 10px;
-            box-sizing: border-box;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            min-height: 100px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 12px;
+            font-family: inherit;
             font-size: 14px;
             margin-top: 10px;
+            resize: vertical;
         }
         .tweet-text {
-            color: #e0e0e0;
-            margin: 10px 0;
-            line-height: 1.4;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
+            color: black;
+            margin: 15px 0;
+            font-size: 16px;
+            line-height: 1.6;
         }
         .tweet-meta {
-            color: #888;
-            font-size: 11px;
-            margin: 5px 0;
+            color: #666;
+            font-size: 12px;
+            margin: 10px 0;
         }
         .engagement {
-            background: #2a2a2a;
-            color: #00ffff;
+            background: #e0e0e0;
+            color: black;
             padding: 4px 8px;
-            border-radius: 10px;
-            font-size: 11px;
+            border-radius: 12px;
+            font-size: 12px;
             font-weight: 500;
             display: inline-block;
-            margin: 2px 2px 0 0;
+            margin: 2px 4px 0 0;
         }
         .media-preview, .media-container {
-            margin-top: 10px;
-            padding: 8px;
-            background: #141414;
-            border-radius: 4px;
-            border: 1px solid #333;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            border: 1px solid #ccc;
         }
         .media-preview {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
             justify-content: center;
         }
         .media-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
         }
         .media-text {
-            color: #00ffff;
+            color: #666;
             font-size: 12px;
-            margin-bottom: 5px;
+            font-weight: 500;
         }
         .image-thumb, .media-item img, .media-item video {
-            max-width: 120px;
-            max-height: 90px;
-            border-radius: 3px;
-            border: 1px solid #333;
+            max-width: 150px;
+            max-height: 100px;
+            border-radius: 2px;
+            border: 1px solid #ccc;
             object-fit: contain;
         }
         .media-item img, .media-item video {
-            max-width: 150px;
-            max-height: 150px;
+            max-width: 200px;
+            max-height: 200px;
         }
         .tweet-link {
-            color: #00ffff;
-            font-size: 11px;
+            color: black;
+            font-size: 14px;
             text-decoration: none;
-            margin-top: 5px;
+            margin-top: 10px;
             display: inline-block;
+            padding: 5px 10px;
+            border: 1px solid black;
+            border-radius: 2px;
         }
         .tweet-link:hover {
-            text-decoration: underline;
+            background: #f0f0f0;
         }
         .submit-section {
             text-align: center;
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid #333;
+            border-top: 1px solid #ccc;
         }
         .submit-btn {
-            background: #00ffff;
-            color: #000;
+            background: black;
+            color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
+            padding: 12px 30px;
+            border-radius: 2px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            font-family: inherit;
-            transition: all 0.2s;
+            font-size: 16px;
+            font-weight: 500;
         }
         .submit-btn:hover {
-            background: #00cccc;
-            transform: translateY(-1px);
+            background: #333;
         }
         .workflow-steps {
             display: flex;
             justify-content: center;
             gap: 20px;
-            margin: 20px 0;
+            margin: 30px 0;
             flex-wrap: wrap;
         }
         .step {
-            padding: 10px 15px;
+            padding: 8px 16px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 500;
+            border: 1px solid #ccc;
         }
         .step.active {
-            background: #00ffff;
-            color: #000;
+            background: black;
+            color: white;
         }
         .step.completed {
-            background: #00ff00;
-            color: #000;
+            background: #666;
+            color: white;
         }
         .step.pending {
-            background: #333;
-            color: #888;
+            background: white;
+            color: #666;
         }
         .error-message {
-            background: #1a0a0a;
-            color: #ff6666;
-            border: 1px solid #ff3333;
+            background: #f0f0f0;
+            color: black;
+            border: 1px solid #ccc;
             padding: 15px;
-            border-radius: 4px;
+            border-radius: 2px;
             text-align: center;
             margin: 20px 0;
+        }
+        .success-title {
+            color: black;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
     """
 
@@ -346,10 +467,10 @@ class ContentWebHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path.endswith('/approve'):
-            profile_name = self.path.split('/')[0]
+            profile_name = self.path.split('/')[1]
             self.handle_approval(profile_name)
         elif self.path.endswith('/review'):
-            profile_name = self.path.split('/')[0]
+            profile_name = self.path.split('/')[1]
             self.handle_review(profile_name)
         else:
             self.send_error(404)
@@ -413,9 +534,9 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <div style="text-align: center; margin-top: 40px;">
-                    {'<p style="color: #00ff00;">✓ Ready to approve filtered content</p>' if has_filtered and not has_approved else ''}
-                    {'<p style="color: #00ff00;">✓ Ready to review generated captions</p>' if has_generated else ''}
-                    {'<p style="color: #ff6666;">⚠ Run scraping and filtering first</p>' if not has_filtered else ''}
+                    {'<p>Ready to approve filtered content</p>' if has_filtered and not has_approved else ''}
+                    {'<p>Ready to review generated captions</p>' if has_generated else ''}
+                    {'<p>Run scraping and filtering first</p>' if not has_filtered else ''}
                 </div>
             </div>
         </body>
@@ -428,6 +549,9 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         if not filtered_data:
             self.send_error_page(f"No filtered content found for {profile_name}. Run scraping and filtering first.")
             return
+
+        is_linkedin = 'filtered_posts' in filtered_data
+        posts_field = 'filtered_posts' if is_linkedin else 'filtered_tweets'
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
@@ -446,21 +570,27 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         html_parts.append(f'<h1 class="title">Approve Content - {profile_name}</h1>')
         html_parts.append(f'<div class="stats">{filtered_data["filtered_count"]} posts | {filtered_data["filter_criteria"]["min_age_days"]}-{filtered_data["filter_criteria"]["max_age_days"]} days old</div>')
         html_parts.append('<div class="nav-links">')
-        html_parts.append(f'<a href="/{profile_name}" class="nav-link">← Back</a>')
+        html_parts.append(f'<a href="/{profile_name}" class="nav-link">Back</a>')
         html_parts.append('</div>')
         html_parts.append('</div>')
 
         html_parts.append(f'<form method="POST" action="/{profile_name}/approve">')
         html_parts.append('<div class="post-grid">')
 
-        for i, post in enumerate(filtered_data['filtered_tweets']):
+        for i, post in enumerate(filtered_data[posts_field]):
             html_parts.append('<div class="post">')
             html_parts.append('<div class="post-header">')
             html_parts.append('<div>')
-            html_parts.append(f'<span class="engagement">{post.get("likes", 0)} likes</span>')
-            html_parts.append(f'<span class="engagement">{post.get("retweets", 0)} RT</span>')
-            html_parts.append(f'<span class="engagement">{post.get("replies", 0)} replies</span>')
-            html_parts.append(f'<span class="engagement">{post.get("views", 0)} views</span>')
+            if is_linkedin:
+                engagement = post.get('engagement', {})
+                html_parts.append(f'<span class="engagement">{engagement.get("likes", 0)} likes</span>')
+                html_parts.append(f'<span class="engagement">{engagement.get("comments", 0)} comments</span>')
+                html_parts.append(f'<span class="engagement">{engagement.get("reposts", 0)} reposts</span>')
+            else:
+                html_parts.append(f'<span class="engagement">{post.get("likes", 0)} likes</span>')
+                html_parts.append(f'<span class="engagement">{post.get("retweets", 0)} RT</span>')
+                html_parts.append(f'<span class="engagement">{post.get("replies", 0)} replies</span>')
+                html_parts.append(f'<span class="engagement">{post.get("views", 0)} views</span>')
             html_parts.append(f'<span class="engagement">{post.get("age_days", 0)} days</span>')
             html_parts.append('</div>')
             html_parts.append('<div class="post-actions">')
@@ -469,24 +599,37 @@ class ContentWebHandler(BaseHTTPRequestHandler):
             html_parts.append('</div>')
             html_parts.append('</div>')
 
-            tweet_text = post.get('tweet_text', 'No text')
+            if is_linkedin:
+                tweet_text = post.get('data', {}).get('text', 'No text')
+                tweet_date = post.get('data', {}).get('post_date')
+                tweet_url = post.get('data', {}).get('profile_url')
+            else:
+                tweet_text = post.get('tweet_text', 'No text')
+                tweet_date = post.get('tweet_date')
+                tweet_url = post.get('tweet_url')
+
             truncated_text = tweet_text[:150] + ('...' if len(tweet_text) > 150 else '')
             html_parts.append(f'<div class="tweet-text">{truncated_text}</div>')
 
-            tweet_date = post.get('tweet_date')
             if tweet_date:
-                html_parts.append(f'<div class="tweet-meta">Posted: {tweet_date[:10]}</div>')
+                try:
+                    date_str = tweet_date[:10] if not is_linkedin else tweet_date.split('T')[0]
+                    html_parts.append(f'<div class="tweet-meta">Posted: {date_str}</div>')
+                except:
+                    html_parts.append(f'<div class="tweet-meta">Posted: {tweet_date[:10] if len(tweet_date) > 10 else tweet_date}</div>')
 
-            tweet_url = post.get('tweet_url')
             if tweet_url:
-                html_parts.append(f'<a href="{tweet_url}" target="_blank" class="tweet-link">View original</a>')
+                link_text = "View profile" if is_linkedin else "View original"
+                html_parts.append(f'<a href="{tweet_url}" target="_blank" class="tweet-link">{link_text}</a>')
 
-            media_urls = post.get('media_urls')
+            if is_linkedin:
+                media_urls = post.get('data', {}).get('media_urls', [])
+            else:
+                media_urls = post.get('media_urls', [])
+
             if media_urls:
                 html_parts.append('<div class="media-preview">')
-                if media_urls == ['video']:
-                    html_parts.append('<div class="media-text">VIDEO</div>')
-                elif media_urls and len(media_urls) > 0:
+                if media_urls and len(media_urls) > 0:
                     image_urls = [url for url in media_urls if isinstance(url, str) and url.startswith('http')]
                     if image_urls:
                         html_parts.append(f'<div class="media-text">{len(image_urls)} IMAGE(S)</div>')
@@ -511,16 +654,27 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         self.wfile.write(html.encode())
 
     def serve_review_page(self, profile_name):
-        suggestions_data = load_generated_content(profile_name)
-        if not suggestions_data:
-            self.send_error_page(f"No generated content found for {profile_name}. Run content generation first.")
+        approved_data = load_approved_content(profile_name)
+        new_content_data = load_new_generated_content(profile_name)
+
+        if not approved_data and not new_content_data:
+            self.send_error_page(f"No content found for {profile_name}. Run 'generate' and 'generate_new' commands first.")
             return
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
 
-        generated_posts = suggestions_data.get('generated_posts', [])
+        total_items = 0
+        if approved_data:
+            approved_posts = approved_data.get('approved_posts', [])
+            total_items += len(approved_posts)
+        if new_content_data:
+            if new_content_data.get('platform') == 'linkedin':
+                new_items = new_content_data.get('new_posts', [])
+            else:
+                new_items = new_content_data.get('new_tweets', [])
+            total_items += len(new_items)
 
         html_parts = []
         html_parts.append("<!DOCTYPE html>")
@@ -533,58 +687,84 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         html_parts.append('<div class="container">')
         html_parts.append('<div class="top-bar">')
         html_parts.append(f'<h1 class="title">Review Content - {profile_name}</h1>')
-        html_parts.append(f'<div class="stats">{len(generated_posts)} posts to review</div>')
+        html_parts.append(f'<div class="stats">{total_items} items to review</div>')
         html_parts.append('<div class="nav-links">')
-        html_parts.append(f'<a href="/{profile_name}" class="nav-link">← Back</a>')
+        html_parts.append(f'<a href="/{profile_name}" class="nav-link">Back</a>')
         html_parts.append('</div>')
         html_parts.append('</div>')
 
         html_parts.append(f'<form method="POST" action="/{profile_name}/review">')
         html_parts.append('<div class="post-grid">')
 
-        for post in generated_posts:
-            tweet_id = post.get('tweet_id', 'unknown')
-            original_caption = post.get('tweet_text', 'No original text')
-            generated_caption = post.get('generated_caption', 'No caption generated')
-            tweet_url = post.get('tweet_url', '#')
-            media_urls = post.get('downloaded_media_paths', [])
+        item_index = 0
 
-            html_parts.append('<div class="post">')
-            html_parts.append('<div class="post-header">')
-            html_parts.append(f'<h3>Post ID: {tweet_id}</h3>')
-            html_parts.append(f'<a href="{tweet_url}" target="_blank" class="tweet-link">Original Tweet</a>')
-            html_parts.append('</div>')
-            html_parts.append('<div class="post-content">')
-            html_parts.append(f'<h4>Original Text:</h4><p>{original_caption}</p>')
-            html_parts.append(f'<h4>Generated Caption:</h4>')
-            html_parts.append(f'<textarea name="caption_{tweet_id}" class="caption-textarea">{generated_caption}</textarea>')
+        if approved_data:
+            approved_posts = approved_data.get('approved_posts', [])
+            is_linkedin_approved = approved_data.get('platform') == 'linkedin'
 
-            if media_urls:
-                html_parts.append(f'<h4>Media:</h4>')
-                html_parts.append('<div class="media-container">')
-                for media_path in media_urls:
-                    if media_path and os.path.exists(media_path):
-                        relative_browser_path = os.path.join('/static', profile_name, os.path.relpath(media_path, get_suggestions_dir(profile_name)))
-
-                        media_type = 'image' if media_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) else 'video'
-                        html_parts.append('<div class="media-item">')
-                        if media_type == 'image':
-                            html_parts.append(f'<img src="{relative_browser_path}" alt="Media">')
-                        else:
-                            html_parts.append(f'<video controls src="{relative_browser_path}"></video>')
-                        html_parts.append(f'<label class="checkbox-option">')
-                        html_parts.append(f'<input type="checkbox" name="media_keep_{tweet_id}" value="{media_path}" checked>')
-                        html_parts.append(f'Keep')
-                        html_parts.append(f'</label>')
-                        html_parts.append('</div>')
+            for post in approved_posts:
+                html_parts.append('<div class="post">')
+                html_parts.append('<div class="post-header">')
+                html_parts.append('<div>')
+                if is_linkedin_approved:
+                    engagement = post.get('engagement', {})
+                    html_parts.append(f'<span class="engagement">{engagement.get("likes", 0)} likes</span>')
+                    html_parts.append(f'<span class="engagement">{engagement.get("comments", 0)} comments</span>')
+                    html_parts.append(f'<span class="engagement">{engagement.get("reposts", 0)} reposts</span>')
+                else:
+                    html_parts.append(f'<span class="engagement">{post.get("likes", 0)} likes</span>')
+                    html_parts.append(f'<span class="engagement">{post.get("retweets", 0)} RT</span>')
+                    html_parts.append(f'<span class="engagement">{post.get("replies", 0)} replies</span>')
+                html_parts.append('<span class="engagement">APPROVED</span>')
+                html_parts.append('</div>')
+                html_parts.append('<div class="post-actions">')
+                html_parts.append(f'<div class="radio-option"><input type="radio" name="decision-{item_index}" value="approve" id="approve-{item_index}" checked><label for="approve-{item_index}">Schedule</label></div>')
+                html_parts.append(f'<div class="radio-option"><input type="radio" name="decision-{item_index}" value="reject" id="reject-{item_index}"><label for="reject-{item_index}">Skip</label></div>')
+                html_parts.append('</div>')
                 html_parts.append('</div>')
 
-            html_parts.append('</div>')
-            html_parts.append('</div>')
+                if is_linkedin_approved:
+                    original_text = post.get('data', {}).get('text', 'No text')
+                    generated_text = post.get('generated_caption', 'No caption')
+                else:
+                    original_text = post.get('tweet_text', 'No text')
+                    generated_text = post.get('generated_caption', 'No caption')
+
+                html_parts.append(f'<div class="tweet-text"><strong>Original:</strong> {original_text[:200]}{"..." if len(original_text) > 200 else ""}</div>')
+                html_parts.append(f'<textarea name="caption_{item_index}" class="caption-textarea">{generated_text}</textarea>')
+
+                item_index += 1
+                html_parts.append('</div>')
+
+        if new_content_data:
+            if new_content_data.get('platform') == 'linkedin':
+                new_items = new_content_data.get('new_posts', [])
+                item_type = "New Post"
+            else:
+                new_items = new_content_data.get('new_tweets', [])
+                item_type = "New Tweet"
+
+            for item in new_items:
+                html_parts.append('<div class="post">')
+                html_parts.append('<div class="post-header">')
+                html_parts.append('<div>')
+                html_parts.append(f'<span class="engagement">{item_type.upper()}</span>')
+                html_parts.append('</div>')
+                html_parts.append('<div class="post-actions">')
+                html_parts.append(f'<div class="radio-option"><input type="radio" name="decision-{item_index}" value="approve" id="approve-{item_index}" checked><label for="approve-{item_index}">Schedule</label></div>')
+                html_parts.append(f'<div class="radio-option"><input type="radio" name="decision-{item_index}" value="reject" id="reject-{item_index}"><label for="reject-{item_index}">Skip</label></div>')
+                html_parts.append('</div>')
+                html_parts.append('</div>')
+
+                item_text = item.get('text', 'No content')
+                html_parts.append(f'<textarea name="caption_{item_index}" class="caption-textarea">{item_text}</textarea>')
+
+                item_index += 1
+                html_parts.append('</div>')
 
         html_parts.append('</div>')
         html_parts.append('<div class="submit-section">')
-        html_parts.append('<button type="submit" class="submit-btn">Save All Changes</button>')
+        html_parts.append('<button type="submit" class="submit-btn">Save and Schedule</button>')
         html_parts.append('</div>')
         html_parts.append('</form>')
         html_parts.append('</div>')
@@ -627,23 +807,29 @@ class ContentWebHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Invalid static media request")
 
     def handle_approval(self, profile_name):
+        log(f"Handling approval for profile: {profile_name}", verbose=False, log_caller_file="web_app.py")
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length).decode('utf-8')
         parsed_data = urllib.parse.parse_qs(post_data)
 
         filtered_data = load_filtered_content(profile_name)
         if not filtered_data:
+            log(f"No filtered content found for {profile_name} in handle_approval", verbose=False, is_error=True, log_caller_file="web_app.py")
             self.send_error(404, "No filtered content found")
             return
 
+        is_linkedin = 'filtered_posts' in filtered_data
+        posts_field = 'filtered_posts' if is_linkedin else 'filtered_tweets'
+        platform = 'linkedin' if is_linkedin else 'x'
+
         approved_posts = []
-        for i, post in enumerate(filtered_data['filtered_tweets']):
+        for i, post in enumerate(filtered_data[posts_field]):
             decision_key = f'decision-{i}'
             if decision_key in parsed_data and parsed_data[decision_key][0] == 'approve':
                 approved_posts.append(post)
 
         if approved_posts:
-            saved_file = save_approved_content(profile_name, approved_posts)
+            saved_file = save_approved_content(profile_name, approved_posts, platform)
             filename = os.path.basename(saved_file)
         else:
             filename = None
@@ -665,7 +851,7 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                     <div class="success-title" style="color: #00ff00; font-size: 24px;">APPROVALS SAVED</div>
                     <strong>{len(approved_posts)} posts approved</strong><br><br>
                     {'File saved: ' + filename if filename else 'No posts approved'}<br><br>
-                    <a href="/{profile_name}" class="nav-link">← Back to Workflow</a>
+                    <a href="/{profile_name}" class="nav-link">Back to Workflow</a>
                 </div>
             </div>
         </body>
@@ -679,31 +865,120 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length).decode('utf-8')
         parsed_data = urllib.parse.parse_qs(post_data)
 
-        suggestions_data = load_generated_content(profile_name)
-        if not suggestions_data:
-            self.send_error(404, "No generated content found")
+        approved_data = load_approved_content(profile_name)
+        new_content_data = load_new_generated_content(profile_name)
+
+        if not approved_data and not new_content_data:
+            self.send_error(404, "No content found")
             return
 
-        generated_posts = suggestions_data.get('generated_posts', [])
-        updated_posts = []
+        suggestions_items = []
+        item_index = 0
 
-        for post in generated_posts:
-            tweet_id = post.get('tweet_id')
-            if tweet_id:
-                new_caption = parsed_data.get(f'caption_{tweet_id}', [''])[0]
-                kept_media = parsed_data.get(f'media_keep_{tweet_id}', [])
+        if approved_data:
+            approved_posts = approved_data.get('approved_posts', [])
+            is_linkedin_approved = approved_data.get('platform') == 'linkedin'
 
-                post['generated_caption'] = new_caption
-                post['media_urls'] = kept_media
-                post['downloaded_media_paths'] = kept_media
+            for post in approved_posts:
+                decision = parsed_data.get(f'decision-{item_index}', ['reject'])[0]
+                if decision == 'approve':
+                    edited_caption = parsed_data.get(f'caption_{item_index}', [''])[0]
 
-            updated_posts.append(post)
+                    if is_linkedin_approved:
+                        post['generated_caption'] = edited_caption
+                    else:
+                        post['generated_caption'] = edited_caption
 
-        suggestions_data['generated_posts'] = updated_posts
-        suggestions_data['metadata']['last_review_timestamp'] = datetime.now().isoformat()
+                    suggestions_items.append({
+                        'type': 'approved_post',
+                        'platform': approved_data.get('platform', 'x'),
+                        'content': post
+                    })
 
-        saved_file = save_reviewed_content(profile_name, updated_posts)
-        filename = os.path.basename(saved_file) if saved_file else "No file saved"
+                item_index += 1
+
+        if new_content_data:
+            if new_content_data.get('platform') == 'linkedin':
+                new_items = new_content_data.get('new_posts', [])
+            else:
+                new_items = new_content_data.get('new_tweets', [])
+
+            for item in new_items:
+                decision = parsed_data.get(f'decision-{item_index}', ['reject'])[0]
+                if decision == 'approve':
+                    edited_text = parsed_data.get(f'caption_{item_index}', [''])[0]
+
+                    item['text'] = edited_text
+                    item['approved'] = True
+
+                    suggestions_items.append({
+                        'type': 'new_content',
+                        'platform': new_content_data.get('platform', 'x'),
+                        'content': item
+                    })
+
+                item_index += 1
+
+        if suggestions_items:
+            import json
+            from services.support.path_config import get_suggestions_dir
+
+            suggestions_dir = get_suggestions_dir(profile_name)
+            os.makedirs(suggestions_dir, exist_ok=True)
+
+            platform = suggestions_items[0]['platform'] if suggestions_items else 'x'
+
+            existing_files = [f for f in os.listdir(suggestions_dir) if f.startswith(f"suggestions_content_{platform}_") and f.endswith('.json')]
+            existing_files.sort(reverse=True)
+
+            if existing_files:
+                latest_file = os.path.join(suggestions_dir, existing_files[0])
+                try:
+                    with open(latest_file, 'r') as f:
+                        existing_data = json.load(f)
+
+                    if 'approved_content' not in existing_data:
+                        existing_data['approved_content'] = []
+
+                    existing_data['approved_content'].extend(suggestions_items)
+                    existing_data['total_approved'] = len(existing_data['approved_content'])
+                    existing_data['timestamp'] = datetime.now().isoformat()
+
+                    with open(latest_file, 'w') as f:
+                        json.dump(existing_data, f, indent=2)
+
+                    suggestions_file = latest_file
+                except Exception as e:
+                    log(f"Error appending to existing suggestions file: {e}", verbose=False, log_caller_file="web_app.py")
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    suggestions_file = os.path.join(suggestions_dir, f"suggestions_content_{platform}_{timestamp}.json")
+
+                    suggestions_data = {
+                        "timestamp": datetime.now().isoformat(),
+                        "profile_name": profile_name,
+                        "platform": platform,
+                        "approved_content": suggestions_items,
+                        "total_approved": len(suggestions_items)
+                    }
+
+                    with open(suggestions_file, 'w') as f:
+                        json.dump(suggestions_data, f, indent=2)
+            else:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                suggestions_file = os.path.join(suggestions_dir, f"suggestions_content_{platform}_{timestamp}.json")
+
+                suggestions_data = {
+                    "timestamp": datetime.now().isoformat(),
+                    "profile_name": profile_name,
+                    "platform": platform,
+                    "approved_content": suggestions_items,
+                    "total_approved": len(suggestions_items)
+                }
+
+                with open(suggestions_file, 'w') as f:
+                    json.dump(suggestions_data, f, indent=2)
+
+        filename = f"{len(suggestions_items)} items saved to suggestions"
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
@@ -713,16 +988,16 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Changes Saved!</title>
+            <title>Content Saved!</title>
             <style>{get_css_styles()}</style>
         </head>
         <body>
             <div class="container">
                 <div class="top-bar">
-                    <div class="success-title" style="color: #00ff00; font-size: 24px;">CHANGES SAVED</div>
-                    <strong>{len(updated_posts)} posts reviewed</strong><br><br>
-                    File saved: {filename}<br><br>
-                    <a href="/{profile_name}" class="nav-link">← Back to Workflow</a>
+                    <div class="success-title">CONTENT SAVED TO SUGGESTIONS</div>
+                    <strong>{filename}</strong><br><br>
+                    <p>You can now run the <code>schedule</code> command to schedule these items.</p><br>
+                    <a href="/{profile_name}" class="nav-link">Back to Workflow</a>
                 </div>
             </div>
         </body>
@@ -752,7 +1027,7 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                     {message}
                 </div>
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="/" class="nav-link">← Back to Home</a>
+                    <a href="/" class="nav-link">Back to Home</a>
                 </div>
             </div>
         </body>

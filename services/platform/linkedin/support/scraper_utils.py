@@ -1,7 +1,7 @@
 import re
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from selenium.webdriver.common.by import By
@@ -26,6 +26,47 @@ def parse_engagement_number(num_str: str) -> int:
             return int(float(num_str))
         except:
             return 0
+
+def extract_post_date(post_element) -> str:
+    try:
+        post_text = post_element.text
+        now = datetime.now()
+
+        for line in post_text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            import re
+
+            day_match = re.search(r'(\d+)\s*d\s*•', line)
+            if day_match:
+                days = int(day_match.group(1))
+                post_date = now - timedelta(days=days)
+                return post_date.isoformat() + "Z"
+
+            week_match = re.search(r'(\d+)\s*w\s*•', line)
+            if week_match:
+                weeks = int(week_match.group(1))
+                days = weeks * 7
+                post_date = now - timedelta(days=days)
+                return post_date.isoformat() + "Z"
+
+            hour_match = re.search(r'(\d+)\s*h\s*•', line)
+            if hour_match:
+                hours = int(hour_match.group(1))
+                post_date = now - timedelta(hours=hours)
+                return post_date.isoformat() + "Z"
+
+            minute_match = re.search(r'(\d+)\s*m\s*•', line)
+            if minute_match:
+                minutes = int(minute_match.group(1))
+                post_date = now - timedelta(minutes=minutes)
+                return post_date.isoformat() + "Z"
+
+        return datetime.now().isoformat() + "Z"
+    except Exception as e:
+        return datetime.now().isoformat() + "Z"
 
 def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: str, max_posts_per_profile: int = 10, headless: bool = True, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     all_posts = []
@@ -292,7 +333,7 @@ def extract_linkedin_post_data(post_element, profile_url: str = "", extract_enga
             else:
                 post_data["data"]["post_id"] = f"feed_{int(time.time())}_{hash(post_data['data']['text'][:50]) % 10000}"
 
-            post_data["data"]["post_date"] = datetime.now().isoformat() + "Z"
+            post_data["data"]["post_date"] = extract_post_date(post_element)
 
             if not post_data["data"]["profile_url"]:
                 post_data["data"]["profile_url"] = ""
