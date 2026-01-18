@@ -143,9 +143,6 @@ def get_scrape_output_file_path(profile_name: str, scrape_type: str, target_name
 def get_linkedin_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
 
-def get_linkedin_suggestions_dir(profile_name: str) -> str:
-    return os.path.join(BASE_TMP_DIR, "suggestions", profile_name)
-
 def get_linkedin_output_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "linkedin", profile_name)
 
@@ -180,6 +177,23 @@ def get_google_analysis_dir(profile_name: str) -> str:
 
 def get_product_hunt_profile_dir(profile_name: str) -> str:
     return os.path.join(BASE_TMP_DIR, "product_hunt", profile_name)
+
+def get_product_hunt_output_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "product-hunt", profile_name)
+
+def get_product_hunt_scrape_output_file_path(profile_name: str, timestamp: str) -> str:
+    base_dir = get_product_hunt_output_dir(profile_name)
+    return os.path.join(base_dir, f"product_hunt_{timestamp}.json")
+
+def get_yc_profile_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "ycombinator", profile_name)
+
+def get_yc_output_dir(profile_name: str) -> str:
+    return os.path.join(BASE_TMP_DIR, "ycombinator", profile_name)
+
+def get_yc_scrape_output_file_path(profile_name: str, timestamp: str) -> str:
+    base_dir = get_yc_output_dir(profile_name)
+    return os.path.join(base_dir, f"ycombinator_{timestamp}.json")
 
 def get_ideas_aggregated_dir(profile_name: str) -> str:
     path = os.path.join(BASE_TMP_DIR, "ideas", profile_name, "aggregated")

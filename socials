@@ -8,6 +8,7 @@ MODULE_CONFIGS = {
         'path_template': 'services/utils/{module}/{filename}',
         'modules': {
             'action': 'action.py',
+            'connection': 'connection.py',
             'ideas': 'idea.py',
             'networking': 'networking.py',
             'suggestions': 'suggestions.py'
@@ -27,12 +28,24 @@ MODULE_CONFIGS = {
     'linkedin': {
         'path_template': 'services/platform/linkedin/{filename}',
         'modules': {
-        'connection': 'connection.py',
-        'dm': 'dm.py',
-        'scraper': 'scraper.py',
-        'post': 'post.py',
-        'reply': 'reply.py'
-    }
+            'connection': 'connection.py',
+            'dm': 'dm.py',
+            'scraper': 'scraper.py',
+            'post': 'post.py',
+            'reply': 'reply.py'
+        }
+    },
+    'producthunt': {
+        'path_template': 'services/platform/producthunt/{filename}',
+        'modules': {
+            'scraper': 'scraper.py'
+        }
+    },
+    'ycombinator': {
+        'path_template': 'services/platform/ycombinator/{filename}',
+        'modules': {
+            'scraper': 'scraper.py'
+        }
     }
 }
 
@@ -80,7 +93,7 @@ def parse_args() -> Optional[Dict]:
 
         if args and module in ['post', 'reply', 'scraper', 'global', 'connection']:
             args = [args[0], '--profile', profile] + args[1:]
-        elif module in ['dm', 'post']:
+        elif module in ['dm', 'post', 'scraper'] or (category == 'ycombinator' and module == 'scraper'):
             args = ['--profile', profile]
 
         return {
@@ -104,16 +117,10 @@ def parse_args() -> Optional[Dict]:
             print(f"Available {category} modules: {available}")
             return None
 
-        if module == 'suggestions':
-            if len(sys.argv) > 5:
-                platform = sys.argv[4]
-                command = sys.argv[5]
-                args = [profile, platform, command]
-            elif len(sys.argv) > 4:
-                subcommand = sys.argv[4]
-                args = [profile, subcommand]
-            else:
-                args = [profile]
+        if module == 'suggestions' and len(sys.argv) > 5:
+            platform_arg = sys.argv[4]
+            command_arg = sys.argv[5]
+            args = [profile, platform_arg, command_arg]
         else:
             args = [profile]
 
