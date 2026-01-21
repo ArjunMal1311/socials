@@ -1,7 +1,7 @@
 import json
 
 from typing import Dict, List, Any
-from base import BaseTwitterStorage
+from .base import BaseTwitterStorage
 from services.support.postgres_util import get_postgres_connection, update_data
 
 class TwitterActionStorage(BaseTwitterStorage):
@@ -108,6 +108,7 @@ class TwitterActionStorage(BaseTwitterStorage):
         for tweet in approved_tweets:
             mapped_tweet = self._unmap_tweet_data(tweet)
             mapped_tweet["generated_reply"] = tweet.get("generated_reply")
+            mapped_tweet["profile_name"] = tweet.get("profile_name")
             mapped_tweets.append(mapped_tweet)
 
         return mapped_tweets

@@ -26,13 +26,17 @@ console = Console()
 def _format_product_data(product_data: Dict[str, Any]) -> Dict[str, Any]:
     scraped_at = datetime.now().isoformat()
 
-    social_links_str = product_data.get("Links (Socials)", "")
-    social_links = social_links_str.split(", ") if social_links_str else []
+    founders_data = product_data.get("founders_data", [])
 
     founders = []
-    for link in social_links:
-        if link and link != "N/A":
-            founders.append(link)
+    for founder in founders_data:
+        founder_obj = {
+            "name": founder.get("name", ""),
+            "img": founder.get("img", ""),
+            "links": founder.get("links", [])
+        }
+        if founder_obj["name"]:
+            founders.append(founder_obj)
 
     return {
         "id": str(uuid.uuid4()),
@@ -42,7 +46,8 @@ def _format_product_data(product_data: Dict[str, Any]) -> Dict[str, Any]:
             "name": product_data.get("product_name", "N/A"),
             "description": product_data.get("product_description", "N/A"),
             "website": product_data.get("website_link", "N/A"),
-            "source_url": product_data.get("product_link", "N/A")
+            "source_url": product_data.get("product_link", "N/A"),
+            "logo": product_data.get("logo_url", "")
         },
         "founders": founders,
         "data": {
@@ -72,50 +77,65 @@ def scrape_product_details(driver: uc.Chrome, product_data: Dict[str, Any], verb
         website_button = soup.find('a', attrs={'data-test': 'visit-website-button'})
         website_link = website_button['href'] if website_button and 'href' in website_button.attrs else "N/A"
 
+        logo_elem = (soup.find('img', attrs={'data-test': 'post-thumbnail'}) or
+                    soup.find('img', src=lambda x: x and ('ph-files' in x or 'thumbnail' in x.lower())) or
+                    soup.find('img', class_=lambda x: x and ('thumbnail' in x.lower() or 'logo' in x.lower())))
+        logo_url = logo_elem['src'] if logo_elem and 'src' in logo_elem.attrs else ""
+
         product_data["product_description"] = product_description
         product_data["website_link"] = website_link
+        product_data["logo_url"] = logo_url
 
         maker_elements = driver.find_elements(By.CSS_SELECTOR, "div.ml-auto.hidden.flex-row.items-center.gap-4.sm\\:flex a[href^='/@']")
 
-        all_maker_socials = []
+        founders_data = []
         for maker_element in maker_elements:
             try:
                 ActionChains(driver).move_to_element(maker_element).perform()
 
                 WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-test^='user-hover-card-'] a[href*='x.com'], div[data-test^='user-hover-card-'] a[href*='twitter.com'], div[data-test^='user-hover-card-'] a[href*='linkedin.com']"))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-test^='user-hover-card-']"))
                 )
                 time.sleep(1)
 
                 hover_card_soup = BeautifulSoup(driver.page_source, 'html.parser')
-
                 hover_card = hover_card_soup.find('div', attrs={'data-test': lambda x: x and 'user-hover-card-' in x})
 
-                social_links = {"x": "N/A", "linkedin": "N/A"}
+                founder_info = {
+                    "name": "",
+                    "img": "",
+                    "links": []
+                }
+
                 if hover_card:
+                    name_elem = (hover_card.find('a', class_='text-16 font-semibold') or
+                               hover_card.find('a', class_=lambda x: x and 'font-semibold' in x) or
+                               hover_card.find('div', class_=lambda x: x and 'font-semibold' in x))
+                    if name_elem:
+                        founder_info["name"] = name_elem.get_text(strip=True)
+
+                    img_elem = (hover_card.find('img', class_='rounded-full') or
+                              hover_card.find('img', src=lambda x: x and 'ph-avatars' in x) or
+                              hover_card.find('img'))
+                    if img_elem and 'src' in img_elem.attrs:
+                        founder_info["img"] = img_elem['src']
+
                     x_link_tag = hover_card.find('a', href=lambda href: href and ('x.com/' in href or 'twitter.com/' in href))
-                    if x_link_tag:
-                        social_links["x"] = x_link_tag['href']
+                    if x_link_tag and 'href' in x_link_tag.attrs:
+                        founder_info["links"].append(x_link_tag['href'])
 
                     linkedin_link_tag = hover_card.find('a', href=lambda href: href and 'linkedin.com/in/' in href)
-                    if linkedin_link_tag:
-                        social_links["linkedin"] = linkedin_link_tag['href']
+                    if linkedin_link_tag and 'href' in linkedin_link_tag.attrs:
+                        founder_info["links"].append(linkedin_link_tag['href'])
 
-                if social_links["x"] != "N/A" or social_links["linkedin"] != "N/A":
-                    all_maker_socials.append(social_links)
+                if founder_info["name"]:
+                    founders_data.append(founder_info)
 
             except Exception as e:
-                log(f"Error hovering or scraping social links for a maker: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Error hovering or scraping founder info for a maker: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
                 continue
 
-        formatted_social_links = []
-        for socials in all_maker_socials:
-            if socials["x"] != "N/A":
-                formatted_social_links.append(socials["x"])
-            if socials["linkedin"] != "N/A":
-                formatted_social_links.append(socials["linkedin"])
-
-        product_data["Links (Socials)"] = ", ".join(formatted_social_links) if formatted_social_links else "N/A"
+        product_data["founders_data"] = founders_data
 
         log(f"Successfully scraped details for {product_data.get('product_name')}.", verbose, status=status, log_caller_file="scraper_utils.py")
 

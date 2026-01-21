@@ -7,8 +7,35 @@ from services.support.logger_util import _log as log
 console = Console()
 
 def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose: bool = False, status=None):
-    tweet_elements = driver.find_elements(By.CSS_SELECTOR, 'article[data-testid="tweet"]')
-    log(f"DEBUG: Found {len(tweet_elements)} tweet articles.", verbose, status=status, log_caller_file="capture_containers_scroll.py")
+    # Debug: Check current page state
+    current_url = driver.current_url
+    page_title = driver.title
+    log(f"DEBUG: Current URL: {current_url}, Title: {page_title}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
+
+    # Try multiple selectors for tweets
+    tweet_selectors = [
+        'article[data-testid="tweet"]',
+        'article[role="article"]',
+        '[data-testid="Tweet-User-Text"]',
+        '.tweet',
+        '.css-1dbjc4n'
+    ]
+
+    tweet_elements = []
+    for selector in tweet_selectors:
+        try:
+            elements = driver.find_elements(By.CSS_SELECTOR, selector)
+            log(f"DEBUG: Found {len(elements)} elements with selector '{selector}'", verbose, status=status, log_caller_file="capture_containers_scroll.py")
+            if len(elements) > 0:
+                if selector == 'article[data-testid="tweet"]':
+                    tweet_elements = elements
+                    break
+                elif len(elements) > len(tweet_elements):
+                    tweet_elements = elements
+        except Exception as e:
+            log(f"DEBUG: Error with selector '{selector}': {e}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
+
+    log(f"DEBUG: Using {len(tweet_elements)} tweet elements for processing.", verbose, status=status, log_caller_file="capture_containers_scroll.py")
 
     new_containers_found_in_this_pass = 0
     for tweet_element in tweet_elements:

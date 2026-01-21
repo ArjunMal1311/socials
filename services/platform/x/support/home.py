@@ -52,8 +52,85 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
     else:
         driver.get("https://x.com/home")
         log("Navigated to x.com/home...", verbose, status, log_caller_file="home.py")
-    time.sleep(5)
-    
+
+        # Debug: Check if page loaded properly
+        page_title = driver.title
+        current_url = driver.current_url
+        log(f"DEBUG: Page title: '{page_title}', Current URL: '{current_url}'", verbose, status, log_caller_file="home.py")
+
+        # Check if redirected to login page
+        if "login" in current_url.lower() or "signin" in current_url.lower():
+            log("ERROR: Redirected to login page. Profile may not be logged in.", verbose, status, is_error=True, log_caller_file="home.py")
+            return driver
+
+        # Check page content
+        page_source = driver.page_source
+        if len(page_source) < 1000:
+            log(f"ERROR: Page source is very short ({len(page_source)} chars). Page may not have loaded properly.", verbose, status, is_error=True, log_caller_file="home.py")
+            log(f"DEBUG: Page source preview: {page_source[:500]}", verbose, status, log_caller_file="home.py")
+            return driver
+
+        # Check for basic Twitter elements
+        try:
+            nav_elements = driver.find_elements(By.CSS_SELECTOR, 'nav, [role="navigation"]')
+            log(f"DEBUG: Found {len(nav_elements)} navigation elements", verbose, status, log_caller_file="home.py")
+        except Exception as e:
+            log(f"DEBUG: Error checking navigation elements: {e}", verbose, status, log_caller_file="home.py")
+
+        # Check for tweet timeline container
+        try:
+            timeline_selectors = [
+                '[data-testid="primaryColumn"]',
+                '[role="main"]',
+                '.css-1dbjc4n',
+                'article[data-testid="tweet"]'
+            ]
+            for selector in timeline_selectors:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                log(f"DEBUG: Found {len(elements)} elements with selector '{selector}'", verbose, status, log_caller_file="home.py")
+                if len(elements) > 0:
+                    break
+        except Exception as e:
+            log(f"DEBUG: Error checking timeline elements: {e}", verbose, status, log_caller_file="home.py")
+
+        # Check if user is logged in
+        try:
+            # Look for user profile elements or compose tweet button
+            profile_indicators = [
+                '[data-testid="AppTabBar_Profile_Link"]',
+                '[data-testid="SideNav_AccountSwitcher_Button"]',
+                '[data-testid="tweetTextarea_0"]',
+                '[aria-label*="Profile"]',
+                '[href*="/profile"]'
+            ]
+            logged_in = False
+            for indicator in profile_indicators:
+                elements = driver.find_elements(By.CSS_SELECTOR, indicator)
+                if len(elements) > 0:
+                    log(f"DEBUG: Found profile indicator '{indicator}' - user appears logged in", verbose, status, log_caller_file="home.py")
+                    logged_in = True
+                    break
+
+            if not logged_in:
+                log("WARNING: No profile indicators found - user may not be logged in to Twitter/X", verbose, status, is_error=True, log_caller_file="home.py")
+                # Try to find login form elements
+                login_elements = driver.find_elements(By.CSS_SELECTOR, 'input[autocomplete="username"], input[name="username"], input[autocomplete="password"]')
+                if len(login_elements) > 0:
+                    log("ERROR: Found login form elements - profile is not logged in", verbose, status, is_error=True, log_caller_file="home.py")
+                    return driver
+        except Exception as e:
+            log(f"DEBUG: Error checking login status: {e}", verbose, status, log_caller_file="home.py")
+
+    # Wait longer and try to trigger content loading
+    time.sleep(8)
+
+    # Try scrolling a bit to trigger dynamic content loading
+    log("DEBUG: Attempting to scroll to trigger content loading...", verbose, status, log_caller_file="home.py")
+    driver.execute_script("window.scrollTo(0, 500);")
+    time.sleep(2)
+    driver.execute_script("window.scrollTo(0, 0);")
+    time.sleep(3)
+
     if community_name:
         _navigate_to_community(driver, community_name, verbose)
 

@@ -1,3 +1,5 @@
+# socials utils <profile1> <profile2> action
+
 import os
 import sys
 import argparse
@@ -19,53 +21,64 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="Social Media Action System")
-    parser.add_argument("profile", type=str, help="Profile name to use")
+    parser.add_argument("profiles", nargs='+', type=str, help="Profile names to use (space-separated for multiple profiles)")
 
     args = parser.parse_args()
 
-    profile_name = args.profile
+    profile_names = args.profiles
 
-    if profile_name not in PROFILES:
-        log(f"Profile '{profile_name}' not found in PROFILES", is_error=True, log_caller_file="action.py")
+    invalid_profiles = [p for p in profile_names if p not in PROFILES]
+    if invalid_profiles:
+        log(f"Profiles not found in PROFILES: {', '.join(invalid_profiles)}", is_error=True, log_caller_file="action.py")
+        log(f"Available profiles: {', '.join(PROFILES.keys())}", is_error=True, log_caller_file="action.py")
         sys.exit(1)
 
-    profile_config = PROFILES[profile_name]
-    profile_props = profile_config.get('properties', {})
+    first_profile_config = PROFILES[profile_names[0]]
+    first_profile_props = first_profile_config.get('properties', {})
     platform = 'x'
-    verbose = profile_props.get('verbose', False)
+    verbose = first_profile_props.get('verbose', False)
 
     if not validate_platform(platform):
         log(f"Unsupported platform: {platform}", verbose, is_error=True, log_caller_file="action.py")
         sys.exit(1)
 
-    storage = get_storage(platform, profile_name, 'action', verbose)
-    if not storage:
-        log(f"Failed to initialize storage for platform {platform}", verbose, is_error=True, log_caller_file="action.py")
-        sys.exit(1)
+    storages = {}
+    for profile_name in profile_names:
+        storage = get_storage(platform, profile_name, 'action', verbose)
+        if not storage:
+            log(f"Failed to initialize storage for profile {profile_name}", verbose, is_error=True, log_caller_file="action.py")
+            sys.exit(1)
+        storages[profile_name] = storage
 
-    driver = None
+    drivers = {}
     try:
-        log(f"Starting Action System for {platform} profile: {profile_name}", verbose, log_caller_file="action.py")
+        log(f"Starting Multi-Profile Action System for {platform} profiles: {', '.join(profile_names)}", verbose, log_caller_file="action.py")
 
-        log("Scraping and storing content...", verbose, log_caller_file="action.py")
-        batch_id, driver = scrape_and_store(profile_name, storage, verbose)
+        log("Scraping and storing content for all profiles...", verbose, log_caller_file="action.py")
+        batch_id, drivers = scrape_and_store(profile_names, storages, verbose)
 
         log("Waiting for approval...", verbose, log_caller_file="action.py")
         wait_for_approval(batch_id, verbose)
 
         log("Posting approved content...", verbose, log_caller_file="action.py")
-        post_approved_content(profile_name, storage, batch_id, driver, verbose)
+        post_approved_content(profile_names, storages, batch_id, drivers, verbose)
 
-        log("Action system completed successfully!", verbose, log_caller_file="action.py")
+        log("Multi-profile action system completed successfully!", verbose, log_caller_file="action.py")
 
     except KeyboardInterrupt:
-        log("Action system interrupted by user", verbose, log_caller_file="action.py")
+        log("Multi-profile action system interrupted by user", verbose, log_caller_file="action.py")
     except Exception as e:
-        log(f"Action system failed: {e}", verbose, is_error=True, log_caller_file="action.py")
+        log(f"Multi-profile action system failed: {e}", verbose, is_error=True, log_caller_file="action.py")
         sys.exit(1)
     finally:
-        if driver:
-            driver.quit()
+        # Clean up all drivers
+        for profile_name, driver in drivers.items():
+            if driver:
+                try:
+                    driver.quit()
+                    log(f"Closed browser for profile: {profile_name}", verbose, log_caller_file="action.py")
+                except Exception as e:
+                    log(f"Error closing browser for profile {profile_name}: {e}", verbose, is_error=True, log_caller_file="action.py")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ def wait_for_approval(batch_id: str, verbose: bool = False):
     log(f"Batch ID: {batch_id}", verbose, log_caller_file="approval.py")
     print(f"\nBatch ID: {batch_id}")
     print("Review and approve replies in your external system")
+    print("This batch contains content from multiple profiles")
     print("Press Enter when ready to post approved replies...")
 
     input()

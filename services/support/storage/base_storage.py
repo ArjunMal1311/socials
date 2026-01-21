@@ -24,8 +24,9 @@ class BaseStorage(ABC):
 
             success_count = 0
             for item in content:
+                profile_name = item.get('profile_name', self.profile_name)
                 record = {
-                    'profile_name': self.profile_name,
+                    'profile_name': profile_name,
                     'batch_id': batch_id,
                     'status': 'pending_review',
                     **item

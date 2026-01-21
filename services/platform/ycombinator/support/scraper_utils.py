@@ -27,11 +27,20 @@ def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
 
     founders = []
     for founder in company_data.get("founders", []):
+        founder_obj = {
+            "name": founder.get("name", ""),
+            "img": founder.get("avatar_url", ""),
+            "links": []
+        }
+
         social_links = founder.get("social_links", {})
         if social_links.get("x"):
-            founders.append(social_links["x"])
+            founder_obj["links"].append(social_links["x"])
         if social_links.get("linkedin"):
-            founders.append(social_links["linkedin"])
+            founder_obj["links"].append(social_links["linkedin"])
+
+        if founder_obj["name"]:  # Only add if we have a name
+            founders.append(founder_obj)
 
     return {
         "id": str(uuid.uuid4()),
@@ -41,7 +50,8 @@ def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
             "name": company_data.get("company_name", "N/A"),
             "description": company_data.get("description", "N/A"),
             "website": company_data.get("website", "N/A"),
-            "source_url": company_data.get("company_url", "N/A")
+            "source_url": company_data.get("company_url", "N/A"),
+            "logo": company_data.get("logo_url", "")
         },
         "founders": founders,
         "data": {
@@ -52,7 +62,6 @@ def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, headless: bool = True) -> List[Dict[str, Any]]:
-    """Main function to scrape Y Combinator companies."""
     log(f"Starting Y Combinator companies scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
 
     target_url = "https://www.ycombinator.com/companies"
@@ -94,7 +103,7 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
             select = Select(sort_dropdown)
             select.select_by_value("YCCompany_By_Launch_Date_production")
 
-            time.sleep(3)
+            time.sleep(30)
             WebDriverWait(driver, 30).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "a[href^='/companies/']"))
             )
@@ -123,6 +132,14 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
 
             log(f"Processing company {i+1}/{len(companies_to_process)}: {company_name}", verbose, status=status, log_caller_file="scraper_utils.py")
 
+            if i > 0 and i % 10 == 0:
+                try:
+                    log("Refreshing browser driver to maintain stability...", verbose, status=status, log_caller_file="scraper_utils.py")
+                    driver.refresh()
+                    time.sleep(3)
+                except Exception as refresh_error:
+                    log(f"Driver refresh failed: {refresh_error}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+
             try:
                 basic_data = extract_company_from_main_page(company_link, company_name, company_url, verbose, status)
 
@@ -137,7 +154,8 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
 
                     log(f"Successfully scraped {company_name} with {len(formatted_data['founders'])} founders", verbose, status=status, log_caller_file="scraper_utils.py")
 
-                time.sleep(2)
+                delay = 2 + (time.time() % 3)
+                time.sleep(delay)
 
             except Exception as e:
                 log(f"Error processing company {company_name}: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
@@ -150,7 +168,6 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
             json.dump(all_formatted_companies, f, indent=2, ensure_ascii=False)
 
         log(f"Scraped and saved {len(all_formatted_companies)} companies to {output_file_path}", verbose, status=status, log_caller_file="scraper_utils.py")
-
         return all_formatted_companies
 
     except Exception as e:
@@ -209,70 +226,101 @@ def extract_company_from_main_page(company_link_element, company_name: str, comp
         return None
 
 def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: str, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
-    try:
-        driver.get(company_url)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            log(f"Attempting to load {company_name} (attempt {attempt + 1}/{max_retries})", verbose, status=status, log_caller_file="scraper_utils.py")
 
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "h1, .company-name, [data-test*='company']"))
-        )
+            driver.get(company_url)
 
-        time.sleep(2)
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-        company_data = {}
-
-        header = soup.find('h1')
-        if header:
-            company_data["company_name"] = header.get_text(strip=True)
-
-        location_elem = soup.find(class_=lambda x: x and '_coLocation_' in x)
-        if location_elem:
-            company_data["location"] = location_elem.get_text(strip=True)
-
-        description_elem = soup.find(class_=lambda x: x and 'text-sm' in x)
-        if description_elem and description_elem.find_parent(class_=lambda x: x and '_company_' in x):
-            company_data["description"] = description_elem.get_text(strip=True)
-
-        batch_elem = soup.find('span', class_=lambda x: x and 'pill' in x and 'flex' in x)
-        if batch_elem and 'svg' in str(batch_elem):
-            batch_text = batch_elem.get_text(strip=True)
-            company_data["batch"] = batch_text
-
-        industries = []
-        industry_elems = soup.find_all('span', class_=lambda x: x and 'pill' in x and 'flex' not in x)
-        for industry_elem in industry_elems:
-            industry_text = industry_elem.get_text(strip=True)
-            if industry_text and industry_text != batch_text:
-                industries.append(industry_text)
-
-        if industries:
-            company_data["industries"] = industries
-
-        website_links = soup.find_all('a', href=lambda x: x and x.startswith('http') and 'ycombinator.com' not in x and 'startupschool.org' not in x)
-        if website_links:
-            company_data["website"] = website_links[0]['href']
-
-        founders = []
-        founder_cards = soup.find_all('div', class_='ycdc-card-new')
-
-        log(f"Found {len(founder_cards)} potential founder cards for {company_name}", verbose, status=status, log_caller_file="scraper_utils.py")
-
-        for founder_card in founder_cards[:20]:
             try:
-                founder_data = extract_founder_info(founder_card, verbose, status)
-                if founder_data:
-                    founders.append(founder_data)
-            except Exception as e:
-                log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
-                continue
+                WebDriverWait(driver, 15).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
+                time.sleep(1)
 
-        company_data["founders"] = founders
+                WebDriverWait(driver, 10).until(
+                    EC.any_of(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "h1")),
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".ycdc-card-new")),
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='company']")),
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "body"))
+                    )
+                )
+            except Exception as wait_error:
+                log(f"Page load timeout for {company_name}: {wait_error}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                else:
+                    raise wait_error
 
-        return company_data
+            time.sleep(1)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-    except Exception as e:
-        log(f"Error scraping company details for {company_name}: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
-        return None
+            company_data = {}
+
+            header = soup.find('h1')
+            if header:
+                company_data["company_name"] = header.get_text(strip=True)
+
+            location_elem = soup.find(class_=lambda x: x and '_coLocation_' in x)
+            if location_elem:
+                company_data["location"] = location_elem.get_text(strip=True)
+
+            description_elem = soup.find(class_=lambda x: x and 'text-sm' in x)
+            if description_elem and description_elem.find_parent(class_=lambda x: x and '_company_' in x):
+                company_data["description"] = description_elem.get_text(strip=True)
+
+            batch_elem = soup.find('span', class_=lambda x: x and 'pill' in x and 'flex' in x)
+            if batch_elem and 'svg' in str(batch_elem):
+                batch_text = batch_elem.get_text(strip=True)
+                company_data["batch"] = batch_text
+
+            industries = []
+            industry_elems = soup.find_all('span', class_=lambda x: x and 'pill' in x and 'flex' not in x)
+            for industry_elem in industry_elems:
+                industry_text = industry_elem.get_text(strip=True)
+                if industry_text and industry_text != batch_text:
+                    industries.append(industry_text)
+
+            if industries:
+                company_data["industries"] = industries
+
+            website_links = soup.find_all('a', href=lambda x: x and x.startswith('http') and 'ycombinator.com' not in x and 'startupschool.org' not in x)
+            if website_links:
+                company_data["website"] = website_links[0]['href']
+
+            logo_elem = soup.find('img', src=lambda x: x and ('logo' in x.lower() or 'company' in x.lower() or x.startswith('https://bookface-images.s3')))
+            if logo_elem and 'src' in logo_elem.attrs:
+                company_data["logo_url"] = logo_elem['src']
+
+            founders = []
+            founder_cards = soup.find_all('div', class_='ycdc-card-new')
+
+            log(f"Found {len(founder_cards)} potential founder cards for {company_name}", verbose, status=status, log_caller_file="scraper_utils.py")
+
+            for founder_card in founder_cards[:20]:
+                try:
+                    founder_data = extract_founder_info(founder_card, verbose, status)
+                    if founder_data:
+                        founders.append(founder_data)
+                except Exception as e:
+                    log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                    continue
+
+            company_data["founders"] = founders
+
+            return company_data
+
+        except Exception as e:
+            log(f"Error loading {company_name} (attempt {attempt + 1}): {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+            if attempt < max_retries - 1:
+                log(f"Retrying {company_name} in 3 seconds...", verbose, status=status, log_caller_file="scraper_utils.py")
+                time.sleep(3)
+            else:
+                log(f"Failed to load {company_name} after {max_retries} attempts", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                return None
 
 def extract_founder_info(founder_element, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
     try:

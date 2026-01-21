@@ -1,3 +1,5 @@
+# socials utils <profile> connection
+
 import sys
 import argparse
 
@@ -36,6 +38,7 @@ def main():
     profile_props = PROFILES[args.profile].get('properties', {})
     verbose = profile_props.get('verbose', False)
     connection_limit = profile_props.get('connection_limit', 15)
+    headless = profile_props.get('headless', False)
 
     log(f"Starting connection requests from Product Hunt and Y Combinator data for profile '{profile_name}'", verbose, log_caller_file="connection.py")
 
@@ -66,7 +69,7 @@ def main():
 
     limited_usernames = pending_usernames[:connection_limit] if len(pending_usernames) > connection_limit else pending_usernames
     with Status(f"[white]Sending LinkedIn connection requests to {len(limited_usernames)} profiles (max {connection_limit})...[/white]", spinner="dots", console=console) as status:
-        results = process_linkedin_connections(limited_usernames, profile_name, verbose, status, limit=connection_limit)
+        results = process_linkedin_connections(limited_usernames, profile_name, verbose, status, limit=connection_limit, headless=headless)
 
     log("Updating connection tracking...", verbose, log_caller_file="connection.py")
 

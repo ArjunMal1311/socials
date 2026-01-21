@@ -8,7 +8,7 @@ from services.support.path_config import get_browser_data_dir
 
 from services.platform.linkedin.support.connection_utils import send_connection_request
 
-def process_linkedin_connections(usernames: List[str], profile_name: str, verbose: bool = False, status=None, limit: int = 15) -> dict:
+def process_linkedin_connections(usernames: List[str], profile_name: str, verbose: bool = False, status=None, limit: int = 15, headless: bool = False) -> dict:
     if not usernames:
         log("No LinkedIn usernames to process", verbose, log_caller_file="linkedin_connector.py")
         return {"total": 0, "successful": 0, "failed": 0}
@@ -20,7 +20,7 @@ def process_linkedin_connections(usernames: List[str], profile_name: str, verbos
 
     try:
         log("Setting up WebDriver for LinkedIn connections...", verbose, status=status, log_caller_file="linkedin_connector.py")
-        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=False)  # Keep visible for connections
+        driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless)
         for msg in setup_messages:
             log(msg, verbose, status=status, log_caller_file="linkedin_connector.py")
 
@@ -28,7 +28,6 @@ def process_linkedin_connections(usernames: List[str], profile_name: str, verbos
         failed = 0
 
         for i, username in enumerate(usernames, 1):
-            # Check if we've reached the limit
             if successful >= limit:
                 log(f"Reached connection limit of {limit}. Stopping.", verbose, status=status, log_caller_file="linkedin_connector.py")
                 break
@@ -45,7 +44,6 @@ def process_linkedin_connections(usernames: List[str], profile_name: str, verbos
                 failed += 1
                 log(f"✗ Failed to send connection request to {username}", verbose, is_error=True, status=status, log_caller_file="linkedin_connector.py")
 
-            # Only wait if we're continuing and haven't reached the limit
             if i < len(usernames) and successful < limit:
                 wait_time = 25
                 log(f"Waiting {wait_time} seconds before next request...", verbose, status=status, log_caller_file="linkedin_connector.py")

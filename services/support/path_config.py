@@ -1,6 +1,6 @@
 import os
 
-BASE_TMP_DIR = "tmp/"
+BASE_TMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tmp")
 
 def get_base_dir() -> str:
     return BASE_TMP_DIR
