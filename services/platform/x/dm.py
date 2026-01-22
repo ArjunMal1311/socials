@@ -45,8 +45,9 @@ def main():
         sys.exit(1)
 
     profile_props = PROFILES[profile].get('properties', {})
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
+    global_props = profile_props.get('global', {})
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
 
     if args.mode in ["send", "bulk"]:
         if not args.message:

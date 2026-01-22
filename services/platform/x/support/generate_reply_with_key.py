@@ -17,7 +17,8 @@ def generate_reply_with_key(args, status=None, verbose: bool = False):
     tweet_text, media_urls, profile_name, api_key, rate_limiter, custom_prompt, tweet_id, all_replies = args
 
     profile_props = PROFILES.get(profile_name, {}).get('properties', {})
-    model_name = profile_props.get('model_name', 'gemini-2.5-flash-lite')
+    global_props = profile_props.get('global', {})
+    model_name = global_props.get('model_name', 'gemini-2.5-flash-lite')
 
     try:
         rate_limiter.wait_if_needed(api_key)

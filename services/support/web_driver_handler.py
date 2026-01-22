@@ -1,4 +1,3 @@
-import re
 import os
 import glob
 import subprocess
@@ -58,12 +57,16 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     options.add_argument('--disable-notifications')
     options.add_argument('--disable-popup-blocking')
     options.add_argument('--start-maximized')
-    options.add_argument('--disable-extensions')
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--disable-infobars')
     options.add_argument('--log-level=3')
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
+
+    # Additional options for better Twitter/X compatibility
+    options.add_argument('--disable-web-security')
+    options.add_argument('--allow-running-insecure-content')
+    options.add_argument('--disable-features=VizDisplayCompositor')
 
     chromium_paths = [
         '/usr/bin/chromium',

@@ -1,5 +1,6 @@
 import os
 import shutil
+from typing import Dict, Any
 
 from profiles import PROFILES
 
@@ -62,36 +63,72 @@ def init_profile(profile_name: str):
                     f'                "youtube_user_prompt": ""',
                     f'            }}',
                     f'        }},',
-                    f'        "target_profiles": [],',
                     f'        "properties": {{',
-                    f'            "count": 17,',
-                    f'            "ignore_video_tweets": False,',
-                    f'            "verbose": False,',
-                    f'            "headless": True,',
-                    f'            "browser_profile": "Default",',
-                    f'            "max_tweets": 500,',
-                    f'            "specific_url": "",',
-                    f'            "post_watcher_interval": 60,',
-                    f'            "gap_type": "random",',
-                    f'            "min_gap_hours": 0,',
-                    f'            "min_gap_minutes": 1,',
-                    f'            "max_gap_hours": 0,',
-                    f'            "max_gap_minutes": 50,',
-                    f'            "fixed_gap_hours": 2,',
-                    f'            "fixed_gap_minutes": 0,',
-                    f'            "tweet_text": "This is a sample tweet!",',
-                    f'            "start_image_number": 1,',
-                    f'            "num_days": 1,',
-                    f'            "model_name": "gemini-2.5-flash-lite",',
-                    f'            "max_tweets_action": 2,',
-                    f'            "max_tweets_profile": 20,',
-                    f'            "max_tweets_community": 20,',
-                    f'            "communities": ["name"],',
-                    f'            "content_filter": {{',
-                    f'                "min_age_days": 7,',
-                    f'                "max_age_days": 30,',
-                    f'                "min_total_engagement": 50,',
-                    f'                "max_posts": 25',
+                    f'            "global": {{',
+                    f'                "browser_profile": "Default",',
+                    f'                "verbose": False,',
+                    f'                "headless": True,',
+                    f'                "model_name": "gemini-2.5-flash-lite",',
+                    f'                "push_to_db": False',
+                    f'            }},',
+                    f'            "platform": {{',
+                    f'                "x": {{',
+                    f'                    "scraper": {{',
+                    f'                        "max_tweets": 500,',
+                    f'                        "target_profiles": [],',
+                    f'                        "specific_url": "",',
+                    f'                        "communities": ["name"]',
+                    f'                    }},',
+                    f'                    "reply": {{',
+                    f'                        "count": 17',
+                    f'                    }},',
+                    f'                    "ignore_video_tweets": False,',
+                    f'                    "post": {{',
+                    f'                        "post_watcher_interval": 60,',
+                    f'                        "gap_type": "random",',
+                    f'                        "min_gap_hours": 0,',
+                    f'                        "min_gap_minutes": 1,',
+                    f'                        "max_gap_hours": 0,',
+                    f'                        "max_gap_minutes": 50,',
+                    f'                        "fixed_gap_hours": 2,',
+                    f'                        "fixed_gap_minutes": 0,',
+                    f'                        "tweet_text": "This is a sample tweet!",',
+                    f'                        "start_image_number": 1,',
+                    f'                        "num_days": 1',
+                    f'                    }}',
+                    f'                }},',
+                    f'                "linkedin": {{',
+                    f'                    "scraper": {{',
+                    f'                        "target_profiles": [],',
+                    f'                        "count": 17',
+                    f'                    }}',
+                    f'                }},',
+                    f'                "producthunt": {{',
+                    f'                    "scraper": {{',
+                    f'                        "count": 17',
+                    f'                    }}',
+                    f'                }},',
+                    f'                "ycombinator": {{',
+                    f'                    "scraper": {{',
+                    f'                        "count": 17,',
+                    f'                        "scroll_attempts": 5',
+                    f'                    }}',
+                    f'                }}',
+                    f'            }},',
+                    f'            "utils": {{',
+                    f'                "action": {{',
+                    f'                    "count": 2,',
+                    f'                    "ignore_video_tweets": False',
+                    f'                }},',
+                    f'                "connection": {{',
+                    f'                    "count": 17',
+                    f'                }},',
+                    f'                "suggestions": {{',
+                    f'                    "count_x_profile": 20,',
+                    f'                    "count_x_community": 20,',
+                    f'                    "count_linkedin": 17,',
+                    f'                    "new_linkedin_posts": 3',
+                    f'                }}',
                     f'            }}',
                     f'        }},',
                     f'        "prompts": {{',
@@ -184,7 +221,7 @@ def delete_profile(profile_name: str):
 
     return True
 
-def login_profile(profile_name: str):
+def login_profile(profile_name: str, platform: str):
     if profile_name not in PROFILES:
         log(f"Profile '{profile_name}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False
@@ -192,23 +229,57 @@ def login_profile(profile_name: str):
     browser_dir = get_browser_data_dir(profile_name)
 
     if not os.path.exists(browser_dir):
-        log(f"Browser profile '{profile_name}' does not exist. Please run 'socials x {profile_name} global init' first.", verbose=True, is_error=True, log_caller_file="global_support.py")
+        log(f"Browser profile '{profile_name}' does not exist. Please run 'socials {profile_name} global init' first.", verbose=True, is_error=True, log_caller_file="global_support.py")
+        return False
+
+    # Route to appropriate login URL based on platform
+    if platform.lower() == 'x':
+        login_url = "https://x.com/login"
+        platform_name = "X"
+    else:
+        log(f"Platform '{platform}' not supported for login yet", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False
 
     try:
-        log(f"Opening browser for profile '{profile_name}' to login to X...", verbose=True, log_caller_file="global_support.py")
+        log(f"Opening browser for profile '{profile_name}' to login to {platform_name}...", verbose=True, log_caller_file="global_support.py")
 
         driver, _ = setup_driver(browser_dir, profile=profile_name, headless=False, verbose=True)
 
-        driver.get("https://x.com/login")
-        log(f"Opened X login page. Please login manually in the browser.", verbose=True, log_caller_file="global_support.py")
+        driver.get(login_url)
+        log(f"Opened {platform_name} login page. Please login manually in the browser.", verbose=True, log_caller_file="global_support.py")
 
         input("Press Enter to continue after logging in...")
 
         driver.quit()
-        log(f"Browser closed. Profile '{profile_name}' login session completed.", verbose=True, log_caller_file="global_support.py")
+        log(f"Browser closed. Profile '{profile_name}' {platform_name} login session completed.", verbose=True, log_caller_file="global_support.py")
         return True
 
     except Exception as e:
         log(f"Failed to open browser for profile '{profile_name}': {e}", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False
+
+
+def check_profile_credentials(profile_name: str, platform: str, verbose: bool = False) -> Dict[str, Any]:
+    """Check API credentials for a specific platform"""
+    prefix = (profile_name or '').strip().upper()
+
+    if platform.lower() == 'x':
+        vars_required = [
+            f"{prefix}_X_CONSUMER_KEY",
+            f"{prefix}_X_CONSUMER_SECRET",
+            f"{prefix}_X_ACCESS_TOKEN",
+            f"{prefix}_X_ACCESS_TOKEN_SECRET",
+        ]
+    else:
+        log(f"Platform '{platform}' not supported for credential checking yet", verbose, is_error=True, log_caller_file="global_support.py")
+        return {"profile": prefix, "platform": platform, "vars": {}, "ok": False}
+
+    results: Dict[str, Any] = {"profile": prefix, "platform": platform, "vars": {}, "ok": True}
+    for var in vars_required:
+        val = os.getenv(var) or ""
+        last4 = val[-4:] if val else ""
+        present = bool(val)
+        results["vars"][var] = {"present": present, "last4": last4}
+        if not present:
+            results["ok"] = False
+    return results

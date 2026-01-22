@@ -88,3 +88,8 @@ class APIKeyPool:
     def size(self) -> int:
         with self.lock:
             return len(self.api_keys)
+
+    def release_key(self, api_key: str, success: bool):
+        with self.lock:
+            if not success:
+                self.report_failure(api_key, "API call failed, putting key on cooldown.")

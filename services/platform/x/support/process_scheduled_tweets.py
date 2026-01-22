@@ -3,9 +3,9 @@ import json
 import time
 
 from rich.text import Text
-from datetime import datetime
 from rich.status import Status
 from rich.console import Console
+from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -91,9 +91,16 @@ def load_tweet_schedules(profile_name="Default", verbose: bool = False, status=N
     
     with open(schedule_file_path, 'r') as f:
         try:
-            schedules = json.load(f)
-            return sorted(schedules, key=lambda x: datetime.strptime(x['scheduled_time'], '%Y-%m-%d %H:%M:%S'))
+            all_schedules = json.load(f)
+            current_time = datetime.now()
+            end_of_next_day = (current_time + timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            filtered_schedules = [
+                s for s in all_schedules 
+                if not s.get('posted', False) and datetime.strptime(s['scheduled_time'], '%Y-%m-%d %H:%M:%S') <= end_of_next_day
+            ]
+            
+            return sorted(filtered_schedules, key=lambda x: datetime.strptime(x['scheduled_time'], '%Y-%m-%d %H:%M:%S'))
         except json.JSONDecodeError:
             log("Invalid JSON in schedule file, returning empty list", verbose, is_error=True, status=status, log_caller_file="load_tweet_schedules.py")
-
             return []

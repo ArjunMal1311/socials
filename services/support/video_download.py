@@ -8,11 +8,15 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from services.support.web_driver_handler import setup_driver
 from selenium.webdriver.support import expected_conditions as EC
-from services.support.path_config import get_browser_data_dir, get_downloads_dir
+from services.support.path_config import get_browser_data_dir
 
 console = Console()
 
-def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, verbose: bool = False):
+# path to download files should be configured directly in chromium
+# search in settings downloads and change path
+# also for downloading so that ads dont block use ad-blocker extension
+# (make the process more efficient and reliable)
+def download_twitter_videos(tweet_urls: list[str], download_dir: str, profile_name="Default", headless=True, verbose: bool = False) -> list[str]:
     user_data_dir = get_browser_data_dir(profile_name)
     driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, headless=headless, verbose=verbose)
     for msg in setup_messages:
@@ -22,13 +26,12 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
     time.sleep(10)
     original_window = driver.current_window_handle
     current_tabs = []
-    download_dir = os.path.join(get_downloads_dir(), 'videos')
     
     os.makedirs(download_dir, exist_ok=True)
 
     initial_files = set(os.listdir(download_dir))
-    new_file = None
-    
+    downloaded_video_paths = []
+
     for url in tweet_urls:
         log(f"Processing Downloads for URL: {url}", verbose, log_caller_file="video_download.py")
         log(f"Downloading video from: {url}", verbose, log_caller_file="video_download.py")
@@ -95,6 +98,7 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
             log(f"New file downloaded: {new_file}", verbose, log_caller_file="video_download.py")
             
             initial_files.add(new_file)
+            downloaded_video_paths.append(os.path.join(download_dir, new_file))
             
             tweet_id = url.split('/')[-1]
             mapping = f'{new_file} -> {tweet_id}\n'
@@ -115,7 +119,4 @@ def download_twitter_videos(tweet_urls, profile_name="Default", headless=True, v
             driver.switch_to.window(original_window)
 
     driver.quit()
-    if new_file:
-        return os.path.join(download_dir, new_file)
-    else:
-        return None
+    return downloaded_video_paths

@@ -40,11 +40,16 @@ def main():
     profile_name = profile
 
     profile_props = PROFILES[profile].get('properties', {})
-    browser_profile = profile_props.get('browser_profile')
-    linkedin_target_profiles = PROFILES[profile].get('linkedin_target_profiles', [])
-    max_posts_linkedin_profile = profile_props.get('max_posts_linkedin_profile', 10)
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
+    global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    linkedin_props = platform_props.get('linkedin', {})
+    scraper_props = linkedin_props.get('scraper', {})
+
+    browser_profile = global_props.get('browser_profile')
+    linkedin_target_profiles = scraper_props.get('target_profiles', [])
+    max_posts_linkedin_profile = scraper_props.get('count', 10)
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
 
     actual_browser_profile = browser_profile if browser_profile else profile_name
 

@@ -17,6 +17,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from services.support.web_driver_handler import setup_driver
+from services.support.storage.storage_factory import get_storage
 from services.support.path_config import get_browser_data_dir, ensure_dir_exists
 
 from services.platform.x.support.process_container import process_container
@@ -52,8 +53,9 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
     else:
         driver.get("https://x.com/home")
         log("Navigated to x.com/home...", verbose, status, log_caller_file="home.py")
-    time.sleep(5)
-    
+        
+    time.sleep(8)
+
     if community_name:
         _navigate_to_community(driver, community_name, verbose)
 
@@ -77,7 +79,6 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
                 last_new_content_time = time.time()
 
             if time.time() - last_new_content_time > 10:
-                log("No new content for 10 seconds. Forcing a scroll.", verbose, status, is_error=False, log_caller_file="home.py")
                 driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
                 time.sleep(random.uniform(2, 4))
                 last_new_content_time = time.time()
@@ -113,10 +114,21 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
         api_pool.set_explicit_key(api_key)
     rate_limiter = RateLimiter()
 
+    storage = get_storage('x', profile_name, 'action', verbose)
     all_replies = []
+    if storage:
+        all_replies = storage.get_all_approved_and_posted_tweets(verbose)
+        log(f"Loaded {len(all_replies)} approved and posted tweets for context", verbose, status, log_caller_file="home.py")
+    else:
+        log("Warning: Could not initialize storage for approved tweets context", verbose, status, log_caller_file="home.py")
 
     enriched_items: List[Dict[str, Any]] = []
     for td in processed_tweets:
+        media_urls = td.get('media_urls', [])
+        if any('video' in str(url).lower() for url in media_urls):
+            log(f"Skipping tweet {td.get('tweet_id')} - contains video content", verbose, status, log_caller_file="home.py")
+            continue
+
         media_abs_paths = _prepare_media_for_gemini_home_mode(td, profile_name, temp_processing_dir, is_home_mode=True, ignore_video_tweets=ignore_video_tweets, verbose=verbose)
         args = (td['tweet_text'], media_abs_paths, profile_name, api_pool.get_key(), rate_limiter, custom_prompt, td['tweet_id'], all_replies)
         enriched_items.append({
@@ -178,8 +190,6 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
                 td = item['tweet_data']
                 log(f"Error generating analysis for tweet {td.get('tweet_id')}: {str(e)}", verbose, status, is_error=True, log_caller_file="home.py")
 
-    if results:
-        log(f"[DEBUG] Results generated ({len(results)} items): {results[:2]}... (showing first 2)", verbose, status=status, log_caller_file="home.py")
 
         replies_dir = os.path.join("tmp", "replies", profile_name)
         ensure_dir_exists(replies_dir)
@@ -208,13 +218,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
             items: List[Dict[str, Any]] = json.load(f)
         except Exception as e:
             log(f"Failed to read replies file: {e}", verbose, is_error=True, log_caller_file="home.py")
-            try:
-                f.seek(0)
-                content = f.read()
-                log(f"Debug: File exists, content length: {len(content)}", verbose, is_error=True, log_caller_file="home.py")
-                log(f"Debug: Content preview: {content[:300]}", verbose, is_error=True, log_caller_file="home.py")
-            except:
-                log("Debug: Could not read file content", verbose, is_error=True, log_caller_file="home.py")
             return {"processed": 0, "posted": 0, "failed": 0}
 
     generated_replies = [item for item in items if item.get('generated_reply') and item.get('status') == 'approved']

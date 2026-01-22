@@ -78,7 +78,7 @@ def scrape_community_and_profiles(profile_name: str, max_tweets_profile: int = 2
 
     profile_config = PROFILES[profile_name]
     profile_props = profile_config.get('properties', {})
-    target_profiles = profile_config.get('target_profiles', [])
+    target_profiles = profile_props.get('target_profiles', [])
     browser_profile = profile_props.get('browser_profile')
 
     actual_browser_profile = browser_profile if browser_profile else profile_name
@@ -97,9 +97,9 @@ def scrape_community_and_profiles(profile_name: str, max_tweets_profile: int = 2
                         username = target_profile
                         log(f"Scraping tweets from @{username}...", verbose, status=status, log_caller_file="scraping_utils.py")
 
-                        search_query = f"from:{username}"
+                        search_query = f"from:{username} -filter:replies"
                         encoded_query = quote(search_query)
-                        search_url = f"https://x.com/search?q={encoded_query}&src=typed_query&f=live"
+                        search_url = f"https://x.com/search?q={encoded_query}&src=typed_query"
 
                         driver.get(search_url)
                         time.sleep(3)
@@ -188,7 +188,7 @@ def save_scraped_content(scraped_tweets: List[Dict[str, Any]], profile_name: str
     suggestions_dir = get_suggestions_dir(profile_name)
     os.makedirs(suggestions_dir, exist_ok=True)
 
-    filename = f"scraped_content_{timestamp}.json"
+    filename = f"scraped_content_x_{timestamp}.json"
     filepath = os.path.join(suggestions_dir, filename)
 
     try:
@@ -229,6 +229,11 @@ def get_latest_approved_file(profile_name: str) -> str:
     suggestions_dir = get_suggestions_dir(profile_name)
     if not os.path.exists(suggestions_dir):
         return ""
+
+    approved_files_with_media = [f for f in os.listdir(suggestions_dir) if f.startswith('approved_content_') and f.endswith('_with_media.json')]
+    if approved_files_with_media:
+        approved_files_with_media.sort(reverse=True)
+        return os.path.join(suggestions_dir, approved_files_with_media[0])
 
     approved_files = [f for f in os.listdir(suggestions_dir) if f.startswith('approved_content_') and f.endswith('.json')]
     if not approved_files:

@@ -47,11 +47,6 @@ def schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name,
         tweet_input.clear()
         tweet_input.send_keys(tweet_text)
         time.sleep(2)
-
-        if profile_name == "akg":
-            tweet_input.send_keys(Keys.ENTER)
-            log("Pressed Enter for akg profile.", verbose, status=status, log_caller_file="schedule_tweet.py")
-            time.sleep(1)
         
         if local_media_paths:
             try:
