@@ -61,7 +61,7 @@ def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
         }
     }
 
-def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, headless: bool = True) -> List[Dict[str, Any]]:
+def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, scroll_attempts: int = 5, headless: bool = True) -> List[Dict[str, Any]]:
     log(f"Starting Y Combinator companies scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
 
     target_url = "https://www.ycombinator.com/companies"
@@ -112,8 +112,7 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
         except Exception as e:
             log(f"Could not sort by launch date, continuing with default sorting: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
 
-        # scroll attempts is 5 based on this number of companies will be scraped (to be fixed next time)
-        scroll_attempts = 5
+        # scroll attempts is coming from profiles.py based on this number of companies will be scraped (to be fixed next time)
         for i in range(scroll_attempts):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             log(f"Scrolled to bottom (attempt {i+1}/{scroll_attempts})", verbose, status=status, log_caller_file="scraper_utils.py")

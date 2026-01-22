@@ -65,16 +65,17 @@ def select_data(conn: psycopg2.extensions.connection, table_name: str, where_cla
         log(f"[ERROR] Failed to select from '{table_name}': {e}", verbose, is_error=True, log_caller_file="postgres_util.py")
         return []
 
-def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dict[str, Any], verbose: bool = False) -> bool:
+def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dict[str, Any], verbose: bool = False, conflict_column: str = "tweet_id") -> bool:
     try:
         cursor = conn.cursor()
         columns = list(data.keys())
         values = list(data.values())
 
-        insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT (tweet_id) DO NOTHING").format(
+        insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING").format(
             sql.Identifier(table_name),
             sql.SQL(', ').join(map(sql.Identifier, columns)),
-            sql.SQL(', ').join(sql.Placeholder() for _ in columns)
+            sql.SQL(', ').join(sql.Placeholder() for _ in columns),
+            sql.Identifier(conflict_column)
         )
 
         cursor.execute(insert_query, values)

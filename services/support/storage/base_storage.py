@@ -9,6 +9,9 @@ class BaseStorage(ABC):
         self.profile_name = profile_name
         self.table_name = self._get_table_name()
 
+    def _get_conflict_column(self) -> str:
+        return "null"
+
     def push_content(self, content: List[Dict[str, Any]], batch_id: str, verbose: bool = False) -> bool:
         try:
             conn = get_postgres_connection(verbose)
@@ -32,7 +35,7 @@ class BaseStorage(ABC):
                     **item
                 }
 
-                if insert_data(conn, table_name, record, verbose):
+                if insert_data(conn, table_name, record, verbose, conflict_column=self._get_conflict_column()):
                     success_count += 1
                 else:
                     log(f"Failed to insert item into {table_name}", verbose, is_error=True, log_caller_file="base_storage.py")
