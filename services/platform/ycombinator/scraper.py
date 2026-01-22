@@ -36,9 +36,14 @@ def main():
     profile_name = PROFILES[profile]['name']
 
     profile_props = PROFILES[profile].get('properties', {})
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
-    limit = profile_props.get('yc_limit', 50)
+    global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    ycombinator_props = platform_props.get('ycombinator', {})
+    scraper_props = ycombinator_props.get('scraper', {})
+
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
+    limit = scraper_props.get('count', 50)
 
     with Status(f"[white]Scraping Y Combinator companies for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
         print(limit)

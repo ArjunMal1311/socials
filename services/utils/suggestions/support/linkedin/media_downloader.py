@@ -103,7 +103,8 @@ def run_linkedin_media_download(profile_name: str) -> Dict[str, Any]:
             return {"error": "No approved posts found in the file."}
 
         profile_props = PROFILES[profile_name].get('properties', {})
-        verbose = profile_props.get('verbose', False)
+        global_props = profile_props.get('global', {})
+        verbose = global_props.get('verbose', False)
 
         media_dir = os.path.join(get_suggestions_dir(profile_name), "media")
         os.makedirs(media_dir, exist_ok=True)

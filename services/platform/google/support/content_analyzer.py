@@ -29,7 +29,8 @@ def analyze_google_content_with_gemini(profile_name: str, api_key: Optional[str]
         return None
 
     profile_config = PROFILES.get(profile_name, {})
-    google_search_config = profile_config.get("google_search", {})
+    data_config = profile_config.get("data", {})
+    google_search_config = data_config.get("google_search", {})
     google_user_prompt = google_search_config.get("google_user_prompt", "Analyze these Google Search results and suggest 5-10 content ideas for my [Your Channel Niche] channel focusing on relevant topics.")
 
     latest_scraped_data_path = get_latest_dated_json_file(profile_name, "google_scraped_data", verbose=verbose)

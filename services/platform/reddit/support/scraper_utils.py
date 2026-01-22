@@ -21,7 +21,8 @@ def run_reddit_scraper(profile_name: str, status: Optional[Status] = None, verbo
     load_dotenv()
     
     profile_config = PROFILES.get(profile_name, {})
-    reddit_config = profile_config.get("data", {}).get("reddit", {})
+    data_config = profile_config.get("data", {})
+    reddit_config = data_config.get("reddit", {})
 
     if not reddit_config:
         log(f"No Reddit configuration found for profile '{profile_name}'.", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")

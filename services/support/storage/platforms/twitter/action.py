@@ -2,7 +2,9 @@ import json
 
 from typing import Dict, List, Any
 from .base import BaseTwitterStorage
-from services.support.postgres_util import get_postgres_connection, update_data
+
+from services.support.logger_util import _log
+from services.support.postgres_util import get_postgres_connection, select_data, update_data
 
 class TwitterActionStorage(BaseTwitterStorage):
     def _get_table_name(self) -> str:
@@ -112,3 +114,32 @@ class TwitterActionStorage(BaseTwitterStorage):
             mapped_tweets.append(mapped_tweet)
 
         return mapped_tweets
+
+    def get_all_approved_and_posted_tweets(self, verbose: bool = False) -> List[Dict[str, Any]]:
+        try:
+            conn = get_postgres_connection(verbose)
+            if not conn:
+                return []
+
+            table_name = self.table_name
+
+            where_clause = "status IN (%s, %s) AND generated_reply IS NOT NULL AND generated_reply != ''"
+            params = ('approved', 'posted')
+            approved_and_posted_tweets = select_data(conn, table_name, where_clause, params, verbose)
+
+            conn.close()
+
+            formatted_tweets = []
+            for tweet in approved_and_posted_tweets:
+                formatted_tweets.append({
+                    'tweet_text': tweet.get('tweet_text', ''),
+                    'reply': tweet.get('generated_reply', ''),
+                    'approved': True
+                })
+
+            _log(f"Fetched {len(formatted_tweets)} approved and posted tweets for context from {table_name}", verbose, log_caller_file="action.py")
+            return formatted_tweets
+
+        except Exception as e:
+            _log(f"Failed to fetch approved tweets from {self.table_name}: {e}", verbose, is_error=True, log_caller_file="action.py")
+            return []

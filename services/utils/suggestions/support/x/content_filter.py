@@ -24,11 +24,13 @@ def parse_tweet_date(tweet_data):
 
 def filter_and_sort_content(scraped_file_path: str, profile_name: str) -> Dict[str, Any]:
     profile_props = PROFILES[profile_name].get('properties', {})
-    content_filter = profile_props.get('content_filter', {})
+    platform_props = profile_props.get('platform', {})
+    x_props = platform_props.get('x', {})
+    content_filter = x_props.get('content_filter', {})
 
     min_age_days = content_filter.get('min_age_days', 7)
     max_age_days = content_filter.get('max_age_days', 30)
-    max_posts_per_profile = content_filter.get('max_posts_per_profile', 5)
+    max_posts_per_profile = content_filter.get('count', 5)
     max_posts = content_filter.get('max_posts', 25)
 
     try:

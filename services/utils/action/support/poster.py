@@ -54,16 +54,12 @@ def post_approved_content(profile_names: list, storages: dict, batch_id: str, dr
                 continue
 
             driver = drivers[profile_name]
-            profile_props = PROFILES[profile_name].get('properties', {})
-            headless = profile_props.get('headless', True)
-
             log(f"Posting {len(profile_tweets)} approved replies for profile {profile_name}", verbose, log_caller_file="poster.py")
 
             with Status(f'[white]Posting {len(profile_tweets)} approved replies for {profile_name}...[/white]', spinner="dots", console=console) as status:
                 posted_count = 0
                 failed_count = 0
 
-                # Save profile-specific replies to JSON
                 replies_dir = os.path.join("tmp", "replies", profile_name)
                 os.makedirs(replies_dir, exist_ok=True)
                 replies_path = os.path.join(replies_dir, 'replies.json')

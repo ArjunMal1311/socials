@@ -55,7 +55,7 @@ def run_linkedin_suggestions_workflow(profile_name: str, max_posts_per_profile: 
     log(f"Starting LinkedIn content scraping for profile: {profile_name}", verbose, log_caller_file="scraping_utils.py")
 
     profile_config = PROFILES[profile_name]
-    linkedin_target_profiles = profile_config.get('linkedin_target_profiles', [])
+    linkedin_target_profiles = profile_config.get('target_profiles', [])
 
     if not linkedin_target_profiles:
         return {"error": f"No linkedin_target_profiles found for {profile_name}. Add linkedin_target_profiles to profiles.py"}

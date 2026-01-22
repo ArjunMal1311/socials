@@ -41,7 +41,8 @@ def post_tweet(profile_key: str, tweet_text: str, media_file: str = None, commun
     user_data_dir = get_browser_data_dir(profile_key)
 
     profile_props = PROFILES.get(profile_key, {}).get('properties', {})
-    headless = profile_props.get('headless', True)
+    global_props = profile_props.get('global', {})
+    headless = global_props.get('headless', True)
 
     driver = None
     try:

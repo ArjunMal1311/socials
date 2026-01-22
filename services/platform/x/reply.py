@@ -50,10 +50,15 @@ def main():
     custom_prompt = PROFILES[profile]['prompts']['reply_generation']
 
     profile_props = PROFILES[profile].get('properties', {})
-    count = profile_props.get('count', 17)
-    ignore_video_tweets = profile_props.get('ignore_video_tweets', False)
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
+    global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    x_props = platform_props.get('x', {})
+    reply_props = x_props.get('reply', {})
+
+    count = reply_props.get('count', 17)
+    ignore_video_tweets = reply_props.get('ignore_video_tweets', False)
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
 
     if args.mode == "home":
         with Status(f'[white]Running Home Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:

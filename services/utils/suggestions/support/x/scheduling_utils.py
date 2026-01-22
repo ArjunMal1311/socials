@@ -60,7 +60,8 @@ def run_content_scheduling(profile_name: str) -> Dict[str, Any]:
                 })
 
         profile_props = PROFILES[profile_name].get('properties', {})
-        verbose = profile_props.get('verbose', False)
+        global_props = profile_props.get('global', {})
+        verbose = global_props.get('verbose', False)
 
         gap_type = profile_props.get('gap_type', 'random')
         min_gap_hours = profile_props.get('min_gap_hours', 0)
@@ -156,9 +157,9 @@ def run_content_posting(profile_name: str) -> Dict[str, Any]:
         return {"error": "No scheduled content found. Run 'schedule' command first."}
 
     try:
-        from profiles import PROFILES
         profile_props = PROFILES[profile_name].get('properties', {})
-        verbose = profile_props.get('verbose', False)
+        global_props = profile_props.get('global', {})
+        verbose = global_props.get('verbose', False)
         headless = profile_props.get('headless', False)
 
         process_scheduled_tweets(profile_name, verbose=verbose, headless=headless)

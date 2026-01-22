@@ -193,7 +193,8 @@ def generate_linkedin_reply(post_data, api_key_pool, profile_name, verbose=False
 
         profile_config = PROFILES.get(profile_name, {})
         properties = profile_config.get('properties', {})
-        model_name = properties.get('model_name', 'gemini-2.5-flash-lite')
+        global_props = properties.get('global', {})
+        model_name = global_props.get('model_name', 'gemini-2.5-flash-lite')
         prompts = profile_config.get('prompts', {})
         reply_prompt = prompts.get('reply_generation', 'Generate a professional LinkedIn reply to this post. Keep it concise, engaging, and add value to the conversation.')
 

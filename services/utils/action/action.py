@@ -33,10 +33,11 @@ def main():
         log(f"Available profiles: {', '.join(PROFILES.keys())}", is_error=True, log_caller_file="action.py")
         sys.exit(1)
 
-    first_profile_config = PROFILES[profile_names[0]]
-    first_profile_props = first_profile_config.get('properties', {})
     platform = 'x'
-    verbose = first_profile_props.get('verbose', False)
+    profile_config = PROFILES[profile_names[0]]
+    profile_props = profile_config.get('properties', {})
+    global_props = profile_props.get('global', {})
+    verbose = global_props.get('verbose', False)
 
     if not validate_platform(platform):
         log(f"Unsupported platform: {platform}", verbose, is_error=True, log_caller_file="action.py")

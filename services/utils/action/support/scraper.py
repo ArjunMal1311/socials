@@ -1,5 +1,4 @@
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from rich.status import Status
 from rich.console import Console
@@ -18,7 +17,6 @@ def scrape_and_store(profile_names: list, storages: dict, verbose: bool = False)
     batch_id = now.strftime("%d%m%y%H%M")
     log(f"Generated unified batch ID: {batch_id}", verbose, log_caller_file="scraper.py")
 
-    all_scraped_content = []
     drivers = {}
 
     try:
@@ -31,12 +29,19 @@ def scrape_and_store(profile_names: list, storages: dict, verbose: bool = False)
 
             profile_config = PROFILES[profile_name]
             custom_prompt = profile_config['prompts']['reply_generation']
-            storage = storages[profile_name]  # Get storage for this profile
+            storage = storages[profile_name]
 
             profile_props = profile_config.get('properties', {})
-            max_tweets_action = profile_props.get('max_tweets_action', 17)
-            ignore_video_tweets = profile_props.get('ignore_video_tweets', False)
-            headless = profile_props.get('headless', True)
+            utils_props = profile_props.get('utils', {})
+            action_props = utils_props.get('action', {})
+            global_props = profile_props.get('global', {})
+            platform_props = profile_props.get('platform', {})
+            x_props = platform_props.get('x', {})
+            reply_props = x_props.get('reply', {})
+
+            max_tweets_action = action_props.get('count', 17)
+            ignore_video_tweets = reply_props.get('ignore_video_tweets', False)
+            headless = global_props.get('headless', True)
 
             log(f"Scraping {max_tweets_action} tweets for profile {profile_name}", verbose, log_caller_file="scraper.py")
 
@@ -62,7 +67,6 @@ def scrape_and_store(profile_names: list, storages: dict, verbose: bool = False)
             log(f"Scraped {len(scraped_tweets)} tweets for profile {profile_name}", verbose, log_caller_file="scraper.py")
 
             if scraped_tweets:
-                # Store content for this profile with unified batch_id
                 success = storage.push_content(scraped_tweets, batch_id, verbose)
                 if not success:
                     log(f"Failed to store tweets for profile {profile_name}", verbose, is_error=True, log_caller_file="scraper.py")

@@ -36,9 +36,14 @@ def main():
     profile_name = PROFILES[profile]['name']
 
     profile_props = PROFILES[profile].get('properties', {})
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
-    limit = profile_props.get('producthunt_limit', 10)
+    global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    producthunt_props = platform_props.get('producthunt', {})
+    scraper_props = producthunt_props.get('scraper', {})
+
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
+    limit = scraper_props.get('count', 10)
 
     with Status(f"[white]Scraping Product Hunt previous day leaderboard for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
         scraped_products = scrape_product_hunt_products(profile_name=profile_name, verbose=verbose, status=status, limit=limit, headless=headless)

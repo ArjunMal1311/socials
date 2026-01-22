@@ -20,7 +20,8 @@ def run_google_scraper(profile_name: str, status: Optional[Status] = None, verbo
     load_dotenv()
     
     profile_config = PROFILES.get(profile_name, {})
-    google_search_config = profile_config.get("google_search", {})
+    data_config = profile_config.get("data", {})
+    google_search_config = data_config.get("google_search", {})
 
     if not google_search_config:
         log(f"No Google Search configuration found for profile '{profile_name}'.", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")

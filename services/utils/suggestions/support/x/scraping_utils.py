@@ -78,7 +78,7 @@ def scrape_community_and_profiles(profile_name: str, max_tweets_profile: int = 2
 
     profile_config = PROFILES[profile_name]
     profile_props = profile_config.get('properties', {})
-    target_profiles = profile_config.get('target_profiles', [])
+    target_profiles = profile_props.get('target_profiles', [])
     browser_profile = profile_props.get('browser_profile')
 
     actual_browser_profile = browser_profile if browser_profile else profile_name

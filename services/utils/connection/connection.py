@@ -36,9 +36,13 @@ def main():
 
     profile_name = PROFILES[args.profile]['name']
     profile_props = PROFILES[args.profile].get('properties', {})
-    verbose = profile_props.get('verbose', False)
-    connection_limit = profile_props.get('connection_limit', 15)
-    headless = profile_props.get('headless', False)
+    global_props = profile_props.get('global', {})
+    utils_props = profile_props.get('utils', {})
+    connection_props = utils_props.get('connection', {})
+
+    verbose = global_props.get('verbose', False)
+    connection_limit = connection_props.get('count', 15)
+    headless = global_props.get('headless', False)
 
     log(f"Starting connection requests from Product Hunt and Y Combinator data for profile '{profile_name}'", verbose, log_caller_file="connection.py")
 

@@ -199,7 +199,7 @@ def generate_new_linkedin_tweets_from_filtered(profile_name: str) -> Dict[str, A
 
         profile_props = profile_config.get('properties', {})
         model_name = profile_props.get('model_name', 'gemini-2.5-flash-lite')
-        num_posts = profile_props.get('num_new_linkedin_posts', 3)
+        num_posts = profile_props.get('new_linkedin_posts', 3)
 
         api_key_pool = APIKeyPool(verbose=False)
         if api_key_pool.size() == 0:

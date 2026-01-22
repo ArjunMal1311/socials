@@ -62,7 +62,8 @@ def run_linkedin_content_scheduling(profile_name: str) -> Dict[str, Any]:
                 })
 
         profile_props = PROFILES[profile_name].get('properties', {})
-        verbose = profile_props.get('verbose', False)
+        global_props = profile_props.get('global', {})
+        verbose = global_props.get('verbose', False)
 
         gap_type = profile_props.get('gap_type', 'random')
         min_gap_hours = profile_props.get('min_gap_hours', 0)
@@ -159,7 +160,8 @@ def run_linkedin_content_posting(profile_name: str) -> Dict[str, Any]:
 
     try:
         profile_props = PROFILES[profile_name].get('properties', {})
-        verbose = profile_props.get('verbose', False)
+        global_props = profile_props.get('global', {})
+        verbose = global_props.get('verbose', False)
         headless = profile_props.get('headless', False)
 
         user_data_dir = get_browser_data_dir(profile_name)

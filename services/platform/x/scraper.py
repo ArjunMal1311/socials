@@ -48,10 +48,15 @@ def main():
     profile_name = PROFILES[profile]['name']
 
     profile_props = PROFILES[profile].get('properties', {})
-    browser_profile = profile_props.get('browser_profile')
-    max_tweets = profile_props.get('max_tweets', 500)
-    verbose = profile_props.get('verbose', False)
-    headless = profile_props.get('headless', True)
+    global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    x_props = platform_props.get('x', {})
+    scraper_props = x_props.get('scraper', {})
+
+    browser_profile = global_props.get('browser_profile')
+    max_tweets = scraper_props.get('max_tweets', 500)
+    verbose = global_props.get('verbose', False)
+    headless = global_props.get('headless', True)
 
     if args.mode == "home":
         with Status(f"[white]Scraping home feed for profile {profile_name}...[/white]", spinner="dots", console=console) as status:

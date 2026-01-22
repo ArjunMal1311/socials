@@ -55,10 +55,14 @@ def main():
     if platform == 'x':
         if args.command == 'scrape':
             profile_props = PROFILES[profile_name].get('properties', {})
-            max_tweets_profile = profile_props.get('max_tweets_profile', 20)
-            max_tweets_community = profile_props.get('max_tweets_community', 20)
-            verbose = profile_props.get('verbose', False)
-            headless = profile_props.get('headless', True)
+            utils_props = profile_props.get('utils', {})
+            suggestions_props = utils_props.get('suggestions', {})
+            global_props = profile_props.get('global', {})
+
+            max_tweets_profile = suggestions_props.get('count_x_profile', 20)
+            max_tweets_community = suggestions_props.get('count_x_community', 20)
+            verbose = global_props.get('verbose', False)
+            headless = global_props.get('headless', True)
 
             result = run_suggestions_workflow(
                 profile_name=profile_name,
@@ -159,9 +163,13 @@ def main():
     elif platform == 'linkedin':
         if args.command == 'scrape':
             profile_props = PROFILES[profile_name].get('properties', {})
-            max_posts_profile = profile_props.get('max_posts_linkedin_profile', 10)
-            verbose = profile_props.get('verbose', False)
-            headless = profile_props.get('headless', True)
+            utils_props = profile_props.get('utils', {})
+            suggestions_props = utils_props.get('suggestions', {})
+            global_props = profile_props.get('global', {})
+
+            max_posts_profile = suggestions_props.get('count_linkedin', 10)
+            verbose = global_props.get('verbose', False)
+            headless = global_props.get('headless', True)
 
             result = run_linkedin_suggestions_workflow(
                 profile_name=profile_name,
