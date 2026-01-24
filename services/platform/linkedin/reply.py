@@ -26,7 +26,6 @@ def main():
 
     parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration")
     parser.add_argument("mode", choices=["home"], help="Reply mode: 'home' for home feed replies")
-    parser.add_argument("--count", type=int, default=10, help="Number of posts to generate replies for")
 
     args = parser.parse_args()
 
@@ -36,8 +35,13 @@ def main():
 
     profile_props = PROFILES[args.profile].get('properties', {})
     global_props = profile_props.get('global', {})
+    platform_props = profile_props.get('platform', {})
+    linkedin_props = platform_props.get('linkedin', {})
+    reply_props = linkedin_props.get('reply', {})
+
     verbose = global_props.get('verbose', False)
     headless = global_props.get('headless', True)
+    max_posts = reply_props.get('count', 10)
 
     browser_profile = args.profile
 
@@ -45,7 +49,7 @@ def main():
 
     if args.mode == "home":
         with Status(f'[white]Running LinkedIn reply mode for home feed...[/white]', spinner="dots", console=console) as status:
-            driver, replies_data = run_linkedin_reply_mode(args.profile, browser_profile, max_posts=args.count, verbose=verbose, headless=headless, status=status)
+            driver, replies_data = run_linkedin_reply_mode(args.profile, browser_profile, max_posts=max_posts, verbose=verbose, headless=headless, status=status)
             status.stop()
 
             if replies_data:

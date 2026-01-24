@@ -4,8 +4,10 @@ import subprocess
 
 from selenium import webdriver
 from rich.console import Console
+
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+
 from services.support.logger_util import _log as log
 
 console = Console()
@@ -63,7 +65,6 @@ def setup_driver(user_data_dir, incognito=False, profile="Default", headless=Fal
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
 
-    # Additional options for better Twitter/X compatibility
     options.add_argument('--disable-web-security')
     options.add_argument('--allow-running-insecure-content')
     options.add_argument('--disable-features=VizDisplayCompositor')

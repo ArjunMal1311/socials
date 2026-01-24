@@ -3,8 +3,9 @@ import requests
 
 from rich.console import Console
 from urllib.parse import urlparse
-from services.support.path_config import get_downloads_dir
+
 from services.support.logger_util import _log as log
+from services.support.path_config import get_downloads_dir
 
 console = Console()
 

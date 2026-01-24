@@ -1,14 +1,17 @@
 import json
 
 from typing import Dict, List, Any
-from .base import BaseTwitterStorage
+from services.support.storage.base_storage import BaseStorage
 
 from services.support.logger_util import _log
 from services.support.postgres_util import get_postgres_connection, select_data, update_data
 
-class TwitterActionStorage(BaseTwitterStorage):
+class TwitterActionStorage(BaseStorage):
     def _get_table_name(self) -> str:
         return f"{self.profile_name}_tweets"
+
+    def _get_conflict_column(self) -> str:
+        return "tweet_id"
 
     def _get_table_schema(self) -> Dict[str, str]:
         return {

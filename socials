@@ -150,7 +150,7 @@ def parse_args() -> Optional[Dict]:
 
     if config.get('profile_required', False):
         # Check if this is an action command with multiple profiles
-        # Pattern: socials utils <profile1> [profile2] [profile3] ... action
+        # Pattern: socials utils <profile1> [profile2] [profile3] ... action [additional args]
         action_index = None
         for i in range(2, len(sys.argv)):
             if sys.argv[i] == 'action':
@@ -160,27 +160,39 @@ def parse_args() -> Optional[Dict]:
         if action_index is not None and action_index >= 3:  # At least one profile before 'action'
             module = 'action'
             profiles = sys.argv[2:action_index]  # All args between 'utils' and 'action' are profiles
+            additional_args = sys.argv[action_index + 1:]  # Additional args after 'action'
 
             return {
                 'category': category,
                 'profile': profiles[0],  # Use first profile for compatibility
                 'module': module,
-                'args': profiles
+                'args': profiles + additional_args
             }
 
-        # Handle action module with profiles first: socials utils action <profile1> <profile2> ...
+        # Handle action module with profiles first: socials utils action <profile1> <profile2> ... [additional args]
         if len(sys.argv) >= 4 and sys.argv[2] == 'action':
             module = sys.argv[2]
-            profiles = sys.argv[3:]  # Get all profiles after 'action'
+            # Find where profiles end and additional args begin
+            profiles = []
+            additional_args = []
+            found_non_profile = False
+
+            for arg in sys.argv[3:]:
+                if not found_non_profile and not arg.startswith('-'):
+                    profiles.append(arg)
+                else:
+                    found_non_profile = True
+                    additional_args.append(arg)
+
             if not profiles:
-                print("Usage: socials utils action <profile1> [profile2] [profile3] ...")
+                print("Usage: socials utils action <profile1> [profile2] [profile3] ... [additional args]")
                 return None
 
             return {
                 'category': category,
                 'profile': profiles[0],  # Use first profile for compatibility
                 'module': module,
-                'args': profiles
+                'args': profiles + additional_args
             }
 
         # Standard utils modules: socials utils <profile> <module>

@@ -1,25 +1,27 @@
 import os
 import json
 import time
-from datetime import datetime
-
 import google.generativeai as genai
+
+from datetime import datetime
+from profiles import PROFILES
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from profiles import PROFILES
-
 from services.support.logger_util import _log as log
-from services.support.api_call_tracker import APICallTracker
 from services.support.api_key_pool import APIKeyPool
 from services.support.web_driver_handler import setup_driver
+from services.support.api_call_tracker import APICallTracker
+from services.support.storage.storage_factory import get_storage
 from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_profile_dir
 
 from services.platform.linkedin.support.scraper_utils import scrape_linkedin_feed_posts
 
-def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_posts: int = 10, verbose: bool = False, headless: bool = True, status=None):
-    user_data_dir = get_browser_data_dir(browser_profile_name)
+def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_posts: int = 10, verbose: bool = False, headless: bool = True, status=None, browser_data_dir: str = None):
+    user_data_dir = browser_data_dir or get_browser_data_dir(browser_profile_name)
+    log(f"LinkedIn Mode: user_data_dir is {user_data_dir}", verbose, status, log_caller_file="reply_utils.py")
 
     try:
         driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile_name, verbose=verbose, status=status, headless=headless)
@@ -37,36 +39,38 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
         log(f"Found {len(feed_posts)} posts, generating replies...", verbose, status, log_caller_file="reply_utils.py")
 
         api_key_pool = APIKeyPool(verbose=verbose)
-        log(f"API key pool size: {api_key_pool.size()}", verbose, status, log_caller_file="reply_utils.py")
-
         if api_key_pool.size() == 0:
             log("No API keys available for reply generation", verbose, is_error=True, log_caller_file="reply_utils.py")
-            log(f"GEMINI_API env var: {os.getenv('GEMINI_API')}", verbose, status, log_caller_file="reply_utils.py")
             driver.quit()
             return None, []
 
+        storage = get_storage('linkedin', profile_name, 'action', verbose)
+        all_replies = []
+        if storage:
+            all_replies = storage.get_all_approved_and_posted_replies(verbose)
+            log(f"Loaded {len(all_replies)} approved and posted replies for context", verbose, status, log_caller_file="reply_utils.py")
+        else:
+            log("Warning: Could not initialize storage for approved replies context", verbose, status, log_caller_file="reply_utils.py")
+
         replies_data = []
         for i, post in enumerate(feed_posts):
-            try:
-                reply_text = generate_linkedin_reply(post, api_key_pool, profile_name, verbose, status)
-                if reply_text:
-                    reply_data = {
-                        "post_id": post.get("data", {}).get("post_id", f"linkedin_{i}"),
-                        "post_text": post.get("data", {}).get("text", ""),
-                        "profile_url": post.get("data", {}).get("profile_url", ""),
-                        "generated_reply": reply_text,
-                        "approved": False,
-                        "posted": False,
-                        "created_at": datetime.now().isoformat() + "Z"
-                    }
-                    replies_data.append(reply_data)
-                    log(f"Generated reply for post {i+1}/{len(feed_posts)}", verbose, status, log_caller_file="reply_utils.py")
-                else:
-                    log(f"Failed to generate reply for post {i+1}", verbose, is_error=True, log_caller_file="reply_utils.py")
+            generated_reply = generate_linkedin_reply(post, api_key_pool, profile_name, all_replies, verbose=verbose, status=status)
 
-            except Exception as e:
-                log(f"Error generating reply for post {i+1}: {e}", verbose, is_error=True, log_caller_file="reply_utils.py")
-                continue
+            reply_data = {
+                "post_id": post.get("data", {}).get("post_id", f"linkedin_{i}"),
+                "post_urn": post.get("data", {}).get("post_urn"),
+                "post_text": post.get("data", {}).get("text", ""),
+                "profile_url": post.get("data", {}).get("profile_url", ""),
+                "author_name": post.get("data", {}).get("author_name", ""),
+                "post_date": post.get("data", {}).get("post_date", ""),
+                "media_urls": post.get("data", {}).get("media_urls", []),
+                "engagement": post.get("engagement", {}),
+                "generated_reply": generated_reply,
+                "approved": False,
+                "posted": False,
+                "created_at": datetime.now().isoformat() + "Z"
+            }
+            replies_data.append(reply_data)
 
         replies_file = os.path.join(get_linkedin_profile_dir(profile_name), "replies.json")
         os.makedirs(os.path.dirname(replies_file), exist_ok=True)
@@ -97,6 +101,11 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
             log(f"Failed to read replies file: {e}", verbose, is_error=True, log_caller_file="reply_utils.py")
             return {"processed": 0, "posted": 0, "failed": 0}
 
+    api_key_pool = APIKeyPool(verbose=verbose)
+    if api_key_pool.size() == 0:
+        log("No API keys available for reply generation", verbose, is_error=True, log_caller_file="reply_utils.py")
+        return {"processed": 0, "posted": 0, "failed": 0}
+
     processed = 0
     posted = 0
     failed = 0
@@ -114,28 +123,48 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
             log(f"Posting reply to post: {reply_data['post_id']}", verbose, status, log_caller_file="reply_utils.py")
 
             reply_text = reply_data["generated_reply"]
-            post_text = reply_data["post_text"]
+            post_urn = reply_data.get("post_urn")
+
+            if not post_urn:
+                log(f"No URN found for post {reply_data['post_id']}, skipping", verbose, is_error=True, log_caller_file="reply_utils.py")
+                failed += 1
+                continue
+
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(2)
 
             found_post = False
             max_scrolls = 10
+
+            log("Loading posts by scrolling down to expand feed...", verbose, status, log_caller_file="reply_utils.py")
+            for load_attempt in range(3):
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
+                time.sleep(3)
+
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(2)
 
             for scroll_attempt in range(max_scrolls):
                 if found_post:
                     break
 
                 posts = driver.find_elements(By.CSS_SELECTOR, "div.feed-shared-update-v2")
+                log(f"Checking {len(posts)} posts in current view for URN {post_urn}", verbose, status, log_caller_file="reply_utils.py")
 
                 for post in posts:
                     try:
-                        post_content = post.text
-                        if post_text[:100] in post_content or post_content[:100] in post_text:
-                            log(f"Found matching post, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
+                        current_urn = post.get_attribute("data-urn")
+                        if current_urn == post_urn:
+                            log(f"Found matching post by URN, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
+
+                            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", post)
+                            time.sleep(2)
 
                             comment_button = post.find_element(By.CSS_SELECTOR, "button[aria-label='Comment']")
                             comment_button.click()
-                            time.sleep(2)
+                            time.sleep(4)
 
-                            comment_input = WebDriverWait(driver, 10).until(
+                            comment_input = WebDriverWait(driver, 15).until(
                                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".ql-editor[data-test-ql-editor-contenteditable='true']"))
                             )
 
@@ -145,13 +174,13 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                                 arguments[0].focus();
                             """, comment_input)
 
-                            time.sleep(2)
+                            time.sleep(4)
 
-                            submit_button = WebDriverWait(driver, 10).until(
+                            submit_button = WebDriverWait(driver, 15).until(
                                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments-comment-box__submit-button--cr"))
                             )
                             submit_button.click()
-                            time.sleep(3)
+                            time.sleep(6)
 
                             reply_data["posted"] = True
                             reply_data["posted_at"] = datetime.now().isoformat() + "Z"
@@ -164,9 +193,9 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                         continue
 
                 if not found_post and scroll_attempt < max_scrolls - 1:
-                    log(f"Post not found, scrolling down (attempt {scroll_attempt + 1}/{max_scrolls})", verbose, status, log_caller_file="reply_utils.py")
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    time.sleep(2)
+                    log(f"Post not found, scrolling down very slowly (attempt {scroll_attempt + 1}/{max_scrolls})", verbose, status, log_caller_file="reply_utils.py")
+                    driver.execute_script("window.scrollBy(0, 300);")
+                    time.sleep(8)
 
             if not found_post:
                 log(f"Could not find matching post for reply {reply_data['post_id']}", verbose, is_error=True, log_caller_file="reply_utils.py")
@@ -177,13 +206,18 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
             failed += 1
             continue
 
+    def serialize_datetime(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat() + "Z"
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
     with open(replies_file, 'w', encoding='utf-8') as f:
-        json.dump(replies_data, f, indent=2, ensure_ascii=False)
+        json.dump(replies_data, f, indent=2, ensure_ascii=False, default=serialize_datetime)
 
     return {"processed": processed, "posted": 0, "failed": failed}
 
 
-def generate_linkedin_reply(post_data, api_key_pool, profile_name, verbose=False, status=None):
+def generate_linkedin_reply(post_data, api_key_pool, profile_name, all_replies=None, verbose=False, status=None):
     api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
 
     try:
@@ -214,11 +248,20 @@ def generate_linkedin_reply(post_data, api_key_pool, profile_name, verbose=False
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
 
+        context_section = ""
+        if all_replies:
+            context_replies = "\n".join([f"- {reply.get('generated_reply', '')}" for reply in all_replies if reply.get('generated_reply')])
+            if context_replies:
+                context_section = f"""
+                Previously approved/posted replies for context (avoid generating similar responses):
+                {context_replies}
+            """
+
         prompt = f"""
         {reply_prompt}
 
+        {context_section}
         Post to reply to: "{post_text}"
-
         Generate exactly ONE reply. Keep it professional, engaging, and under 200 characters. Do not include quotes around your reply.
         """
 

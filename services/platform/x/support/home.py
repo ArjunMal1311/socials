@@ -27,8 +27,8 @@ from services.platform.x.support.home_support import _generate_with_pool, _ensur
 
 console = Console()
 
-def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True) -> Any:
-    user_data_dir = get_browser_data_dir(profile_name)
+def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, status=None, api_key: str = None, ignore_video_tweets: bool = False, community_name: Optional[str] = None, post_via_api: bool = False, specific_search_url: Optional[str] = None, target_profile_name: Optional[str] = None, verbose: bool = False, headless: bool = True, browser_data_dir: str = None) -> Any:
+    user_data_dir = browser_data_dir or get_browser_data_dir(profile_name)
     temp_processing_dir = _ensure_home_mode_folder(profile_name)
     setup_messages = []
     
@@ -53,7 +53,7 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
     else:
         driver.get("https://x.com/home")
         log("Navigated to x.com/home...", verbose, status, log_caller_file="home.py")
-        
+
     time.sleep(8)
 
     if community_name:

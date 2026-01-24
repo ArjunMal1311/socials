@@ -1,11 +1,27 @@
 import os
+import shutil
 
 BASE_TMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tmp")
 
 def get_base_dir() -> str:
     return BASE_TMP_DIR
 
-def get_browser_data_dir(profile_name: str) -> str:
+def get_browser_data_dir(profile_name: str, platform: str = None) -> str:
+    if platform:
+        platform_dir = os.path.join(BASE_TMP_DIR, "browser-data", f"{profile_name}_{platform}")
+        base_dir = os.path.join(BASE_TMP_DIR, "browser-data", profile_name)
+
+        if not os.path.exists(platform_dir) and os.path.exists(base_dir):
+            try:
+                print(f"Copying browser data from {profile_name} to {profile_name}_{platform}...")
+                shutil.copytree(base_dir, platform_dir)
+                print(f"Successfully created platform-specific browser directory: {profile_name}_{platform}")
+            except Exception as e:
+                print(f"Warning: Could not copy browser data: {e}")
+                return base_dir
+
+        return platform_dir
+
     return os.path.join(BASE_TMP_DIR, "browser-data", profile_name)
 
 def get_cache_dir() -> str:

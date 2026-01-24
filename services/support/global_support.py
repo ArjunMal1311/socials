@@ -232,7 +232,6 @@ def login_profile(profile_name: str, platform: str):
         log(f"Browser profile '{profile_name}' does not exist. Please run 'socials {profile_name} global init' first.", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False
 
-    # Route to appropriate login URL based on platform
     if platform.lower() == 'x':
         login_url = "https://x.com/login"
         platform_name = "X"
@@ -260,7 +259,6 @@ def login_profile(profile_name: str, platform: str):
 
 
 def check_profile_credentials(profile_name: str, platform: str, verbose: bool = False) -> Dict[str, Any]:
-    """Check API credentials for a specific platform"""
     prefix = (profile_name or '').strip().upper()
 
     if platform.lower() == 'x':

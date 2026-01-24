@@ -2,13 +2,16 @@ import os
 import time
 
 from rich.console import Console
+
 from selenium.webdriver.common.by import By
-from services.support.logger_util import _log as log
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
+
+from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
-from selenium.webdriver.support import expected_conditions as EC
 from services.support.path_config import get_browser_data_dir
+
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 console = Console()
 

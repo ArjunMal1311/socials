@@ -21,9 +21,11 @@ def extract_linkedin_urls_from_data(profile_name: str, verbose: bool = False) ->
 
                     for company in companies:
                         founders = company.get("founders", [])
-                        for founder_url in founders:
-                            if isinstance(founder_url, str) and "linkedin.com/in/" in founder_url:
-                                linkedin_urls.append(founder_url)
+                        for founder in founders:
+                            links = founder.get("links", [])
+                            for link_url in links:
+                                if isinstance(link_url, str) and "linkedin.com/in/" in link_url:
+                                    linkedin_urls.append(link_url)
 
                 except Exception as e:
                     log(f"Error reading PH file {file_path}: {e}", verbose, is_error=True, log_caller_file="data_extractor.py")
@@ -40,9 +42,11 @@ def extract_linkedin_urls_from_data(profile_name: str, verbose: bool = False) ->
 
                     for company in companies:
                         founders = company.get("founders", [])
-                        for founder_url in founders:
-                            if isinstance(founder_url, str) and "linkedin.com/in/" in founder_url:
-                                linkedin_urls.append(founder_url)
+                        for founder in founders:
+                            links = founder.get("links", [])
+                            for link_url in links:
+                                if isinstance(link_url, str) and "linkedin.com/in/" in link_url:
+                                    linkedin_urls.append(link_url)
 
                 except Exception as e:
                     log(f"Error reading YC file {file_path}: {e}", verbose, is_error=True, log_caller_file="data_extractor.py")

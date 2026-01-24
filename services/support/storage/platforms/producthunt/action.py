@@ -1,10 +1,10 @@
 import json
 
 from typing import Dict, List, Any
-from .base import BaseProductHuntStorage
+from services.support.storage.base_storage import BaseStorage
 from services.support.postgres_util import get_postgres_connection, update_data
 
-class ProductHuntActionStorage(BaseProductHuntStorage):
+class ProductHuntActionStorage(BaseStorage):
     def _get_table_name(self) -> str:
         return f"{self.profile_name}_producthunt"
 

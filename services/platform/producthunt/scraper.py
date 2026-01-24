@@ -48,14 +48,13 @@ def main():
     limit = scraper_props.get('count', 10)
     push_to_db = global_props.get('push_to_db', False)
 
-    # Check if data already exists for yesterday
     from datetime import datetime, timedelta
-    yesterday = datetime.now() - timedelta(days=1)
-    existing_file_path = get_product_hunt_scrape_output_file_path(profile_name, yesterday.strftime("%Y%m%d"))
+    today = datetime.now()
+    existing_file_path = get_product_hunt_scrape_output_file_path(profile_name, today.strftime("%Y%m%d"))
 
     scraped_products = []
     if os.path.exists(existing_file_path):
-        log(f"Found existing Product Hunt data for {yesterday.strftime('%Y-%m-%d')} at {existing_file_path}", verbose, log_caller_file="scraper.py")
+        log(f"Found existing Product Hunt data for {today.strftime('%Y-%m-%d')} at {existing_file_path}", verbose, log_caller_file="scraper.py")
         try:
             import json
             with open(existing_file_path, 'r', encoding='utf-8') as f:
@@ -66,10 +65,10 @@ def main():
             scraped_products = []
 
     if not scraped_products:
-        with Status(f"[white]Scraping Product Hunt previous day leaderboard for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
+        with Status(f"[white]Scraping Product Hunt today's leaderboard for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
             scraped_products = scrape_product_hunt_products(profile_name=profile_name, verbose=verbose, status=status, limit=limit, headless=headless)
             status.stop()
-            log(f"Previous day leaderboard scraping complete. Scraped {len(scraped_products)} products.", verbose, log_caller_file="scraper.py")
+            log(f"Today's leaderboard products scraping complete. Scraped {len(scraped_products)} products.", verbose, log_caller_file="scraper.py")
 
     if push_to_db and scraped_products:
         storage = get_storage('producthunt', profile_name, 'action', verbose)
