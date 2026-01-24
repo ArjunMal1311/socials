@@ -12,7 +12,6 @@ from rich.status import Status
 from rich.console import Console
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
@@ -146,7 +145,7 @@ def scrape_product_details(driver: uc.Chrome, product_data: Dict[str, Any], verb
         return product_data
 
 def scrape_product_hunt_products(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, headless: bool = True) -> List[Dict[str, Any]]:
-    log(f"Starting Product Hunt previous day leaderboard scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
+    log(f"Starting Product Hunt today's leaderboard scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
 
     from datetime import timedelta
     yesterday = datetime.now() - timedelta(days=1)
@@ -172,21 +171,8 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
 
         driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=142)
 
-        log("Navigating to Google and searching for Product Hunt...", verbose, status=status, log_caller_file="scraper_utils.py")
-        driver.get("https://www.google.com")
-
-        search_box = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.NAME, "q"))
-        )
-        search_query = f"Product Hunt daily leaderboard {yesterday.year}/{yesterday.month}/{yesterday.day}"
-        search_box.send_keys(search_query)
-        search_box.send_keys(Keys.RETURN)
-
-        log("Waiting for Product Hunt link in Google search results...", verbose, status=status, log_caller_file="scraper_utils.py")
-        product_hunt_link_element = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, '{target_url}')]"))
-        )
-        product_hunt_link_element.click()
+        log(f"Directly navigating to Product Hunt leaderboard: {target_url}", verbose, status=status, log_caller_file="scraper_utils.py")
+        driver.get(target_url)
 
         log("Waiting for product items on Product Hunt daily leaderboard...", verbose, status=status, log_caller_file="scraper_utils.py")
         WebDriverWait(driver, 30).until(

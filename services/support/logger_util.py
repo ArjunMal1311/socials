@@ -33,6 +33,7 @@ def _log(message: str, verbose: bool, status=None, is_error: bool = False, api_i
         caller_info = f"[{log_caller_file}] " if log_caller_file else ""
         color = "bold red"
         console.print(f"{caller_info}{timestamp}|[{color}]{log_message}{quota_str}[/{color}]")
+        
     elif verbose:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         caller_info = f"[{log_caller_file}] " if log_caller_file else ""

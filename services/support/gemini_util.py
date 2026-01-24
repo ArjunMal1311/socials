@@ -16,10 +16,6 @@ from services.support.api_call_tracker import APICallTracker
 console = Console()
 
 def create_inline_media_data(media_path: str, verbose: bool = False, status=None) -> Optional[dict]:
-    """
-    Create inline media data structure for Gemini API calls.
-    Compatible with content_generator.py media handling.
-    """
     try:
         mime_type = mimetypes.guess_type(media_path)[0] or "application/octet-stream"
         if not mime_type.startswith('image/'):
@@ -39,19 +35,7 @@ def create_inline_media_data(media_path: str, verbose: bool = False, status=None
         log(f"Could not process media {media_path}: {e}", verbose, is_error=True, status=status, log_caller_file="gemini_util.py")
         return None
 
-def generate_gemini_with_inline_media(
-    prompt_parts: List[Union[str, dict]],
-    api_key_pool: APIKeyPool,
-    api_call_tracker: APICallTracker,
-    rate_limiter: RateLimiter,
-    model_name: str = 'gemini-2.5-flash-lite',
-    status=None,
-    verbose: bool = False
-) -> tuple[Optional[str], Optional[int]]:
-    """
-    Universal Gemini generation function that supports inline media and complex prompt structures.
-    Compatible with content_generator.py usage.
-    """
+def generate_gemini_with_inline_media(prompt_parts: List[Union[str, dict]], api_key_pool: APIKeyPool, api_call_tracker: APICallTracker, rate_limiter: RateLimiter, model_name: str = 'gemini-2.5-flash-lite', status=None, verbose: bool = False) -> tuple[Optional[str], Optional[int]]:
     current_api_key = None
     token_count = None
 
@@ -112,7 +96,6 @@ def generate_gemini_with_inline_media(
         api_call_tracker.record_call("gemini", "generate_content", model_name, api_key_suffix, False, error_message)
         api_key_pool.report_failure(current_api_key, error_message)
         return None, None
-
 
 def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_call_tracker: APICallTracker, rate_limiter: RateLimiter, prompt_text: str, model_name: str = 'gemini-2.5-flash-lite', status=None, verbose: bool = False):
     current_api_key = None
@@ -203,6 +186,7 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
         log(message, verbose, status, log_caller_file="gemini_util.py")
 
         return caption, token_count
+    
     except Exception as e:
         error_message = f"An unexpected error occurred during Gemini generation: {e}"
         api_info = api_call_tracker.get_quot_info("gemini", "generate", model_name, api_key_suffix)
@@ -210,6 +194,7 @@ def generate_gemini(media_path: Optional[str], api_key_pool: APIKeyPool, api_cal
         api_call_tracker.record_call("gemini", "generate", model_name, api_key_suffix, False, error_message)
         api_key_pool.report_failure(current_api_key, error_message)
         return None, None
+    
     finally:
         if uploaded_file:
             try:

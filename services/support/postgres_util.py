@@ -91,6 +91,38 @@ def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
         log(f"[ERROR] Failed to insert into '{table_name}': {e}", verbose, is_error=True, log_caller_file="postgres_util.py")
         return False
 
+def upsert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dict[str, Any], verbose: bool = False, conflict_column: str = "tweet_id") -> bool:
+    try:
+        cursor = conn.cursor()
+        columns = list(data.keys())
+        values = list(data.values())
+
+        set_clause = sql.SQL(', ').join(
+            sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(col), sql.Identifier(col))
+            for col in columns
+        )
+
+        upsert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {}").format(
+            sql.Identifier(table_name),
+            sql.SQL(', ').join(map(sql.Identifier, columns)),
+            sql.SQL(', ').join(sql.Placeholder() for _ in columns),
+            sql.Identifier(conflict_column),
+            set_clause
+        )
+
+        cursor.execute(upsert_query, values)
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            log(f"Upserted record into '{table_name}'.", verbose, log_caller_file="postgres_util.py")
+        else:
+            log(f"No changes made to '{table_name}' during upsert.", verbose, log_caller_file="postgres_util.py")
+
+        return True
+    except Exception as e:
+        log(f"[ERROR] Failed to upsert into '{table_name}': {e}", verbose, is_error=True, log_caller_file="postgres_util.py")
+        return False
+
 def update_data(conn: psycopg2.extensions.connection, table_name: str, updates: Dict[str, Any], where_clause: str, params: tuple = (), verbose: bool = False) -> bool:
     try:
         cursor = conn.cursor()

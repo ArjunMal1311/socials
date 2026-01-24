@@ -1,9 +1,9 @@
 import json
 
-from .base import BaseYCombinatorStorage
+from services.support.storage.base_storage import BaseStorage
 from services.support.postgres_util import get_postgres_connection, update_data
 
-class YCombinatorActionStorage(BaseYCombinatorStorage):
+class YCombinatorActionStorage(BaseStorage):
     def _get_table_name(self):
         return f"{self.profile_name}_ycombinator"
 
