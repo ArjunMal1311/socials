@@ -37,7 +37,7 @@ def init_profile(profile_name: str):
             if insert_index > 0:
                 profile_lines = [
                     f'    "{profile_name}": {{',
-                    f'        "name": "",',
+                    f'        "name": "{profile_name}",',
                     f'        "prompt": "",',
                     f'        "engagement_analysis_prompt": "",',
                     f'        "data": {{',
@@ -118,7 +118,11 @@ def init_profile(profile_name: str):
                     f'            "utils": {{',
                     f'                "action": {{',
                     f'                    "count": 2,',
-                    f'                    "ignore_video_tweets": False',
+                    f'                    "ignore_video_tweets": False,',
+                    f'                    "platforms": {{',
+                    f'                        "x": ["{profile_name}"],',
+                    f'                        "linkedin": ["{profile_name}"]',
+                    f'                    }}',
                     f'                }},',
                     f'                "connection": {{',
                     f'                    "count": 17',

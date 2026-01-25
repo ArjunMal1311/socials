@@ -20,6 +20,11 @@ from services.support.path_config import initialize_directories, get_linkedin_pr
 
 console = Console()
 
+# for linkedin for one profile the website was using some v2 thing
+# and when tried for another was using feed thing
+# add both approaches v2 is implemented in previous commits
+# feed thing is implemented currently remove after doing
+
 def main():
     load_dotenv()
     initialize_directories()

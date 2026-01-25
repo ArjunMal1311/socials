@@ -27,6 +27,7 @@ class ProductHuntActionStorage(BaseStorage):
             "founders": "JSONB",
             "upvotes_count": "INTEGER DEFAULT 0",
             "tagline": "TEXT",
+            "status": "TEXT DEFAULT 'pending_review'",
             "created_at": "TIMESTAMP DEFAULT NOW()",
             "updated_at": "TIMESTAMP DEFAULT NOW()"
         }

@@ -1,8 +1,10 @@
+import re
 import os
 import json
 import time
 import google.generativeai as genai
 
+from bs4 import BeautifulSoup
 from datetime import datetime
 from profiles import PROFILES
 
@@ -110,8 +112,6 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
     posted = 0
     failed = 0
 
-    driver.execute_script("window.scrollTo(0, 0);")
-    time.sleep(1)
 
     for reply_data in replies_data:
         if not reply_data.get("approved", False) or reply_data.get("posted", False):
@@ -137,35 +137,69 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
             max_scrolls = 10
 
             log("Loading posts by scrolling down to expand feed...", verbose, status, log_caller_file="reply_utils.py")
-            for load_attempt in range(3):
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
-                time.sleep(3)
+            
+            scroll_element = None
+            try:
+                scroll_element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "workspace"))
+                )
+            except:
+                try:
+                    scroll_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "main.scaffold-layout__main"))
+                    )
+                except:
+                    scroll_element = driver.find_element(By.TAG_NAME, "body")
 
-            driver.execute_script("window.scrollTo(0, 0);")
-            time.sleep(2)
+            if scroll_element:
+                pass
 
             for scroll_attempt in range(max_scrolls):
                 if found_post:
                     break
 
-                posts = driver.find_elements(By.CSS_SELECTOR, "div.feed-shared-update-v2")
+                posts = driver.find_elements(By.CSS_SELECTOR, "[data-view-name=\"feed-full-update\"]")
                 log(f"Checking {len(posts)} posts in current view for URN {post_urn}", verbose, status, log_caller_file="reply_utils.py")
 
                 for post in posts:
                     try:
-                        current_urn = post.get_attribute("data-urn")
+                        current_post_outer_html = post.get_attribute("outerHTML")
+                        current_urn = ""
+                        tracking_scope_element = BeautifulSoup(current_post_outer_html, 'html.parser').select_one('[data-view-tracking-scope]')
+                        if tracking_scope_element:
+                            data_view_tracking_scope = tracking_scope_element.get('data-view-tracking-scope', '')
+                            if data_view_tracking_scope:
+                                try:
+                                    import json
+                                    json_data = json.loads(data_view_tracking_scope)
+                                    if isinstance(json_data, list) and len(json_data) > 0 and "breadcrumb" in json_data[0] and \
+                                       "content" in json_data[0]["breadcrumb"] and "data" in json_data[0]["breadcrumb"]["content"]:
+                                        buffer_data = json_data[0]["breadcrumb"]["content"]["data"]
+                                        decoded_string = "".join([chr(b) for b in buffer_data])
+                                        urn_match = re.search(r'activity:(\d{19})', decoded_string)
+                                        if urn_match:
+                                            current_urn = "urn:li:activity:" + urn_match.group(1)
+                                except json.JSONDecodeError:
+                                    pass
+
+                        if not current_urn:
+                            fallback_match = re.search(r'(?:activity|ugcPost):(\d{19})', current_post_outer_html)
+                            if fallback_match:
+                                current_urn = "urn:li:" + fallback_match.group(0)
+
+
                         if current_urn == post_urn:
                             log(f"Found matching post by URN, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
 
                             driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", post)
                             time.sleep(2)
 
-                            comment_button = post.find_element(By.CSS_SELECTOR, "button[aria-label='Comment']")
+                            comment_button = post.find_element(By.CSS_SELECTOR, "button[data-view-name='feed-comment-button']")
                             comment_button.click()
                             time.sleep(4)
 
                             comment_input = WebDriverWait(driver, 15).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, ".ql-editor[data-test-ql-editor-contenteditable='true']"))
+                                EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-view-name=\"comment-box\"] [contenteditable=\"true\"]"))
                             )
 
                             safe_text = reply_text.replace('"', '\\"').replace("'", "\\'").replace('\n', '</p><p>')
@@ -177,7 +211,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                             time.sleep(4)
 
                             submit_button = WebDriverWait(driver, 15).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments-comment-box__submit-button--cr"))
+                                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-view-name=\"comment-post\"]"))
                             )
                             submit_button.click()
                             time.sleep(6)

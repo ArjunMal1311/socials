@@ -1,4 +1,4 @@
-# socials linkedin <profile> reply home --count 10
+# socials linkedin <profile> reply home
 
 import os
 import sys
