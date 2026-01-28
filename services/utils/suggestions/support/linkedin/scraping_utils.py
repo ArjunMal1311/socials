@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 from services.support.logger_util import _log as log
 from services.support.path_config import get_suggestions_dir
 
-from services.platform.linkedin.support.scraper_utils import scrape_linkedin_profiles
+from services.platform.linkedin.support.scraper_utils import scrape_linkedin_profiles, scrape_linkedin_feed_posts
 
 console = Console()
 
@@ -57,19 +57,27 @@ def run_linkedin_suggestions_workflow(profile_name: str, max_posts_per_profile: 
     profile_config = PROFILES[profile_name]
     linkedin_target_profiles = profile_config.get('target_profiles', [])
 
+    # Just scrape home page for now when no target profiles are configured
+    # This scrapes the LinkedIn feed/home page instead of specific target profiles
     if not linkedin_target_profiles:
-        return {"error": f"No linkedin_target_profiles found for {profile_name}. Add linkedin_target_profiles to profiles.py"}
-
-    scraped_posts = scrape_linkedin_profiles(
-        linkedin_target_profiles=linkedin_target_profiles,
-        profile_name=profile_name,
-        max_posts_per_profile=max_posts_per_profile,
-        headless=headless,
-        verbose=verbose
-    )
+        log(f"No linkedin_target_profiles found for {profile_name}. Scraping LinkedIn home page feed instead.", verbose, log_caller_file="scraping_utils.py")
+        scraped_posts = scrape_linkedin_feed_posts(
+            profile_name=profile_name,
+            max_posts=max_posts_per_profile,
+            headless=headless,
+            verbose=verbose
+        )
+    else:
+        scraped_posts = scrape_linkedin_profiles(
+            linkedin_target_profiles=linkedin_target_profiles,
+            profile_name=profile_name,
+            max_posts_per_profile=max_posts_per_profile,
+            headless=headless,
+            verbose=verbose
+        )
 
     if not scraped_posts:
-        return {"error": "No posts were scraped from target profiles"}
+        return {"error": "No posts were scraped from LinkedIn"}
 
     log(f"Total posts scraped: {len(scraped_posts)}", verbose, log_caller_file="scraping_utils.py")
 
@@ -111,3 +119,15 @@ def get_latest_linkedin_suggestions_file(profile_name: str) -> str:
 
     suggestions_files.sort(reverse=True)
     return os.path.join(suggestions_dir, suggestions_files[0])
+
+def get_latest_filtered_linkedin_file(profile_name: str) -> str:
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return ""
+
+    filtered_files = [f for f in os.listdir(suggestions_dir) if f.startswith('filtered_content_linkedin_') and f.endswith('.json')]
+    if not filtered_files:
+        return ""
+
+    filtered_files.sort(reverse=True)
+    return os.path.join(suggestions_dir, filtered_files[0])

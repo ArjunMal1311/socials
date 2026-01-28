@@ -2,7 +2,7 @@ import os
 import re
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from bs4 import BeautifulSoup
@@ -13,6 +13,39 @@ from selenium.webdriver.support import expected_conditions as EC
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
+
+def parse_linkedin_relative_date(relative_date_str):
+    if not relative_date_str or not isinstance(relative_date_str, str):
+        return datetime.now().isoformat() + "Z"
+
+    cleaned = relative_date_str.strip().replace('•', '').strip()
+
+    try:
+        match = re.match(r'(\d+)([mhdw])', cleaned.lower())
+        if not match:
+            return datetime.now().isoformat() + "Z"
+
+        number = int(match.group(1))
+        unit = match.group(2)
+
+        now = datetime.now()
+
+        if unit == 'm':  # minutes
+            delta = timedelta(minutes=number)
+        elif unit == 'h':  # hours
+            delta = timedelta(hours=number)
+        elif unit == 'd':  # days
+            delta = timedelta(days=number)
+        elif unit == 'w':  # weeks
+            delta = timedelta(weeks=number)
+        else:
+            return datetime.now().isoformat() + "Z"
+
+        post_datetime = now - delta
+        return post_datetime.isoformat() + "Z"
+
+    except Exception:
+        return datetime.now().isoformat() + "Z"
 
 def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: str, max_posts_per_profile: int = 10, headless: bool = True, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     all_posts = []
@@ -215,7 +248,8 @@ def extract_post_data_from_html(html_content):
         if date_element:
             parent_span_p = date_element.find_parent(['span', 'p'])
             if parent_span_p:
-                post_date = parent_span_p.get_text(strip=True)
+                relative_date = parent_span_p.get_text(strip=True)
+                post_date = parse_linkedin_relative_date(relative_date)
 
         img_elements = post_wrapper.select('[data-view-name="image"] img')
         for img in img_elements:

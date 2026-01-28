@@ -256,58 +256,72 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
 
     time.sleep(5)
 
-    posted = 0
-    failed = 0
+    log("Starting to locate all approved tweets on the feed...", verbose, log_caller_file="home.py")
 
-    log("Starting automated posting of generated replies via browser...", verbose, log_caller_file="home.py")
+    tweet_elements_map = {}
+    tweets_not_found = []
 
-    driver.execute_script("window.scrollTo(0, 0)")
-    time.sleep(random.uniform(2, 3))
+    driver.execute_script("window.scrollTo(0, 0);")
+    time.sleep(2)
 
-    for i, tweet_data in enumerate(generated_replies):
-        tweet_url = tweet_data.get('tweet_url')
-        generated_reply = tweet_data.get('generated_reply')
+    for tweet_data in generated_replies:
         tweet_id = tweet_data.get('tweet_id')
+        tweet_url = tweet_data.get('tweet_url')
 
-        if not tweet_url or not generated_reply or not tweet_id:
+        if not tweet_id or not tweet_url:
             log(f"Skipping invalid entry: {tweet_data}", verbose, is_error=False, log_caller_file="home.py")
-            failed += 1
+            tweets_not_found.append(tweet_data)
             continue
 
         found_tweet_element = None
         scroll_attempts = 0
-        max_scroll_attempts = 30
+        max_scroll_attempts = 15
 
         while found_tweet_element is None and scroll_attempts < max_scroll_attempts:
             try:
-                log(f"Searching for tweet ID: {tweet_id} on home feed (scroll attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose, log_caller_file="home.py")
+                log(f"Searching for tweet ID: {tweet_id} (attempt {scroll_attempts + 1}/{max_scroll_attempts})...", verbose, log_caller_file="home.py")
 
-                tweet_link_element = WebDriverWait(driver, 5).until(
+                tweet_link_element = WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
                 )
                 found_tweet_element = tweet_link_element.find_element(By.XPATH, './ancestor::article[@role="article"]')
 
-                driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", found_tweet_element)
-                time.sleep(random.uniform(1, 2))
+                tweet_elements_map[tweet_id] = found_tweet_element
+                log(f"Found tweet {tweet_id} on attempt {scroll_attempts + 1}", verbose, log_caller_file="home.py")
+                break
 
-            except (TimeoutException, NoSuchElementException, StaleElementReferenceException) as e:
-                log(f"Tweet ID {tweet_id} not visible or stale ({e}). Scrolling down to load more content...", verbose, log_caller_file="home.py")
-                driver.execute_script("window.scrollBy(0, window.innerHeight * 0.8);")
-                time.sleep(random.uniform(2, 4))
+            except (TimeoutException, NoSuchElementException, StaleElementReferenceException):
+                driver.execute_script("window.scrollBy(0, window.innerHeight * 0.7);")
+                time.sleep(random.uniform(1, 2))
                 scroll_attempts += 1
 
         if found_tweet_element is None:
-            log(f"Could not find tweet with ID {tweet_id} on home feed after {max_scroll_attempts} scrolls. Skipping.", verbose, is_error=False, log_caller_file="home.py")
-            failed += 1
-            tweet_data['status'] = 'tweet_not_found'
-            with open(replies_path, 'w') as f:
-                json.dump(items, f, indent=2)
+            log(f"Could not find tweet {tweet_id} after {max_scroll_attempts} attempts. Skipping.", verbose, is_error=True, log_caller_file="home.py")
+            tweets_not_found.append(tweet_data)
+
+    for tweet_data in tweets_not_found:
+        tweet_data['status'] = 'tweet_not_found'
+        failed += len(tweets_not_found)
+
+    posted = 0
+    failed = len(tweets_not_found)
+
+    log(f"Starting automated posting of {len(tweet_elements_map)} found replies via browser...", verbose, log_caller_file="home.py")
+
+    for tweet_data in generated_replies:
+        tweet_id = tweet_data.get('tweet_id')
+        tweet_url = tweet_data.get('tweet_url')
+        generated_reply = tweet_data.get('generated_reply')
+
+        if tweet_id not in tweet_elements_map:
             continue
 
-        try:
-            log(f"Found tweet ID: {tweet_id}. Attempting to post reply.", verbose, log_caller_file="home.py")
+        tweet_element = tweet_elements_map[tweet_id]
 
-            driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", found_tweet_element)
+        try:
+            log(f"Posting reply to tweet ID: {tweet_id}", verbose, log_caller_file="home.py")
+
+            driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", tweet_element)
             time.sleep(random.uniform(1, 2))
 
             reply_button = None
@@ -321,7 +335,7 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
 
             for selector in reply_selectors:
                 try:
-                    reply_button = WebDriverWait(found_tweet_element, 5).until(
+                    reply_button = WebDriverWait(tweet_element, 5).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
                     log(f"Found reply button with selector: {selector}", verbose, log_caller_file="home.py")
@@ -387,7 +401,7 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                 log(f"Could not verify reply was posted: {verify_e}", verbose, is_error=False, log_caller_file="home.py")
 
             try:
-                like_button = WebDriverWait(found_tweet_element, 10).until(
+                like_button = WebDriverWait(tweet_element, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="like"]'))
                 )
                 like_button.click()
@@ -408,7 +422,7 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
         with open(replies_path, 'w') as f:
             json.dump(items, f, indent=2)
 
-        driver.execute_script("window.scrollBy(0, window.innerHeight * 0.3);")
+        driver.execute_script("window.scrollBy(0, window.innerHeight * 0.2);")
         time.sleep(random.uniform(1, 2))
 
     return {"processed": len(generated_replies), "posted": posted, "failed": failed}

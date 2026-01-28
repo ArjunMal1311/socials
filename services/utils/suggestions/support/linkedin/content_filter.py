@@ -25,9 +25,9 @@ def parse_linkedin_date(post_data):
 
 def filter_and_sort_linkedin_content(scraped_file_path: str, profile_name: str) -> Dict[str, Any]:
     profile_props = PROFILES[profile_name].get('properties', {})
-    platform_props = profile_props.get('platform', {})
-    x_props = platform_props.get('x', {})
-    content_filter = x_props.get('content_filter', {})
+    utils_props = profile_props.get('utils', {})
+    suggestions_props = utils_props.get('suggestions', {})
+    content_filter = suggestions_props.get('content_filter', {})
 
     min_age_days = content_filter.get('min_age_days', 0)
     max_age_days = content_filter.get('max_age_days', 30)

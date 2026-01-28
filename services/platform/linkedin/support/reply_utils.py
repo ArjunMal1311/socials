@@ -170,7 +170,6 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                             data_view_tracking_scope = tracking_scope_element.get('data-view-tracking-scope', '')
                             if data_view_tracking_scope:
                                 try:
-                                    import json
                                     json_data = json.loads(data_view_tracking_scope)
                                     if isinstance(json_data, list) and len(json_data) > 0 and "breadcrumb" in json_data[0] and \
                                        "content" in json_data[0]["breadcrumb"] and "data" in json_data[0]["breadcrumb"]["content"]:
