@@ -169,7 +169,7 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
         if headless:
             options.add_argument("--headless")
 
-        driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=142)
+        driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=144)
 
         log(f"Directly navigating to Product Hunt leaderboard: {target_url}", verbose, status=status, log_caller_file="scraper_utils.py")
         driver.get(target_url)
