@@ -25,6 +25,7 @@ MODULE_CONFIGS = {
         'path_template': 'services/platform/x/{filename}',
         'modules': {
         'dm': 'dm.py',
+        'follow': 'follow.py',
         'post': 'post.py',
         'reply': 'reply.py',
         'scraper': 'scraper.py'

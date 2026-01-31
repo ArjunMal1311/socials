@@ -84,7 +84,7 @@ def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
         if cursor.rowcount > 0:
             log(f"Inserted record into '{table_name}'.", verbose, log_caller_file="postgres_util.py")
         else:
-            log(f"Skipped duplicate record for '{table_name}' (tweet_id already exists).", verbose, log_caller_file="postgres_util.py")
+            log(f"Skipped duplicate record for '{table_name}' (id already exists).", verbose, log_caller_file="postgres_util.py")
 
         return True
     except Exception as e:

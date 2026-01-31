@@ -130,14 +130,11 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                 failed += 1
                 continue
 
-            driver.execute_script("window.scrollTo(0, 0);")
-            time.sleep(2)
-
             found_post = False
             max_scrolls = 10
 
             log("Loading posts by scrolling down to expand feed...", verbose, status, log_caller_file="reply_utils.py")
-            
+
             scroll_element = None
             try:
                 scroll_element = WebDriverWait(driver, 10).until(
@@ -150,6 +147,13 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                     )
                 except:
                     scroll_element = driver.find_element(By.TAG_NAME, "body")
+
+            if scroll_element:
+                driver.execute_script("arguments[0].scrollTo(0, 0);", scroll_element)
+                time.sleep(2)
+            else:
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(2)
 
             if scroll_element:
                 pass
