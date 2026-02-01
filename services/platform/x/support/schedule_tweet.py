@@ -5,7 +5,7 @@ from datetime import datetime
 from rich.console import Console
 
 from services.support.logger_util import _log as log
-from services.support.path_config import get_schedule_dir
+from services.support.path_config import get_schedule_file_path
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys

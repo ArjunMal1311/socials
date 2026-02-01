@@ -112,7 +112,7 @@ def main():
     log(f"Found {len(linkedin_urls)} LinkedIn URLs ({len(ph_linkedin_urls)} from PH, {len(yc_linkedin_urls)} from YC)", verbose, log_caller_file="connection.py")
     log(f"Found {len(x_urls)} X URLs ({len(ph_x_urls)} from PH, {len(yc_x_urls)} from YC)", verbose, log_caller_file="connection.py")
 
-    def process_platform_urls(platform_urls, platform_name, connection_type_name, source_name, source_tag, processor_func, username_extractor_func):
+    def process_platform_urls(platform_urls, platform_name, connection_type_name, source_name, source_tag, processor_func, username_extractor_func, limit=None):
         if not platform_urls:
             return 0, 0
 
@@ -181,8 +181,10 @@ def main():
     process_platform_urls(yc_linkedin_urls, "LinkedIn", "Connection", "Y Combinator", "ycombinator", process_linkedin_connections, extract_usernames_from_linkedin_urls)
 
     # Process X follows
-    process_platform_urls(ph_x_urls, "X", "Follow", "Product Hunt", "product_hunt", process_x_connections, extract_usernames_from_x_urls)
-    process_platform_urls(yc_x_urls, "X", "Follow", "Y Combinator", "ycombinator", process_x_connections, extract_usernames_from_x_urls)
+    # IMPORTANT: X (Twitter) has strict rate limits. Limiting to a maximum of 5 follows per run.
+    x_connection_limit = min(connection_limit, 5)
+    process_platform_urls(ph_x_urls, "X", "Follow", "Product Hunt", "product_hunt", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)
+    process_platform_urls(yc_x_urls, "X", "Follow", "Y Combinator", "ycombinator", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)
 
     log("All connection/follow processing complete!", verbose, log_caller_file="connection.py")
 

@@ -17,7 +17,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.web_driver_handler import setup_driver
 from services.support.api_call_tracker import APICallTracker
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_profile_dir
+from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_replies_dir
 
 from services.platform.linkedin.support.scraper_utils import scrape_linkedin_feed_posts
 
@@ -74,7 +74,7 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
             }
             replies_data.append(reply_data)
 
-        replies_file = os.path.join(get_linkedin_profile_dir(profile_name), "replies.json")
+        replies_file = os.path.join(get_linkedin_replies_dir(profile_name), "replies.json")
         os.makedirs(os.path.dirname(replies_file), exist_ok=True)
 
         with open(replies_file, 'w', encoding='utf-8') as f:
@@ -90,7 +90,7 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
 
 
 def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = False, status=None):
-    replies_file = os.path.join(get_linkedin_profile_dir(profile_name), "replies.json")
+    replies_file = os.path.join(get_linkedin_replies_dir(profile_name), "replies.json")
 
     if not os.path.exists(replies_file):
         log(f"Replies file not found: {replies_file}", verbose, is_error=True, log_caller_file="reply_utils.py")

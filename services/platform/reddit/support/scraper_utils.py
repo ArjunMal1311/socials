@@ -11,7 +11,7 @@ from rich.console import Console
 from profiles import PROFILES
 
 from services.support.logger_util import _log as log
-from services.support.path_config import ensure_dir_exists, get_reddit_profile_dir
+from services.support.path_config import ensure_dir_exists, get_reddit_scraper_dir
 
 from services.platform.reddit.support.data_formatter import format_reddit_post
 from services.platform.reddit.support.reddit_api_utils import initialize_praw, get_subreddit_posts, get_post_comments
@@ -68,7 +68,7 @@ def run_reddit_scraper(profile_name: str, status: Optional[Status] = None, verbo
             
             all_formatted_posts.extend(posts_with_comments)
 
-    reddit_output_dir = get_reddit_profile_dir(profile_name)
+    reddit_output_dir = get_reddit_scraper_dir(profile_name)
     ensure_dir_exists(reddit_output_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = os.path.join(reddit_output_dir, f"reddit_scraped_data_{timestamp}.json")

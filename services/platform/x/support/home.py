@@ -18,7 +18,7 @@ from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from services.support.web_driver_handler import setup_driver
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import get_browser_data_dir, ensure_dir_exists
+from services.support.path_config import get_browser_data_dir, get_x_replies_dir, ensure_dir_exists
 
 from services.platform.x.support.process_container import process_container
 from services.platform.x.support.post_approved_tweets import post_tweet_reply

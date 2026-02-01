@@ -25,8 +25,23 @@ def get_profiles_file_path() -> str:
 # SHARED DIRECTORIES (non-platform specific)
 # =============================================================================
 
-def get_browser_data_dir(profile_name: str) -> str:
-    """Get browser data directory for profile."""
+def get_browser_data_dir(profile_name: str, platform: str = None) -> str:
+    """Get browser data directory for profile (optionally platform-specific)."""
+    if platform:
+        platform_dir = os.path.join(BASE_TMP_DIR, "browser-data", f"{profile_name}_{platform}")
+        base_dir = os.path.join(BASE_TMP_DIR, "browser-data", profile_name)
+
+        if not os.path.exists(platform_dir) and os.path.exists(base_dir):
+            try:
+                print(f"Copying browser data from {profile_name} to {profile_name}_{platform}...")
+                shutil.copytree(base_dir, platform_dir)
+                print(f"Successfully created platform-specific browser directory: {profile_name}_{platform}")
+            except Exception as e:
+                print(f"Warning: Could not copy browser data: {e}")
+                return base_dir
+
+        return platform_dir
+
     return os.path.join(BASE_TMP_DIR, "browser-data", profile_name)
 
 def get_cache_dir() -> str:
@@ -112,6 +127,10 @@ def get_linkedin_connections_dir(profile: str) -> str:
 def get_linkedin_posts_dir(profile: str) -> str:
     """Get LinkedIn posts directory: platform/linkedin/{profile}/posts"""
     return os.path.join(get_platform_profile_dir("linkedin", profile), "posts")
+
+def get_linkedin_messages_dir(profile: str) -> str:
+    """Get LinkedIn messages directory: platform/linkedin/{profile}/messages"""
+    return os.path.join(get_platform_profile_dir("linkedin", profile), "messages")
 
 # =============================================================================
 # REDDIT PLATFORM
@@ -227,16 +246,20 @@ def get_gemini_log_file_path() -> str:
     """Get Gemini API calls log file path."""
     return os.path.join(get_logs_dir(), "gemini_api_calls_log.json")
 
-def get_reddit_log_file_path() -> str:
+def get_reddit_log_file_path(profile_name: str = None) -> str:
     """Get Reddit API calls log file path."""
+    if profile_name:
+        return os.path.join(get_logs_dir(), f"reddit_api_calls_log_{profile_name}.json")
     return os.path.join(get_logs_dir(), "reddit_api_calls_log.json")
 
 def get_youtube_log_file_path() -> str:
     """Get YouTube API calls log file path."""
     return os.path.join(get_logs_dir(), "youtube_api_calls_log.json")
 
-def get_google_log_file_path() -> str:
+def get_google_log_file_path(profile_name: str = None) -> str:
     """Get Google API calls log file path."""
+    if profile_name:
+        return os.path.join(get_logs_dir(), f"google_api_calls_log_{profile_name}.json")
     return os.path.join(get_logs_dir(), "google_api_calls_log.json")
 
 # =============================================================================

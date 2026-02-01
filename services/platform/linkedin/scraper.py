@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from services.support.logger_util import _log as log
 from services.platform.linkedin.support.scraper_utils import scrape_linkedin_profiles
-from services.support.path_config import initialize_directories, get_linkedin_profile_dir
+from services.support.path_config import initialize_directories, get_linkedin_scraper_dir
 
 console = Console()
 
@@ -76,7 +76,7 @@ def main():
 
             if scraped_posts:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                output_dir = os.path.join(get_linkedin_profile_dir(profile_name), "scraper", "profiles")
+                output_dir = os.path.join(get_linkedin_scraper_dir(profile_name), "profiles")
                 os.makedirs(output_dir, exist_ok=True)
 
                 output_file = os.path.join(output_dir, f"linkedin_posts_{timestamp}.json")

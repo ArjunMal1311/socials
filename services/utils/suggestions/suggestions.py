@@ -1,5 +1,6 @@
 # socials utils <profile> suggestions x [scrape, filter, web, download, generate, generate_new, review, schedule, post]
 # socials utils <profile> suggestions linkedin [scrape, filter, web, download, generate, generate_new ,schedule, review, post]
+# socials utils <profile> suggestions reddit [scrape, filter, web, download]
 
 import os
 import sys
@@ -31,6 +32,11 @@ from services.utils.suggestions.support.linkedin.content_generator import genera
 from services.utils.suggestions.support.linkedin.scheduling_utils import run_linkedin_content_scheduling, run_linkedin_content_posting
 from services.utils.suggestions.support.linkedin.content_filter import filter_and_sort_linkedin_content, get_latest_scraped_linkedin_file
 
+from services.utils.suggestions.support.reddit.media_downloader import run_reddit_media_download
+from services.utils.suggestions.support.reddit.scraping_utils import run_reddit_suggestions_workflow
+from services.utils.suggestions.support.reddit.content_generator import run_reddit_content_generation
+from services.utils.suggestions.support.reddit.content_filter import filter_and_sort_reddit_content, get_latest_scraped_reddit_file
+
 console = Console()
 
 def main():
@@ -39,7 +45,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Content Inspiration Scraper")
     parser.add_argument("profile", type=str, help="Profile name to use")
-    parser.add_argument("platform", choices=['x', 'linkedin'], help="Platform to use")
+    parser.add_argument("platform", choices=['x', 'linkedin', 'reddit'], help="Platform to use")
     parser.add_argument("command", choices=['scrape', 'filter', 'web', 'generate', 'generate_new', 'schedule', 'post', 'download', 'review'], help="Command to run")
 
     args = parser.parse_args()
@@ -332,6 +338,71 @@ def main():
             console.print(f"[blue]Content Workflow Web App: http://localhost:5000[/blue]")
             console.print(f"[blue]Go to: http://localhost:5000/{profile_name}/review[/blue]")
             console.print(f"[yellow]Then run: socials utils {profile_name} suggestions web[/yellow]")
+
+    elif platform == 'reddit':
+        profile_props = PROFILES[profile_name].get('properties', {})
+        utils_props = profile_props.get('utils', {})
+        suggestions_props = utils_props.get('suggestions', {})
+        global_props = profile_props.get('global', {})
+        push_to_db = global_props.get('push_to_db', False)
+
+        if args.command == 'scrape':
+            max_posts_reddit = suggestions_props.get('count_reddit', 15)
+            verbose = global_props.get('verbose', False)
+            headless = global_props.get('headless', True)
+
+            result = run_reddit_suggestions_workflow(profile_name=profile_name, max_posts=max_posts_reddit, verbose=verbose, headless=headless)
+
+            if "error" in result:
+                log(result["error"], verbose, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Scraped {result['total_posts_scraped']} Reddit posts[/green]")
+
+        elif args.command == 'filter':
+            scraped_file = get_latest_scraped_reddit_file(profile_name)
+            if not scraped_file:
+                log("No scraped content found. Run 'scrape' command first.", False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            result = filter_and_sort_reddit_content(scraped_file, profile_name)
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Filtered {result['original_count']} to {result['filtered_count']} top Reddit posts[/green]")
+
+        elif args.command == 'generate':
+            if push_to_db:
+                storage = get_storage(platform, profile_name, 'suggestions_generated', verbose=global_props.get('verbose', False))
+                if not storage:
+                    log(f"Failed to get storage for {platform} suggestions_generated", False, is_error=True, log_caller_file="suggestions.py")
+                    sys.exit(1)
+                result = run_reddit_content_generation(profile_name, storage=storage, verbose=global_props.get('verbose', False))
+            else:
+                result = run_reddit_content_generation(profile_name, verbose=global_props.get('verbose', False))
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Generated {result['total_generated']} Reddit post ideas[/green]")
+
+        elif args.command == 'download':
+            result = run_reddit_media_download(profile_name)
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Downloaded media for {result['downloaded_count']} items from approved Reddit posts. Saved to {result['updated_file']}[/green]")
+
+        else:
+            log(f"Command '{args.command}' not implemented for Reddit platform yet.", False, is_error=True, log_caller_file="suggestions.py")
+
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

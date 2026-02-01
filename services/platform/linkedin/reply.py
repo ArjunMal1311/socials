@@ -13,7 +13,7 @@ from profiles import PROFILES
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.support.logger_util import _log as log
-from services.support.path_config import initialize_directories, get_linkedin_profile_dir
+from services.support.path_config import initialize_directories, get_linkedin_replies_dir
 
 from services.platform.linkedin.support.reply_utils import run_linkedin_reply_mode, post_approved_linkedin_replies
 
@@ -45,7 +45,7 @@ def main():
 
     browser_profile = args.profile
 
-    replies_file = os.path.join(get_linkedin_profile_dir(args.profile), "replies.json")
+    replies_file = os.path.join(get_linkedin_replies_dir(args.profile), "replies.json")
 
     if args.mode == "home":
         with Status(f'[white]Running LinkedIn reply mode for home feed...[/white]', spinner="dots", console=console) as status:

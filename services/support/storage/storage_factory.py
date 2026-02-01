@@ -15,6 +15,9 @@ from services.support.storage.platforms.linkedin.action import LinkedInActionSto
 from services.support.storage.platforms.linkedin.suggestions_new import LinkedInSuggestionsNewStorage
 from services.support.storage.platforms.linkedin.suggestions_generated import LinkedInSuggestionsGeneratedStorage
 
+from services.support.storage.platforms.reddit.suggestions_new import RedditSuggestionsNewStorage
+from services.support.storage.platforms.reddit.suggestions_generated import RedditSuggestionsGeneratedStorage
+
 def get_storage(platform: str, profile_name: str, feature: str = 'action', verbose: bool = False) -> Optional[BaseStorage]:
     platform = platform.lower().strip()
     feature = feature.lower().strip()
@@ -66,12 +69,22 @@ def get_storage(platform: str, profile_name: str, feature: str = 'action', verbo
         else:
             log(f"Unsupported Connection feature: {feature}. Supported: connection", verbose, is_error=True, log_caller_file="storage_factory.py")
             return None
+    elif platform == 'reddit':
+        if feature == 'suggestions_generated':
+            log(f"Creating Reddit suggestions (generated) storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
+            return RedditSuggestionsGeneratedStorage(profile_name)
+        elif feature == 'suggestions_new':
+            log(f"Creating Reddit suggestions (new) storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
+            return RedditSuggestionsNewStorage(profile_name)
+        else:
+            log(f"Unsupported Reddit feature: {feature}. Supported: suggestions_generated, suggestions_new", verbose, is_error=True, log_caller_file="storage_factory.py")
+            return None
     else:
         log(f"Unsupported platform: {platform}", verbose, is_error=True, log_caller_file="storage_factory.py")
         return None
 
 def get_supported_platforms() -> list[str]:
-    return ['x', 'twitter', 'linkedin', 'producthunt', 'ycombinator', 'connections']
+    return ['x', 'twitter', 'linkedin', 'reddit', 'producthunt', 'ycombinator', 'connections']
 
 def get_supported_features(platform: str) -> list[str]:
     platform = platform.lower().strip()
@@ -80,6 +93,8 @@ def get_supported_features(platform: str) -> list[str]:
         return ['action', 'suggestions_generated', 'suggestions_new']
     elif platform == 'linkedin':
         return ['action', 'connection', 'suggestions_generated', 'suggestions_new']
+    elif platform == 'reddit':
+        return ['suggestions_generated', 'suggestions_new']
     elif platform == 'producthunt':
         return ['action']
     elif platform == 'ycombinator':

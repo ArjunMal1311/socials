@@ -256,11 +256,35 @@ def extract_post_data_from_html(html_content):
             media_url = img.get('src')
             if media_url and "http" in media_url:
                 media_urls.append(media_url)
+
         video_elements = post_wrapper.select('video')
         for video in video_elements:
-            media_url = video.get('src')
-            if media_url and "http" in media_url:
-                media_urls.append(media_url)
+            poster_url = video.get('poster')
+            if poster_url and "http" in poster_url:
+                media_urls.append(poster_url)
+                continue
+
+            video_container = video.find_parent()
+            if video_container:
+                poster_img = video_container.select_one('.vjs-poster img, [class*="poster"] img')
+                if poster_img:
+                    poster_src = poster_img.get('src')
+                    if poster_src and "http" in poster_src:
+                        media_urls.append(poster_src)
+                        continue
+
+            poster_selectors = [
+                'img[alt*="poster"]',
+                'img[alt*="thumbnail"]',
+                'picture img[loading="lazy"]'
+            ]
+            for selector in poster_selectors:
+                poster_img = video_container.select_one(selector) if video_container else post_wrapper.select_one(selector)
+                if poster_img:
+                    poster_src = poster_img.get('src')
+                    if poster_src and "http" in poster_src and "videocover" in poster_src:
+                        media_urls.append(poster_src)
+                        break
 
         likes_elem = post_wrapper.select_one('[data-view-name="feed-reaction-count"]')
         if likes_elem:
