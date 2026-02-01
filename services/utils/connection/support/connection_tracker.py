@@ -4,10 +4,11 @@ from datetime import datetime
 from typing import Dict, Any, List
 
 from services.support.logger_util import _log as log
-from services.support.path_config import ensure_dir_exists
+from services.support.path_config import get_connections_dir
 
 def get_connection_tracking_file_path(profile_name: str, platform: str = "linkedin") -> str:
-    return f"tmp/connections/{profile_name}/{platform}_connection_requests.json"
+    connections_dir = get_connections_dir(profile_name)
+    return os.path.join(connections_dir, f"{platform}_connection_requests.json")
 
 def load_connection_tracking(profile_name: str, platform: str = "linkedin") -> Dict[str, Any]:
     tracking_file = get_connection_tracking_file_path(profile_name, platform)
@@ -27,7 +28,6 @@ def save_connection_tracking(profile_name: str, tracking_data: Dict[str, Any], p
     tracking_file = get_connection_tracking_file_path(profile_name, platform)
 
     try:
-        ensure_dir_exists(os.path.dirname(tracking_file))
         with open(tracking_file, 'w', encoding='utf-8') as f:
             json.dump(tracking_data, f, indent=2, ensure_ascii=False)
         log(f"Saved connection tracking with {len(tracking_data)} entries", False, log_caller_file="connection_tracker.py")

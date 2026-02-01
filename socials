@@ -52,6 +52,12 @@ MODULE_CONFIGS = {
         'modules': {
             'scraper': 'scraper.py'
         }
+    },
+    'reddit': {
+        'path_template': 'services/platform/reddit/{filename}',
+        'modules': {
+            'scraper': 'scraper.py'
+        }
     }
 }
 
