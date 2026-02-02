@@ -15,6 +15,7 @@ from services.support.storage.platforms.linkedin.action import LinkedInActionSto
 from services.support.storage.platforms.linkedin.suggestions_new import LinkedInSuggestionsNewStorage
 from services.support.storage.platforms.linkedin.suggestions_generated import LinkedInSuggestionsGeneratedStorage
 
+from services.support.storage.platforms.reddit.trends import RedditTrendsStorage
 from services.support.storage.platforms.reddit.suggestions_new import RedditSuggestionsNewStorage
 from services.support.storage.platforms.reddit.suggestions_generated import RedditSuggestionsGeneratedStorage
 
@@ -76,8 +77,11 @@ def get_storage(platform: str, profile_name: str, feature: str = 'action', verbo
         elif feature == 'suggestions_new':
             log(f"Creating Reddit suggestions (new) storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
             return RedditSuggestionsNewStorage(profile_name)
+        elif feature == 'trends':
+            log(f"Creating Reddit trends storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
+            return RedditTrendsStorage(profile_name)
         else:
-            log(f"Unsupported Reddit feature: {feature}. Supported: suggestions_generated, suggestions_new", verbose, is_error=True, log_caller_file="storage_factory.py")
+            log(f"Unsupported Reddit feature: {feature}. Supported: suggestions_generated, suggestions_new, trends", verbose, is_error=True, log_caller_file="storage_factory.py")
             return None
     else:
         log(f"Unsupported platform: {platform}", verbose, is_error=True, log_caller_file="storage_factory.py")
@@ -94,7 +98,7 @@ def get_supported_features(platform: str) -> list[str]:
     elif platform == 'linkedin':
         return ['action', 'connection', 'suggestions_generated', 'suggestions_new']
     elif platform == 'reddit':
-        return ['suggestions_generated', 'suggestions_new']
+        return ['suggestions_generated', 'suggestions_new', 'trends']
     elif platform == 'producthunt':
         return ['action']
     elif platform == 'ycombinator':

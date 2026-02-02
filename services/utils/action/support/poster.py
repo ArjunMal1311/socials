@@ -160,7 +160,8 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                             driver=driver,
                             profile_name=profile_name,
                             verbose=verbose,
-                            status=status
+                            status=status,
+                            replies_file_path=replies_path
                         )
 
                         posted_count = result.get('posted', 0)

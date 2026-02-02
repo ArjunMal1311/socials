@@ -78,7 +78,14 @@ def generate_reddit_caption(post_data: Dict[str, Any], media_paths: List[str], a
         return "Error generating caption: Failed to generate content"
 
 def process_single_reddit_post(post_data: Dict[str, Any], api_key_pool: APIKeyPool, media_dir: str, verbose: bool = False) -> Dict[str, Any]:
-    post_id = post_data.get('data', {}).get('id', 'unknown')
+    # Generate a unique content_id from the Reddit URL since posts don't have native IDs
+    reddit_url = post_data.get('data', {}).get('url', '')
+    if reddit_url:
+        # Extract post ID from Reddit URL or use hash of URL
+        import hashlib
+        post_id = hashlib.md5(reddit_url.encode()).hexdigest()[:16]
+    else:
+        post_id = f"reddit_{hash(str(post_data))}"
 
     try:
         downloaded_media_paths = download_reddit_post_media(post_data, media_dir, verbose)
@@ -167,10 +174,12 @@ def run_reddit_content_generation(profile_name: str, storage: Optional[BaseStora
                 generated_posts.append(result)
 
         if storage:
-            if storage.push_content(generated_posts, batch_id, verbose):
+            push_result = storage.push_content(generated_posts, batch_id, verbose)
+            if push_result:
                 log(f"Successfully pushed {len(generated_posts)} generated Reddit captions to database.", verbose, log_caller_file="content_generator.py")
                 return {"success": True, "total_generated": len(generated_posts)}
             else:
+                log(f"Failed to push generated Reddit captions to database.", verbose, is_error=True, log_caller_file="content_generator.py")
                 return {"error": "Failed to push generated Reddit captions to database."}
         else:
             profile_config = PROFILES[profile_name]

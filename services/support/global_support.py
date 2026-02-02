@@ -144,7 +144,8 @@ def init_profile(profile_name: str):
                     f'            "script_generation_prompt": "",',
                     f'            "idea_prompt": "",',
                     f'            "reply_generation": "",',
-                    f'            "reddit_user_prompt": ""',
+                    f'            "reddit_user_prompt": "",',
+                    f'            "reddit_trends": ""',
                     f'        }}',
                     f'    }},'
                 ]

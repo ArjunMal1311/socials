@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.support.logger_util import _log as log
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import initialize_directories, get_product_hunt_scrape_output_file_path
+from services.support.path_config import initialize_directories, get_product_hunt_output_file_path
 
 from services.platform.producthunt.support.scraper_utils import scrape_product_hunt_products
 
@@ -54,7 +54,7 @@ def main():
 
     scraped_products = []
 
-    target_file_path = get_product_hunt_scrape_output_file_path(profile_name, target_date_for_scrape.strftime("%Y%m%d"))
+    target_file_path = get_product_hunt_output_file_path(profile_name, target_date_for_scrape.strftime("%Y%m%d"))
     if os.path.exists(target_file_path):
         log(f"Found existing Product Hunt data for {target_date_for_scrape.strftime('%Y-%m-%d')} at {target_file_path}", verbose, log_caller_file="scraper.py")
         try:

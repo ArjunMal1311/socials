@@ -11,6 +11,7 @@ from profiles import PROFILES
 from dotenv import load_dotenv
 from rich.console import Console
 
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.support.logger_util import _log as log
@@ -32,6 +33,7 @@ from services.utils.suggestions.support.linkedin.content_generator import genera
 from services.utils.suggestions.support.linkedin.scheduling_utils import run_linkedin_content_scheduling, run_linkedin_content_posting
 from services.utils.suggestions.support.linkedin.content_filter import filter_and_sort_linkedin_content, get_latest_scraped_linkedin_file
 
+from services.utils.suggestions.support.reddit.trends_analyzer import analyze_reddit_trends
 from services.utils.suggestions.support.reddit.media_downloader import run_reddit_media_download
 from services.utils.suggestions.support.reddit.scraping_utils import run_reddit_suggestions_workflow
 from services.utils.suggestions.support.reddit.content_generator import run_reddit_content_generation
@@ -46,7 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description="Content Inspiration Scraper")
     parser.add_argument("profile", type=str, help="Profile name to use")
     parser.add_argument("platform", choices=['x', 'linkedin', 'reddit'], help="Platform to use")
-    parser.add_argument("command", choices=['scrape', 'filter', 'web', 'generate', 'generate_new', 'schedule', 'post', 'download', 'review'], help="Command to run")
+    parser.add_argument("command", choices=['scrape', 'filter', 'web', 'generate', 'generate_new', 'trends', 'schedule', 'post', 'download', 'review'], help="Command to run")
 
     args = parser.parse_args()
 
@@ -397,6 +399,16 @@ def main():
                 sys.exit(1)
 
             console.print(f"[green]Downloaded media for {result['downloaded_count']} items from approved Reddit posts. Saved to {result['updated_file']}[/green]")
+
+        elif args.command == 'trends':
+            result = analyze_reddit_trends(profile_name, verbose=global_props.get('verbose', False))
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Analyzed trends from {result['posts_analyzed']} posts[/green]")
+            console.print(f"[green]Found {result['trends_count']} trending topics[/green]")
 
         else:
             log(f"Command '{args.command}' not implemented for Reddit platform yet.", False, is_error=True, log_caller_file="suggestions.py")

@@ -307,7 +307,8 @@ def extract_post_data_from_html(html_content):
             if reposts_match:
                 reposts_count = int(reposts_match.group(1))
 
-        if not post_text:
+        if not post_text or len(post_text.strip()) == 0:
+            log(f"Skipping post without text content (ID: {post_id})", verbose=False, log_caller_file="scraper_utils.py")
             return None
 
         # Extract Post URN
