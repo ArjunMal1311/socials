@@ -16,7 +16,7 @@ from rich.status import Status
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
-from services.support.path_config import get_browser_data_dir, get_linkedin_posts_dir, initialize_directories
+from services.support.path_config import get_browser_data_dir, get_linkedin_profile_dir, initialize_directories
 
 from services.platform.linkedin.support.post_utils import create_linkedin_post
 
@@ -42,7 +42,7 @@ def main():
 
     browser_profile = args.profile
 
-    posts_file = os.path.join(get_linkedin_posts_dir(args.profile), "posts.json")
+    posts_file = os.path.join(get_linkedin_profile_dir(args.profile), "posts.json")
     if not os.path.exists(posts_file):
         log(f"posts.json not found at {posts_file}", verbose=verbose, is_error=True, log_caller_file="post.py")
         sys.exit(1)

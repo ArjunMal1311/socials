@@ -150,10 +150,10 @@ def analyze_reddit_trends(profile_name: str, verbose: bool = False) -> Dict[str,
     storage = RedditTrendsStorage(profile_name)
     trends_content = [{
         "profile_name": profile_name,
-        "trends": trends_data.get('trends', []),
+        "trends": json.dumps(trends_data.get('trends', [])),
         "keywords": trends_data.get('keywords', []),
         "sentiment": trends_data.get('sentiment', ''),
-        "content_ideas": trends_data.get('content_ideas', []),
+        "content_ideas": json.dumps(trends_data.get('content_ideas', [])),
         "posts_analyzed": aggregated_data['total_sources']
     }]
 

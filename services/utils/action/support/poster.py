@@ -7,6 +7,7 @@ from rich.status import Status
 from rich.console import Console
 
 from services.support.logger_util import _log as log
+from services.support.path_config import get_linkedin_profile_dir
 
 from services.platform.x.support.home import post_approved_home_mode_replies
 from services.platform.linkedin.support.reply_utils import post_approved_linkedin_replies
@@ -112,9 +113,8 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                 log(f"Posting {len(approved_posts)} approved {platform} replies for profile {profile_name}", verbose, log_caller_file="poster.py")
 
                 with Status(f'[white]Posting {len(approved_posts)} approved {platform} replies for {profile_name}...[/white]', spinner="dots", console=console) as status:
-                    replies_dir = os.path.join("tmp", "linkedin", profile_name)
-                    os.makedirs(replies_dir, exist_ok=True)
-                    replies_path = os.path.join(replies_dir, 'replies.json')
+                    replies_path = os.path.join(get_linkedin_profile_dir(profile_name), 'replies.json')
+                    os.makedirs(os.path.dirname(replies_path), exist_ok=True)
 
                     clean_posts = []
                     for post in approved_posts:
@@ -160,8 +160,7 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                             driver=driver,
                             profile_name=profile_name,
                             verbose=verbose,
-                            status=status,
-                            replies_file_path=replies_path
+                            status=status
                         )
 
                         posted_count = result.get('posted', 0)

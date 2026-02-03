@@ -112,6 +112,34 @@ def get_x_media_dir(profile: str) -> str:
 # LINKEDIN PLATFORM
 # =============================================================================
 
+def get_linkedin_profile_dir(profile: str) -> str:
+    """Get LinkedIn profile directory: platform/linkedin/{profile}"""
+    return get_platform_profile_dir("linkedin", profile)
+
+def get_google_profile_dir(profile: str) -> str:
+    """Get Google profile directory: platform/google/{profile}"""
+    return get_platform_profile_dir("google", profile)
+
+def get_youtube_profile_dir(profile: str) -> str:
+    """Get YouTube profile directory: platform/youtube/{profile}"""
+    return get_platform_profile_dir("youtube", profile)
+
+def get_instagram_profile_dir(profile: str) -> str:
+    """Get Instagram profile directory: platform/instagram/{profile}"""
+    return get_platform_profile_dir("instagram", profile)
+
+def get_reddit_profile_dir(profile: str) -> str:
+    """Get Reddit profile directory: platform/reddit/{profile}"""
+    return get_platform_profile_dir("reddit", profile)
+
+def get_product_hunt_profile_dir(profile: str) -> str:
+    """Get Product Hunt profile directory: platform/producthunt/{profile}"""
+    return get_platform_profile_dir("producthunt", profile)
+
+def get_ycombinator_profile_dir(profile: str) -> str:
+    """Get Y Combinator profile directory: platform/ycombinator/{profile}"""
+    return get_platform_profile_dir("ycombinator", profile)
+
 def get_linkedin_scraper_dir(profile: str) -> str:
     """Get LinkedIn scraper directory: platform/linkedin/{profile}/scraper"""
     return os.path.join(get_platform_profile_dir("linkedin", profile), "scraper")

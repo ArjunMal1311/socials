@@ -16,7 +16,7 @@ from rich.console import Console
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
-from services.support.path_config import get_browser_data_dir, get_linkedin_messages_dir, initialize_directories
+from services.support.path_config import get_browser_data_dir, get_linkedin_profile_dir, initialize_directories
 
 from services.platform.linkedin.support.connection_utils import send_linkedin_dm
 
@@ -42,7 +42,7 @@ def main():
 
     browser_profile = args.profile
 
-    messages_file = os.path.join(get_linkedin_messages_dir(args.profile), "messages.json")
+    messages_file = os.path.join(get_linkedin_profile_dir(args.profile), "messages.json")
     if not os.path.exists(messages_file):
         log(f"messages.json not found at {messages_file}", verbose=verbose, is_error=True, log_caller_file="dm.py")
         sys.exit(1)

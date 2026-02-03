@@ -17,7 +17,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.web_driver_handler import setup_driver
 from services.support.api_call_tracker import APICallTracker
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_replies_dir
+from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_profile_dir
 
 from services.platform.linkedin.support.scraper_utils import scrape_linkedin_feed_posts
 
@@ -74,7 +74,7 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
             }
             replies_data.append(reply_data)
 
-        replies_file = os.path.join(get_linkedin_replies_dir(profile_name), "replies.json")
+        replies_file = os.path.join(get_linkedin_profile_dir(profile_name), "replies.json")
         os.makedirs(os.path.dirname(replies_file), exist_ok=True)
 
         with open(replies_file, 'w', encoding='utf-8') as f:
@@ -89,11 +89,8 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
         return None, []
 
 
-def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = False, status=None, replies_file_path: str = None):
-    if replies_file_path:
-        replies_file = replies_file_path
-    else:
-        replies_file = os.path.join(get_linkedin_replies_dir(profile_name), "replies.json")
+def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = False, status=None):
+    replies_file = os.path.join(get_linkedin_profile_dir(profile_name), "replies.json")
 
     if not os.path.exists(replies_file):
         log(f"Replies file not found: {replies_file}", verbose, is_error=True, log_caller_file="reply_utils.py")
@@ -166,7 +163,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                     break
 
                 posts = driver.find_elements(By.CSS_SELECTOR, "[data-view-name=\"feed-full-update\"]")
-                log(f"Scroll attempt {scroll_attempt + 1}/{max_scrolls}: Checking {len(posts)} posts in current view for URN {post_urn}", verbose, status, log_caller_file="reply_utils.py")
+                log(f"Checking {len(posts)} posts in current view for URN {post_urn}", verbose, status, log_caller_file="reply_utils.py")
 
                 for post in posts:
                     try:
@@ -195,17 +192,12 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
 
 
                         if current_urn == post_urn:
-                            log(f"Found matching post by URN {current_urn}, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
-                        elif current_urn:
-                            log(f"Post URN {current_urn} does not match target {post_urn}", verbose, status, log_caller_file="reply_utils.py")
-                        else:
-                            log(f"No URN found for current post", verbose, status, log_caller_file="reply_utils.py")
+                            log(f"Found matching post by URN, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
 
                             driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", post)
                             time.sleep(2)
 
                             comment_button = post.find_element(By.CSS_SELECTOR, "button[data-view-name='feed-comment-button']")
-                            log(f"Clicking comment button for post {reply_data['post_id']}", verbose, status, log_caller_file="reply_utils.py")
                             comment_button.click()
                             time.sleep(6)  # Increased wait time for comment box to appear
 
@@ -333,7 +325,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                     time.sleep(8)
 
             if not found_post:
-                log(f"Could not find matching post for reply {reply_data['post_id']} (URN: {post_urn}) after {max_scrolls} scroll attempts", verbose, is_error=True, log_caller_file="reply_utils.py")
+                log(f"Could not find matching post for reply {reply_data['post_id']}", verbose, is_error=True, log_caller_file="reply_utils.py")
                 failed += 1
 
         except Exception as e:

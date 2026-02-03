@@ -14,7 +14,8 @@ from rich.status import Status
 from rich.console import Console
 
 from services.support.logger_util import _log as log
-from services.support.path_config import initialize_directories
+from services.support.path_config import initialize_directories, get_product_hunt_scraper_dir, get_ycombinator_scraper_dir
+
 from services.support.storage.storage_factory import get_storage
 from services.support.storage.platforms.connections.connection_storage import ConnectionStorage
 
@@ -58,7 +59,7 @@ def main():
     yc_linkedin_urls = []
     yc_x_urls = []
 
-    ph_data_dir = f"tmp/product-hunt/{profile_name}"
+    ph_data_dir = get_product_hunt_scraper_dir(profile_name)
     if os.path.exists(ph_data_dir):
         ph_files = glob.glob(os.path.join(ph_data_dir, "product_hunt_*.json"))
         if ph_files:
@@ -80,7 +81,7 @@ def main():
                 except Exception as e:
                     log(f"Error reading PH file {file_path}: {e}", verbose, is_error=True, log_caller_file="connection.py")
 
-    yc_data_dir = f"tmp/ycombinator/{profile_name}"
+    yc_data_dir = get_ycombinator_scraper_dir(profile_name)
     if os.path.exists(yc_data_dir):
         yc_files = glob.glob(os.path.join(yc_data_dir, "ycombinator_*.json"))
         if yc_files:

@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.support.logger_util import _log as log
 from services.support.storage.storage_factory import get_storage
 from services.platform.ycombinator.support.scraper_utils import scrape_yc_companies
-from services.support.path_config import initialize_directories, get_yc_scrape_output_file_path
+from services.support.path_config import initialize_directories, get_ycombinator_output_file_path
 
 console = Console()
 
@@ -50,7 +50,7 @@ def main():
     push_to_db = global_props.get('push_to_db', False)
 
     today = datetime.now()
-    existing_file_path = get_yc_scrape_output_file_path(profile_name, today.strftime("%Y%m%d"))
+    existing_file_path = get_ycombinator_output_file_path(profile_name, today.strftime("%Y%m%d"))
 
     scraped_companies = []
     if os.path.exists(existing_file_path):

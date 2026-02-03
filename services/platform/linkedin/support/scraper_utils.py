@@ -256,35 +256,11 @@ def extract_post_data_from_html(html_content):
             media_url = img.get('src')
             if media_url and "http" in media_url:
                 media_urls.append(media_url)
-
         video_elements = post_wrapper.select('video')
         for video in video_elements:
-            poster_url = video.get('poster')
-            if poster_url and "http" in poster_url:
-                media_urls.append(poster_url)
-                continue
-
-            video_container = video.find_parent()
-            if video_container:
-                poster_img = video_container.select_one('.vjs-poster img, [class*="poster"] img')
-                if poster_img:
-                    poster_src = poster_img.get('src')
-                    if poster_src and "http" in poster_src:
-                        media_urls.append(poster_src)
-                        continue
-
-            poster_selectors = [
-                'img[alt*="poster"]',
-                'img[alt*="thumbnail"]',
-                'picture img[loading="lazy"]'
-            ]
-            for selector in poster_selectors:
-                poster_img = video_container.select_one(selector) if video_container else post_wrapper.select_one(selector)
-                if poster_img:
-                    poster_src = poster_img.get('src')
-                    if poster_src and "http" in poster_src and "videocover" in poster_src:
-                        media_urls.append(poster_src)
-                        break
+            media_url = video.get('src')
+            if media_url and "http" in media_url:
+                media_urls.append(media_url)
 
         likes_elem = post_wrapper.select_one('[data-view-name="feed-reaction-count"]')
         if likes_elem:
@@ -307,11 +283,9 @@ def extract_post_data_from_html(html_content):
             if reposts_match:
                 reposts_count = int(reposts_match.group(1))
 
-        if not post_text or len(post_text.strip()) == 0:
-            log(f"Skipping post without text content (ID: {post_id})", verbose=False, log_caller_file="scraper_utils.py")
+        if not post_text:
             return None
 
-        # Extract Post URN
         post_urn = ""
         tracking_scope_element = post_wrapper.select_one('[data-view-tracking-scope]')
         if tracking_scope_element:
@@ -331,7 +305,6 @@ def extract_post_data_from_html(html_content):
                     log("JSON Parse failed for data-view-tracking-scope, trying fallback...", verbose=False, is_error=False, log_caller_file="scraper_utils.py")
 
         if not post_urn:
-            # Fallback: Search all attributes for 19-digit strings in outerHTML
             html = post_wrapper.get_attribute("outerHTML")
             fallback_match = re.search(r'(?:activity|ugcPost):(\d{19})', html)
             if fallback_match:

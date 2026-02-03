@@ -71,12 +71,19 @@ def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
         columns = list(data.keys())
         values = list(data.values())
 
-        insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING").format(
-            sql.Identifier(table_name),
-            sql.SQL(', ').join(map(sql.Identifier, columns)),
-            sql.SQL(', ').join(sql.Placeholder() for _ in columns),
-            sql.Identifier(conflict_column)
-        )
+        if conflict_column:
+            insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING").format(
+                sql.Identifier(table_name),
+                sql.SQL(', ').join(map(sql.Identifier, columns)),
+                sql.SQL(', ').join(sql.Placeholder() for _ in columns),
+                sql.Identifier(conflict_column)
+            )
+        else:
+            insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+                sql.Identifier(table_name),
+                sql.SQL(', ').join(map(sql.Identifier, columns)),
+                sql.SQL(', ').join(sql.Placeholder() for _ in columns)
+            )
 
         cursor.execute(insert_query, values)
         conn.commit()

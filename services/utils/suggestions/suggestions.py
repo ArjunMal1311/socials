@@ -1,6 +1,6 @@
 # socials utils <profile> suggestions x [scrape, filter, web, download, generate, generate_new, review, schedule, post]
 # socials utils <profile> suggestions linkedin [scrape, filter, web, download, generate, generate_new ,schedule, review, post]
-# socials utils <profile> suggestions reddit [scrape, filter, web, download]
+# socials utils <profile> suggestions reddit [scrape, filter, web, download, trends]
 
 import os
 import sys
