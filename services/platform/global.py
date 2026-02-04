@@ -2,6 +2,8 @@
 # socials <profile> global delete
 # socials <profile> global <platform> login
 # socials <profile> global <platform> check-credentials
+# socials <profile> global profile-sync
+# socials <profile> global upload
 
 import sys
 import argparse
@@ -16,18 +18,30 @@ def main():
 
     parser = argparse.ArgumentParser(description="Global Profile and Platform Commands")
     parser.add_argument("profile", type=str, help="Profile name")
-    parser.add_argument("command", type=str, help="Command: init, delete, or platform name")
+    parser.add_argument("command", type=str, help="Command: init, delete, profile-sync, upload, or platform name")
     parser.add_argument("action", nargs='?', type=str, choices=["login", "check-credentials"], help="Platform-specific action")
 
     args = parser.parse_args()
 
-    if args.command in ["init", "delete"]:
+    if args.command in ["init", "delete", "profile-sync", "upload"]:
         if args.command == "init":
             if not init_profile(args.profile):
                 sys.exit(1)
         elif args.command == "delete":
             if not delete_profile(args.profile):
                 sys.exit(1)
+        elif args.command == "profile-sync":
+            from services.support.storage.storage_factory import get_storage
+            storage = get_storage("profiles", args.profile, "sync", verbose=True)
+            if storage and hasattr(storage, 'sync_profiles'):
+                if not storage.sync_profiles(verbose=True):
+                    sys.exit(1)
+        elif args.command == "upload":
+            from services.support.storage.storage_factory import get_storage
+            storage = get_storage("profiles", args.profile, "sync", verbose=True)
+            if storage and hasattr(storage, 'upload_profiles'):
+                if not storage.upload_profiles(verbose=True):
+                    sys.exit(1)
 
     elif args.action:
         platform = args.command
@@ -49,6 +63,8 @@ def main():
         log("Invalid command format. Use:", verbose=True, is_error=True, log_caller_file="global.py")
         log("  socials <profile> global init", verbose=True, is_error=True, log_caller_file="global.py")
         log("  socials <profile> global delete", verbose=True, is_error=True, log_caller_file="global.py")
+        log("  socials <profile> global profile-sync", verbose=True, is_error=True, log_caller_file="global.py")
+        log("  socials <profile> global upload", verbose=True, is_error=True, log_caller_file="global.py")
         log("  socials <profile> global <platform> login", verbose=True, is_error=True, log_caller_file="global.py")
         log("  socials <profile> global <platform> check-credentials", verbose=True, is_error=True, log_caller_file="global.py")
         sys.exit(1)
