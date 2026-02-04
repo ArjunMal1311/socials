@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.support.logger_util import _log as log
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import initialize_directories, get_product_hunt_scrape_output_file_path
+from services.support.path_config import initialize_directories, get_product_hunt_output_file_path
 
 from services.platform.producthunt.support.scraper_utils import scrape_product_hunt_products
 
@@ -50,25 +50,27 @@ def main():
 
     from datetime import datetime, timedelta
     today = datetime.now()
-    existing_file_path = get_product_hunt_scrape_output_file_path(profile_name, today.strftime("%Y%m%d"))
+    target_date_for_scrape = today - timedelta(days=1)
 
     scraped_products = []
-    if os.path.exists(existing_file_path):
-        log(f"Found existing Product Hunt data for {today.strftime('%Y-%m-%d')} at {existing_file_path}", verbose, log_caller_file="scraper.py")
+
+    target_file_path = get_product_hunt_output_file_path(profile_name, target_date_for_scrape.strftime("%Y%m%d"))
+    if os.path.exists(target_file_path):
+        log(f"Found existing Product Hunt data for {target_date_for_scrape.strftime('%Y-%m-%d')} at {target_file_path}", verbose, log_caller_file="scraper.py")
         try:
             import json
-            with open(existing_file_path, 'r', encoding='utf-8') as f:
+            with open(target_file_path, 'r', encoding='utf-8') as f:
                 scraped_products = json.load(f)
             log(f"Loaded {len(scraped_products)} existing products from file.", verbose, log_caller_file="scraper.py")
         except Exception as e:
-            log(f"Error loading existing data: {e}. Will scrape fresh data.", verbose, is_error=True, log_caller_file="scraper.py")
+            log(f"Error loading existing data for {target_date_for_scrape.strftime('%Y-%m-%d')}: {e}. Will scrape fresh data.", verbose, is_error=True, log_caller_file="scraper.py")
             scraped_products = []
 
     if not scraped_products:
-        with Status(f"[white]Scraping Product Hunt today's leaderboard for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
+        with Status(f"[white]Scraping Product Hunt leaderboard for {target_date_for_scrape.strftime('%Y-%m-%d')} for profile {profile_name}...[/white]", spinner="dots", console=console) as status:
             scraped_products = scrape_product_hunt_products(profile_name=profile_name, verbose=verbose, status=status, limit=limit, headless=headless)
             status.stop()
-            log(f"Today's leaderboard products scraping complete. Scraped {len(scraped_products)} products.", verbose, log_caller_file="scraper.py")
+            log(f"Product Hunt leaderboard scraping complete for {target_date_for_scrape.strftime('%Y-%m-%d')}. Scraped {len(scraped_products)} products.", verbose, log_caller_file="scraper.py")
 
     if push_to_db and scraped_products:
         storage = get_storage('producthunt', profile_name, 'action', verbose)

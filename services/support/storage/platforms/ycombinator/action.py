@@ -24,6 +24,7 @@ class YCombinatorActionStorage(BaseStorage):
             "location": "TEXT",
             "batch": "TEXT",
             "industries": "JSONB",
+            "status": "TEXT DEFAULT 'pending_review'",
             "created_at": "TIMESTAMP DEFAULT NOW()",
             "updated_at": "TIMESTAMP DEFAULT NOW()"
         }

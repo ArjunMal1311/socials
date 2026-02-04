@@ -7,6 +7,7 @@ from rich.status import Status
 from rich.console import Console
 
 from services.support.logger_util import _log as log
+from services.support.path_config import get_linkedin_profile_dir
 
 from services.platform.x.support.home import post_approved_home_mode_replies
 from services.platform.linkedin.support.reply_utils import post_approved_linkedin_replies
@@ -112,9 +113,8 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                 log(f"Posting {len(approved_posts)} approved {platform} replies for profile {profile_name}", verbose, log_caller_file="poster.py")
 
                 with Status(f'[white]Posting {len(approved_posts)} approved {platform} replies for {profile_name}...[/white]', spinner="dots", console=console) as status:
-                    replies_dir = os.path.join("tmp", "linkedin", profile_name)
-                    os.makedirs(replies_dir, exist_ok=True)
-                    replies_path = os.path.join(replies_dir, 'replies.json')
+                    replies_path = os.path.join(get_linkedin_profile_dir(profile_name), 'replies.json')
+                    os.makedirs(os.path.dirname(replies_path), exist_ok=True)
 
                     clean_posts = []
                     for post in approved_posts:
@@ -196,15 +196,19 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
 
     return total_posted, total_failed
 
-def post_approved_content(profile_names: list, platforms: list, storages: dict, batch_id: str, drivers: dict, verbose: bool = False):
-    log(f"Posting approved content for batch: {batch_id} across profiles: {', '.join(profile_names)}", verbose, log_caller_file="poster.py")
+def post_approved_content(profile_platform_map: dict, storages: dict, batch_id: str, drivers: dict, verbose: bool = False):
+    all_profiles = set()
+    for profiles in profile_platform_map.values():
+        all_profiles.update(profiles)
+
+    log(f"Posting approved content for batch: {batch_id} across {len(all_profiles)} profiles", verbose, log_caller_file="poster.py")
 
     try:
         approved_content_by_platform = {}
         total_approved = 0
 
-        for profile_name in profile_names:
-            for platform in platforms:
+        for platform, profiles in profile_platform_map.items():
+            for profile_name in profiles:
                 storage = storages[profile_name][platform]
                 approved_content = storage.pull_approved_content(batch_id, verbose)
                 if approved_content:
@@ -221,12 +225,13 @@ def post_approved_content(profile_names: list, platforms: list, storages: dict, 
             log("No approved content found for posting across any profile or platform", verbose, log_caller_file="poster.py")
             return
 
-        log(f"Found {total_approved} total approved items to post across {len(profile_names)} profiles and {len(platforms)} platforms", verbose, log_caller_file="poster.py")
+        all_platforms = list(profile_platform_map.keys())
+        log(f"Found {total_approved} total approved items to post across {len(all_profiles)} profiles and {len(all_platforms)} platforms", verbose, log_caller_file="poster.py")
 
         total_posted = 0
         total_failed = 0
 
-        for platform in platforms:
+        for platform in all_platforms:
             if platform not in approved_content_by_platform:
                 continue
 

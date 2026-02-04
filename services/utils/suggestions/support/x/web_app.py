@@ -28,41 +28,56 @@ def load_filtered_content(profile_name):
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
 
-        from services.utils.suggestions.support.linkedin.content_filter import get_latest_filtered_linkedin_file
-        filepath = get_latest_filtered_linkedin_file(profile_name)
-        log(f"LinkedIn filtered file path: {filepath}", verbose=False, log_caller_file="web_app.py")
+        try:
+            from services.utils.suggestions.support.reddit.content_filter import get_latest_filtered_reddit_file
+            reddit_filepath = get_latest_filtered_reddit_file(profile_name)
+            if reddit_filepath:
+                if not os.path.isabs(reddit_filepath):
+                    reddit_filepath = os.path.join(project_root, reddit_filepath)
 
+                try:
+                    with open(reddit_filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if 'filtered_reddit_posts' in data:
+                        log(f"Found Reddit filtered content with {len(data['filtered_reddit_posts'])} posts", verbose=False, log_caller_file="web_app.py")
+                        return data
+                except Exception as e:
+                    log(f"Error reading Reddit filtered file: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+        except ImportError:
+            pass
+
+        try:
+            from services.utils.suggestions.support.linkedin.content_filter import get_latest_filtered_linkedin_file
+            filepath = get_latest_filtered_linkedin_file(profile_name)
+            log(f"LinkedIn filtered file path: {filepath}", verbose=False, log_caller_file="web_app.py")
+
+            if filepath:
+                if not os.path.isabs(filepath):
+                    filepath = os.path.join(project_root, filepath)
+
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if 'filtered_posts' in data:
+                        log(f"Found LinkedIn filtered content with {len(data['filtered_posts'])} posts", verbose=False, log_caller_file="web_app.py")
+                        return data
+                except Exception as e:
+                    log(f"Error reading LinkedIn filtered file: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+        except ImportError:
+            pass
+
+        filepath = get_latest_scraped_file(profile_name)
         if filepath:
-            if not os.path.isabs(filepath):
-                filepath = os.path.join(project_root, filepath)
-
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                if 'filtered_posts' in data:
-                    log(f"Found LinkedIn filtered content with {len(data['filtered_posts'])} posts", verbose=False, log_caller_file="web_app.py")
+                if 'filtered_tweets' in data:
                     return data
-                else:
-                    log(f"LinkedIn file doesn't have filtered_posts key", verbose=False, is_error=True, log_caller_file="web_app.py")
             except Exception as e:
-                log(f"Error reading LinkedIn filtered file: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
-                pass
-        else:
-            log(f"No LinkedIn filtered file found", verbose=False, is_error=True, log_caller_file="web_app.py")
-    except Exception as e:
-        log(f"Error loading LinkedIn content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
-        pass
-    
-    filepath = get_latest_scraped_file(profile_name)
-    if not filepath:
+                log(f"Error loading X filtered content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
+
         return None
 
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        if 'filtered_tweets' in data:
-            return data
-        return None
     except Exception as e:
         log(f"Error loading filtered content: {e}", verbose=False, is_error=True, log_caller_file="web_app.py")
         return None
@@ -577,6 +592,10 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         html_parts.append(f'<form method="POST" action="/{profile_name}/approve">')
         html_parts.append('<div class="post-grid">')
 
+        is_linkedin = 'filtered_posts' in filtered_data
+        is_reddit = 'filtered_reddit_posts' in filtered_data
+        posts_field = 'filtered_posts' if is_linkedin else ('filtered_reddit_posts' if is_reddit else 'filtered_tweets')
+
         for i, post in enumerate(filtered_data[posts_field]):
             html_parts.append('<div class="post">')
             html_parts.append('<div class="post-header">')
@@ -586,6 +605,11 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                 html_parts.append(f'<span class="engagement">{engagement.get("likes", 0)} likes</span>')
                 html_parts.append(f'<span class="engagement">{engagement.get("comments", 0)} comments</span>')
                 html_parts.append(f'<span class="engagement">{engagement.get("reposts", 0)} reposts</span>')
+            elif is_reddit:
+                engagement = post.get('engagement', {})
+                html_parts.append(f'<span class="engagement">{engagement.get("score", 0)} upvotes</span>')
+                html_parts.append(f'<span class="engagement">{engagement.get("num_comments", 0)} comments</span>')
+                html_parts.append(f'<span class="engagement">{post.get("data", {}).get("subreddit", "unknown")} subreddit</span>')
             else:
                 html_parts.append(f'<span class="engagement">{post.get("likes", 0)} likes</span>')
                 html_parts.append(f'<span class="engagement">{post.get("retweets", 0)} RT</span>')
@@ -603,6 +627,12 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                 tweet_text = post.get('data', {}).get('text', 'No text')
                 tweet_date = post.get('data', {}).get('post_date')
                 tweet_url = post.get('data', {}).get('profile_url')
+            elif is_reddit:
+                title = post.get('data', {}).get('title', 'No title')
+                content = post.get('data', {}).get('content', '')
+                tweet_text = f"{title}\n\n{content}" if content else title
+                tweet_date = post.get('data', {}).get('created_utc')
+                tweet_url = post.get('data', {}).get('url')
             else:
                 tweet_text = post.get('tweet_text', 'No text')
                 tweet_date = post.get('tweet_date')
@@ -624,6 +654,11 @@ class ContentWebHandler(BaseHTTPRequestHandler):
 
             if is_linkedin:
                 media_urls = post.get('data', {}).get('media_urls', [])
+            elif is_reddit:
+                from services.utils.suggestions.support.reddit.media_downloader import extract_reddit_media_urls
+                content = post.get('data', {}).get('content', '')
+                post_url = post.get('data', {}).get('url', '')
+                media_urls = extract_reddit_media_urls(content, post_url)
             else:
                 media_urls = post.get('media_urls', [])
 
@@ -672,6 +707,8 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         if new_content_data:
             if new_content_data.get('platform') == 'linkedin':
                 new_items = new_content_data.get('new_posts', [])
+            elif new_content_data.get('platform') == 'reddit':
+                new_items = new_content_data.get('new_tweets', [])
             else:
                 new_items = new_content_data.get('new_tweets', [])
             total_items += len(new_items)
@@ -701,6 +738,7 @@ class ContentWebHandler(BaseHTTPRequestHandler):
         if approved_data:
             approved_posts = approved_data.get('approved_posts', [])
             is_linkedin_approved = approved_data.get('platform') == 'linkedin'
+            is_reddit_approved = approved_data.get('platform') == 'reddit'
 
             for post in approved_posts:
                 html_parts.append('<div class="post">')
@@ -711,6 +749,11 @@ class ContentWebHandler(BaseHTTPRequestHandler):
                     html_parts.append(f'<span class="engagement">{engagement.get("likes", 0)} likes</span>')
                     html_parts.append(f'<span class="engagement">{engagement.get("comments", 0)} comments</span>')
                     html_parts.append(f'<span class="engagement">{engagement.get("reposts", 0)} reposts</span>')
+                elif is_reddit_approved:
+                    engagement = post.get('engagement', {})
+                    html_parts.append(f'<span class="engagement">{engagement.get("score", 0)} upvotes</span>')
+                    html_parts.append(f'<span class="engagement">{engagement.get("num_comments", 0)} comments</span>')
+                    html_parts.append(f'<span class="engagement">{post.get("data", {}).get("subreddit", "unknown")} subreddit</span>')
                 else:
                     html_parts.append(f'<span class="engagement">{post.get("likes", 0)} likes</span>')
                     html_parts.append(f'<span class="engagement">{post.get("retweets", 0)} RT</span>')
@@ -725,6 +768,11 @@ class ContentWebHandler(BaseHTTPRequestHandler):
 
                 if is_linkedin_approved:
                     original_text = post.get('data', {}).get('text', 'No text')
+                    generated_text = post.get('generated_caption', 'No caption')
+                elif is_reddit_approved:
+                    title = post.get('data', {}).get('title', 'No title')
+                    content = post.get('data', {}).get('content', '')
+                    original_text = f"{title}\n\n{content}" if content else title
                     generated_text = post.get('generated_caption', 'No caption')
                 else:
                     original_text = post.get('tweet_text', 'No text')

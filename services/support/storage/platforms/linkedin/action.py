@@ -11,15 +11,15 @@ class LinkedInActionStorage(BaseStorage):
         return f"{self.profile_name}_linkedin"
 
     def _get_conflict_column(self) -> str:
-        return "post_id"
+        return "post_urn"
 
     def _get_table_schema(self) -> Dict[str, str]:
         return {
             "id": "UUID PRIMARY KEY DEFAULT gen_random_uuid()",
             "batch_id": "TEXT NOT NULL",
             "profile_name": "TEXT NOT NULL",
-            "post_id": "TEXT NOT NULL UNIQUE",
-            "post_urn": "TEXT",
+            "post_id": "TEXT NOT NULL",
+            "post_urn": "TEXT NOT NULL UNIQUE",
             "source": "TEXT",
             "scraped_at": "TIMESTAMP",
             "post_text": "TEXT NOT NULL",

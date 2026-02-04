@@ -7,7 +7,6 @@ from services.support.logger_util import _log as log
 
 console = Console()
 
-
 def get_latest_dated_json_file(directory: str, prefix: str, verbose: bool = False) -> Optional[str]:
     latest_json_path = None
     latest_date = None

@@ -2,10 +2,13 @@ import os
 import psycopg2
 
 from psycopg2 import sql
+from dotenv import load_dotenv
+from psycopg2.extras import Json
 from rich.console import Console
 from typing import List, Dict, Any
 from services.support.logger_util import _log as log
 
+load_dotenv()
 console = Console()
 
 def get_postgres_connection(verbose: bool = False) -> psycopg2.extensions.connection | None:
@@ -69,14 +72,27 @@ def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
     try:
         cursor = conn.cursor()
         columns = list(data.keys())
-        values = list(data.values())
 
-        insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING").format(
-            sql.Identifier(table_name),
-            sql.SQL(', ').join(map(sql.Identifier, columns)),
-            sql.SQL(', ').join(sql.Placeholder() for _ in columns),
-            sql.Identifier(conflict_column)
-        )
+        values = []
+        for value in data.values():
+            if isinstance(value, dict):
+                values.append(Json(value))
+            else:
+                values.append(value)
+
+        if conflict_column:
+            insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING").format(
+                sql.Identifier(table_name),
+                sql.SQL(', ').join(map(sql.Identifier, columns)),
+                sql.SQL(', ').join(sql.Placeholder() for _ in columns),
+                sql.Identifier(conflict_column)
+            )
+        else:
+            insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+                sql.Identifier(table_name),
+                sql.SQL(', ').join(map(sql.Identifier, columns)),
+                sql.SQL(', ').join(sql.Placeholder() for _ in columns)
+            )
 
         cursor.execute(insert_query, values)
         conn.commit()
@@ -84,7 +100,7 @@ def insert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
         if cursor.rowcount > 0:
             log(f"Inserted record into '{table_name}'.", verbose, log_caller_file="postgres_util.py")
         else:
-            log(f"Skipped duplicate record for '{table_name}' (tweet_id already exists).", verbose, log_caller_file="postgres_util.py")
+            log(f"Skipped duplicate record for '{table_name}' (id already exists).", verbose, log_caller_file="postgres_util.py")
 
         return True
     except Exception as e:
@@ -95,7 +111,13 @@ def upsert_data(conn: psycopg2.extensions.connection, table_name: str, data: Dic
     try:
         cursor = conn.cursor()
         columns = list(data.keys())
-        values = list(data.values())
+
+        values = []
+        for value in data.values():
+            if isinstance(value, dict):
+                values.append(Json(value))
+            else:
+                values.append(value)
 
         set_clause = sql.SQL(', ').join(
             sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(col), sql.Identifier(col))

@@ -1,8 +1,10 @@
+import re
 import os
 import json
 import time
 import google.generativeai as genai
 
+from bs4 import BeautifulSoup
 from datetime import datetime
 from profiles import PROFILES
 
@@ -110,8 +112,6 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
     posted = 0
     failed = 0
 
-    driver.execute_script("window.scrollTo(0, 0);")
-    time.sleep(1)
 
     for reply_data in replies_data:
         if not reply_data.get("approved", False) or reply_data.get("posted", False):
@@ -130,43 +130,130 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
                 failed += 1
                 continue
 
-            driver.execute_script("window.scrollTo(0, 0);")
-            time.sleep(2)
-
             found_post = False
             max_scrolls = 10
 
             log("Loading posts by scrolling down to expand feed...", verbose, status, log_caller_file="reply_utils.py")
-            for load_attempt in range(3):
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
-                time.sleep(3)
 
-            driver.execute_script("window.scrollTo(0, 0);")
-            time.sleep(2)
+            scroll_element = None
+            try:
+                scroll_element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "workspace"))
+                )
+            except:
+                try:
+                    scroll_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "main.scaffold-layout__main"))
+                    )
+                except:
+                    scroll_element = driver.find_element(By.TAG_NAME, "body")
+
+            if scroll_element:
+                driver.execute_script("arguments[0].scrollTo(0, 0);", scroll_element)
+                time.sleep(2)
+            else:
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(2)
+
+            if scroll_element:
+                pass
 
             for scroll_attempt in range(max_scrolls):
                 if found_post:
                     break
 
-                posts = driver.find_elements(By.CSS_SELECTOR, "div.feed-shared-update-v2")
+                posts = driver.find_elements(By.CSS_SELECTOR, "[data-view-name=\"feed-full-update\"]")
                 log(f"Checking {len(posts)} posts in current view for URN {post_urn}", verbose, status, log_caller_file="reply_utils.py")
 
                 for post in posts:
                     try:
-                        current_urn = post.get_attribute("data-urn")
+                        current_post_outer_html = post.get_attribute("outerHTML")
+                        current_urn = ""
+                        tracking_scope_element = BeautifulSoup(current_post_outer_html, 'html.parser').select_one('[data-view-tracking-scope]')
+                        if tracking_scope_element:
+                            data_view_tracking_scope = tracking_scope_element.get('data-view-tracking-scope', '')
+                            if data_view_tracking_scope:
+                                try:
+                                    json_data = json.loads(data_view_tracking_scope)
+                                    if isinstance(json_data, list) and len(json_data) > 0 and "breadcrumb" in json_data[0] and \
+                                       "content" in json_data[0]["breadcrumb"] and "data" in json_data[0]["breadcrumb"]["content"]:
+                                        buffer_data = json_data[0]["breadcrumb"]["content"]["data"]
+                                        decoded_string = "".join([chr(b) for b in buffer_data])
+                                        urn_match = re.search(r'activity:(\d{19})', decoded_string)
+                                        if urn_match:
+                                            current_urn = "urn:li:activity:" + urn_match.group(1)
+                                except json.JSONDecodeError:
+                                    pass
+
+                        if not current_urn:
+                            fallback_match = re.search(r'(?:activity|ugcPost):(\d{19})', current_post_outer_html)
+                            if fallback_match:
+                                current_urn = "urn:li:" + fallback_match.group(0)
+
+
                         if current_urn == post_urn:
                             log(f"Found matching post by URN, attempting to comment", verbose, status, log_caller_file="reply_utils.py")
 
                             driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", post)
                             time.sleep(2)
 
-                            comment_button = post.find_element(By.CSS_SELECTOR, "button[aria-label='Comment']")
+                            comment_button = post.find_element(By.CSS_SELECTOR, "button[data-view-name='feed-comment-button']")
                             comment_button.click()
-                            time.sleep(4)
+                            time.sleep(6)  # Increased wait time for comment box to appear
 
-                            comment_input = WebDriverWait(driver, 15).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, ".ql-editor[data-test-ql-editor-contenteditable='true']"))
-                            )
+                            log(f"Clicked comment button, looking for comment input", verbose, status, log_caller_file="reply_utils.py")
+
+                            try:
+                                all_contenteditable = driver.find_elements(By.CSS_SELECTOR, "[contenteditable=\"true\"]")
+                                comment_inputs = []
+                                for elem in all_contenteditable:
+                                    try:
+                                        comment_container = elem.find_element(By.XPATH, "ancestor-or-self::*[contains(@data-view-name, 'comment') or contains(@class, 'comments-comment-box') or contains(@class, 'comment-box')][1]")
+                                        if comment_container:
+                                            comment_inputs.append(elem)
+                                    except:
+                                        continue
+
+                                if comment_inputs:
+                                    active_input = None
+                                    for inp in comment_inputs:
+                                        if inp == driver.switch_to.active_element:
+                                            active_input = inp
+                                            break
+                                    if not active_input and post:
+                                        post_location = post.location
+                                        closest_input = None
+                                        min_distance = float('inf')
+
+                                        for inp in comment_inputs:
+                                            try:
+                                                inp_location = inp.location
+                                                distance = abs(inp_location['y'] - post_location['y'])
+                                                if distance < min_distance:
+                                                    min_distance = distance
+                                                    closest_input = inp
+                                            except:
+                                                continue
+
+                                        active_input = closest_input
+                                    if not active_input and comment_inputs:
+                                        active_input = comment_inputs[-1]
+
+                                    if active_input:
+                                        comment_input = active_input
+                                    else:
+                                        raise Exception("No suitable comment input found")
+                                else:
+                                    raise Exception("No comment inputs found in comment containers")
+
+                            except Exception as e:
+                                try:
+                                    comment_input = WebDriverWait(driver, 15).until(
+                                        lambda d: d.find_element(By.CSS_SELECTOR, "[data-view-name=\"comment-box\"] [contenteditable=\"true\"]")
+                                    )
+                                except Exception as e2:
+                                    log(f"Failed to find comment input with direct fallback: {e2}", verbose, is_error=True, log_caller_file="reply_utils.py")
+                                    continue
 
                             safe_text = reply_text.replace('"', '\\"').replace("'", "\\'").replace('\n', '</p><p>')
                             driver.execute_script(f"""
@@ -176,9 +263,49 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
 
                             time.sleep(4)
 
-                            submit_button = WebDriverWait(driver, 15).until(
-                                EC.element_to_be_clickable((By.CSS_SELECTOR, ".comments-comment-box__submit-button--cr"))
-                            )
+
+                            try:
+                                comment_container = comment_input.find_element(By.XPATH, "ancestor::*[contains(@data-view-name, 'comment') or contains(@class, 'comments-comment-box') or contains(@class, 'comment-box')][1]")
+
+                                submit_button = WebDriverWait(comment_container, 15).until(
+                                    lambda c: c.find_element(By.CSS_SELECTOR, "button[data-view-name=\"comment-post\"]") or
+                                              c.find_element(By.CSS_SELECTOR, "button[data-test-id=\"comment-submit\"]") or
+                                              c.find_element(By.CSS_SELECTOR, ".comments-comment-box__submit-button") or
+                                              c.find_element(By.CSS_SELECTOR, "button[type=\"submit\"]") or
+                                              c.find_element(By.CSS_SELECTOR, "button[data-view-name=\"comment-submit\"]") or
+                                              c.find_element(By.CSS_SELECTOR, "button[aria-label=\"Post comment\"]") or
+                                              c.find_element(By.CSS_SELECTOR, "button[aria-label=\"Post\"]") or
+                                              c.find_element(By.CSS_SELECTOR, "button:last-child")
+                                )
+                            except Exception as e:
+                                try:
+                                    all_submit_buttons = driver.find_elements(By.CSS_SELECTOR, "button[data-view-name=\"comment-post\"], button[data-test-id=\"comment-submit\"], .comments-comment-box__submit-button, button[type=\"submit\"], button[aria-label=\"Post comment\"], button[aria-label=\"Post\"]")
+
+                                    if all_submit_buttons:
+                                        comment_input_location = comment_input.location
+                                        closest_button = None
+                                        min_distance = float('inf')
+
+                                        for btn in all_submit_buttons:
+                                            try:
+                                                btn_location = btn.location
+                                                distance = abs(btn_location['y'] - comment_input_location['y'])
+                                                if distance < min_distance:
+                                                    min_distance = distance
+                                                    closest_button = btn
+                                            except:
+                                                continue
+
+                                        if closest_button:
+                                            submit_button = closest_button
+                                        else:
+                                            raise Exception("No suitable submit button found")
+                                    else:
+                                        raise Exception("No submit buttons found globally")
+
+                                except Exception as e2:
+                                    log(f"Failed to find submit button with any method: {e2}", verbose, is_error=True, log_caller_file="reply_utils.py")
+                                    continue
                             submit_button.click()
                             time.sleep(6)
 
@@ -214,7 +341,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
     with open(replies_file, 'w', encoding='utf-8') as f:
         json.dump(replies_data, f, indent=2, ensure_ascii=False, default=serialize_datetime)
 
-    return {"processed": processed, "posted": 0, "failed": failed}
+    return {"processed": processed, "posted": posted, "failed": failed}
 
 
 def generate_linkedin_reply(post_data, api_key_pool, profile_name, all_replies=None, verbose=False, status=None):

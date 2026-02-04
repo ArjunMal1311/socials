@@ -18,7 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import cleanup_chrome_locks, kill_chrome_processes_by_user_data_dir
-from services.support.path_config import get_product_hunt_scrape_output_file_path, get_browser_data_dir, ensure_dir_exists
+from services.support.path_config import get_product_hunt_output_file_path, get_browser_data_dir, ensure_dir_exists
 
 console = Console()
 
@@ -169,7 +169,7 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
         if headless:
             options.add_argument("--headless")
 
-        driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=142)
+        driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=144)
 
         log(f"Directly navigating to Product Hunt leaderboard: {target_url}", verbose, status=status, log_caller_file="scraper_utils.py")
         driver.get(target_url)
@@ -217,7 +217,7 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
                 all_formatted_products.append(formatted_data)
                 log(f"Successfully scraped and formatted product information for {formatted_data['core']['name']}.", verbose, status=status, log_caller_file="scraper_utils.py")
 
-        output_file_path = get_product_hunt_scrape_output_file_path(profile_name, yesterday.strftime("%Y%m%d"))
+        output_file_path = get_product_hunt_output_file_path(profile_name, yesterday.strftime("%Y%m%d"))
         ensure_dir_exists(os.path.dirname(output_file_path))
         with open(output_file_path, 'w', encoding='utf-8') as f:
             json.dump(all_formatted_products, f, indent=2, ensure_ascii=False)

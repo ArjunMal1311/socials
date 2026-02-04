@@ -1,5 +1,5 @@
-# socials x <profile> reply home --count 10
-# socials x <profile> reply profiles --count 5
+# socials x <profile> reply home
+# socials x <profile> reply profiles
 
 # add api if want to use api (will only work if api is available)
 
@@ -62,7 +62,7 @@ def main():
 
     if args.mode == "home":
         with Status(f'[white]Running Home Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
-            driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.post_via_api, verbose=verbose, headless=headless)
+            driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.api, verbose=verbose, headless=headless)
             status.stop()
             log("Home Mode Results:", verbose, status=status, api_info=None, log_caller_file="replies.py")
 
@@ -70,11 +70,11 @@ def main():
             input()
 
             with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
-                summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.post_via_api, verbose=verbose)
+                summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
                 status.stop()
                 log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
 
-            if driver and not args.post_via_api:
+            if driver and not args.api:
                 driver.quit()
 
     if args.mode == "profiles":
@@ -89,7 +89,7 @@ def main():
         specific_search_url = f"https://x.com/search?q={encoded_query}&src=typed_query&f=live"
 
         with Status(f'[white]Running Profiles Mode: Gemini reply to tweets from {", ".join(target_profiles)} for {profile_name}...[/white]', spinner="dots", console=console) as status:
-            driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.post_via_api, verbose=verbose, headless=headless, specific_search_url=specific_search_url)
+            driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.api, verbose=verbose, headless=headless, specific_search_url=specific_search_url)
             status.stop()
             log("Profiles Mode Results:", verbose, status=status, api_info=None, log_caller_file="replies.py")
 
@@ -97,11 +97,11 @@ def main():
             input()
 
             with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
-                summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.post_via_api, verbose=verbose)
+                summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
                 status.stop()
                 log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
 
-            if driver and not args.post_via_api:
+            if driver and not args.api:
                 driver.quit()
 
     else:

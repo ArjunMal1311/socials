@@ -14,7 +14,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.logger_util import _log as log
 from services.support.image_download import download_images
 from services.support.video_download import download_twitter_videos
-from services.support.path_config import get_replies_dir, ensure_dir_exists
+from services.support.path_config import get_x_replies_dir, ensure_dir_exists
 
 from services.platform.x.support.generate_reply_with_key import generate_reply_with_key
 
@@ -54,7 +54,7 @@ def _generate_with_pool(api_pool: APIKeyPool, args: tuple, status=None, verbose:
     return last_error_text or "Error generating reply: Exhausted retries"
 
 def _ensure_home_mode_folder(profile_name: str) -> str:
-    base_dir = get_replies_dir(profile_name)
+    base_dir = get_x_replies_dir(profile_name)
     return ensure_dir_exists(base_dir)
 
 def _get_temp_media_dir(temp_processing_dir: str) -> str:

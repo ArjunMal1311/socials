@@ -114,7 +114,8 @@ def scrape_community_and_profiles(profile_name: str, max_tweets_profile: int = 2
                         continue
                 status.stop()
 
-        communities = profile_props.get('communities', [''])
+        x_scraper_config = profile_props.get('platform', {}).get('x', {}).get('scraper', {})
+        communities = x_scraper_config.get('communities', [])
         with Status(f"[white]Scraping {len(communities)} communities...[/white]", spinner="dots", console=console) as status:
             for community_name in communities:
                 try:
@@ -253,3 +254,15 @@ def get_latest_suggestions_file(profile_name: str) -> str:
 
     suggestions_files.sort(reverse=True)
     return os.path.join(suggestions_dir, suggestions_files[0])
+
+def get_latest_filtered_file(profile_name: str) -> str:
+    suggestions_dir = get_suggestions_dir(profile_name)
+    if not os.path.exists(suggestions_dir):
+        return ""
+
+    filtered_files = [f for f in os.listdir(suggestions_dir) if f.startswith('filtered_content_x_') and f.endswith('.json')]
+    if not filtered_files:
+        return ""
+
+    filtered_files.sort(reverse=True)
+    return os.path.join(suggestions_dir, filtered_files[0])

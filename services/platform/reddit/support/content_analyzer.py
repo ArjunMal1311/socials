@@ -6,12 +6,14 @@ from profiles import PROFILES
 from typing import Optional
 from datetime import datetime
 from rich.console import Console
+
 from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.gemini_util import generate_gemini
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_reddit_analysis_dir, ensure_dir_exists
+
 from services.platform.reddit.support.file_manager import get_latest_dated_json_file
 
 console = Console()
@@ -29,9 +31,11 @@ def analyze_reddit_content_with_gemini(profile_name: str, api_key: Optional[str]
         return None
 
     profile_config = PROFILES.get(profile_name, {})
-    data_config = profile_config.get("data", {})
-    reddit_config = data_config.get("reddit", {})
-    reddit_user_prompt = reddit_config.get("reddit_user_prompt", "Analyze these Reddit trends and suggest 5-10 content ideas for my [Your Channel Niche] channel focusing on engaging topics and unanswered questions from the discussions.")
+    profile_props = profile_config.get('properties', {})
+    platform_props = profile_props.get('platform', {})
+    reddit_config = platform_props.get("reddit", {})
+    prompts = profile_config.get("prompts", {})
+    reddit_user_prompt = prompts.get("reddit_user_prompt", "Analyze these Reddit trends and suggest 5-10 content ideas for my [Your Channel Niche] channel focusing on engaging topics and unanswered questions from the discussions.")
     latest_scraped_data_path = get_latest_dated_json_file(profile_name, "reddit_scraped_data", verbose=verbose)
 
     if not latest_scraped_data_path:

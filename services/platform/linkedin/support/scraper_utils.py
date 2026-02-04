@@ -1,15 +1,51 @@
 import os
+import re
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir
+
+def parse_linkedin_relative_date(relative_date_str):
+    if not relative_date_str or not isinstance(relative_date_str, str):
+        return datetime.now().isoformat() + "Z"
+
+    cleaned = relative_date_str.strip().replace('•', '').strip()
+
+    try:
+        match = re.match(r'(\d+)([mhdw])', cleaned.lower())
+        if not match:
+            return datetime.now().isoformat() + "Z"
+
+        number = int(match.group(1))
+        unit = match.group(2)
+
+        now = datetime.now()
+
+        if unit == 'm':  # minutes
+            delta = timedelta(minutes=number)
+        elif unit == 'h':  # hours
+            delta = timedelta(hours=number)
+        elif unit == 'd':  # days
+            delta = timedelta(days=number)
+        elif unit == 'w':  # weeks
+            delta = timedelta(weeks=number)
+        else:
+            return datetime.now().isoformat() + "Z"
+
+        post_datetime = now - delta
+        return post_datetime.isoformat() + "Z"
+
+    except Exception:
+        return datetime.now().isoformat() + "Z"
 
 def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: str, max_posts_per_profile: int = 10, headless: bool = True, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     all_posts = []
@@ -48,6 +84,7 @@ def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: 
 
 def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless: bool = True, status=None, verbose: bool = False, existing_driver=None) -> List[Dict[str, Any]]:
     all_posts = []
+    processed_posts = []
     driver = existing_driver
 
     if driver is None:
@@ -61,11 +98,31 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
         driver.get("https://www.linkedin.com/feed/")
         time.sleep(5)
 
-        log("Performing initial scrolls to load content...", verbose, status=status, log_caller_file="scraper_utils.py")
-        for _ in range(3):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(3)
+        scroll_element = None
+        try:
+            scroll_element = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "workspace"))
+            )
+        except:
+            try:
+                scroll_element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "main.scaffold-layout__main"))
+                )
+            except:
+                scroll_element = driver.find_element(By.TAG_NAME, "body")
 
+        if scroll_element:
+            last_height = driver.execute_script("return arguments[0].scrollHeight", scroll_element)
+            scroll_attempt = 0
+            max_scroll_attempts = 2
+            while True:
+                driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_element)
+                time.sleep(5)
+                new_height = driver.execute_script("return arguments[0].scrollHeight", scroll_element)
+                if new_height == last_height or scroll_attempt >= max_scroll_attempts:
+                    break
+                last_height = new_height
+                scroll_attempt += 1
         log("Scraping LinkedIn feed posts...", verbose, status=status, log_caller_file="scraper_utils.py")
 
         debug_dir = "tmp/debug"
@@ -78,11 +135,15 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
 
         while posts_scraped < max_posts and scroll_attempts < max_scrolls:
             try:
-                posts = driver.find_elements(By.CSS_SELECTOR, "div.feed-shared-update-v2")
+                posts = driver.find_elements(By.CSS_SELECTOR, "[data-view-name=\"feed-full-update\"]")
                 log(f"Found {len(posts)} posts on page", verbose, status=status, log_caller_file="scraper_utils.py")
 
                 new_posts_found = False
                 for post in posts:
+                    if "Promoted" in post.get_attribute("outerHTML"):
+                        log("Skipping promoted post.", verbose, status=status, log_caller_file="scraper_utils.py")
+                        continue
+
                     if posts_scraped >= max_posts:
                         break
 
@@ -115,9 +176,6 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
                     log("No new posts found in last scroll, stopping", verbose, status=status, log_caller_file="scraper_utils.py")
                     break
 
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(3)
-                scroll_attempts += 1
 
             except Exception as e:
                 log(f"Error during scrolling: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
@@ -144,13 +202,6 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
 
         log(f"Successfully processed {len(processed_posts)} posts from HTML", verbose, status=status, log_caller_file="scraper_utils.py")
 
-        try:
-            import shutil
-            if os.path.exists(debug_dir):
-                shutil.rmtree(debug_dir)
-                log(f"Cleaned up debug directory: {debug_dir}", verbose, status=status, log_caller_file="scraper_utils.py")
-        except Exception as cleanup_error:
-            log(f"Warning: Could not clean up debug directory: {cleanup_error}", verbose, is_error=True, log_caller_file="scraper_utils.py")
 
     except Exception as e:
         log(f"Error in feed scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
@@ -164,121 +215,103 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
 def extract_post_data_from_html(html_content):
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
-        post_id = f"linkedin_feed_{int(time.time() * 1000000)}"
+        
+        post_wrapper = soup.select_one('[data-view-name="feed-full-update"]')
+        if not post_wrapper:
+            return None
 
+        post_id = f"linkedin_feed_{int(time.time() * 1000000)}"
+        post_urn = ""
+        
         author_name = ""
         profile_url = ""
         post_text = ""
         post_date = datetime.now().isoformat() + "Z"
         media_urls = []
-
         likes_count = 0
         comments_count = 0
         reposts_count = 0
 
-        try:
-            author_link = soup.select_one("a[href*='/in/']")
-            if author_link:
-                profile_url = author_link.get('href', '')
-                author_name_elem = author_link.select_one("span[dir='ltr'] span[aria-hidden='true']") or \
-                                 author_link.select_one("span.update-components-actor__title span[dir='ltr']")
-                if author_name_elem:
-                    author_name = author_name_elem.get_text(strip=True)
-        except Exception:
-            pass
+        text_element = post_wrapper.select_one('[data-view-name="feed-commentary"]')
+        if text_element:
+            post_text = text_element.get_text(strip=True)
 
-        try:
-            text_selectors = [
-                "div.feed-shared-update-v2__description",
-                "p._57a17605.e8f8b838.dfcecb14",
-                ".feed-shared-update-v2__commentary",
-                ".update-components-text"
-            ]
+        author_name_elem = post_wrapper.select_one('[data-view-name="feed-header-text"] strong')
+        if author_name_elem:
+            author_name = author_name_elem.get_text(strip=True)
 
-            for selector in text_selectors:
-                text_element = soup.select_one(selector)
-                if text_element:
-                    text = text_element.get_text(strip=True)
-                    if text:
-                        post_text = text
-                        break
-        except Exception:
-            pass
+        profile_url_elem = post_wrapper.select_one('a[data-view-name="feed-actor-image"]')
+        if profile_url_elem:
+            profile_url = profile_url_elem.get('href', '').split('?')[0]
 
-        try:
-            date_element = soup.select_one("time")
-            if date_element:
-                post_date = date_element.get('datetime') or datetime.now().isoformat() + "Z"
-        except Exception:
-            pass
+        date_element = post_wrapper.select_one('svg[id="globe-americas-small"]')
+        if date_element:
+            parent_span_p = date_element.find_parent(['span', 'p'])
+            if parent_span_p:
+                relative_date = parent_span_p.get_text(strip=True)
+                post_date = parse_linkedin_relative_date(relative_date)
 
-        try:
-            img_elements = soup.select("img[data-delayed-url], img[src*='media.licdn.com']")[:3]
-            for img in img_elements:
-                media_url = img.get('data-delayed-url') or img.get('src', '')
-                if media_url and "http" in media_url and "media.licdn.com" in media_url:
-                    media_urls.append(media_url)
+        img_elements = post_wrapper.select('[data-view-name="image"] img')
+        for img in img_elements:
+            media_url = img.get('src')
+            if media_url and "http" in media_url:
+                media_urls.append(media_url)
+        video_elements = post_wrapper.select('video')
+        for video in video_elements:
+            media_url = video.get('src')
+            if media_url and "http" in media_url:
+                media_urls.append(media_url)
 
-            video_elements = soup.select("video")[:1]
-            for video in video_elements:
-                media_url = video.get('src') or video.get('poster', '')
-                if media_url and "http" in media_url:
-                    media_urls.append(media_url)
+        likes_elem = post_wrapper.select_one('[data-view-name="feed-reaction-count"]')
+        if likes_elem:
+            likes_text = likes_elem.get_text(strip=True)
+            likes_match = re.search(r'(\d+)', likes_text)
+            if likes_match:
+                likes_count = int(likes_match.group(1))
 
-        except Exception:
-            pass
+        comments_elem = post_wrapper.select_one('[data-view-name="feed-comment-count"]')
+        if comments_elem:
+            comments_text = comments_elem.get_text(strip=True)
+            comments_match = re.search(r'(\d+)', comments_text)
+            if comments_match:
+                comments_count = int(comments_match.group(1))
 
-        try:
-            reactions_elem = soup.select_one(".social-details-social-counts__reactions-count")
-            if reactions_elem:
-                likes_count = int(reactions_elem.get_text(strip=True) or 0)
-
-            comments_count = 0
-            comments_selectors = [
-                "button[aria-label*='comments on']",
-                "button[aria-label*='comment on']",
-                ".social-details-social-counts__comments button"
-            ]
-            
-            for selector in comments_selectors:
-                comments_elem = soup.select_one(selector)
-                if comments_elem:
-                    aria_label = comments_elem.get('aria-label', '')
-                    import re
-                    match = re.search(r'(\d+)\s+comments?', aria_label, re.IGNORECASE)
-                    if match:
-                        comments_count = int(match.group(1))
-                        break
-
-            reposts_count = 0
-            reposts_selectors = [
-                "button[aria-label*='reposts of']",
-                "button[aria-label*='repost of']",
-                ".social-details-social-counts__reposts button"
-            ]
-            
-            for selector in reposts_selectors:
-                reposts_elem = soup.select_one(selector)
-                if reposts_elem:
-                    aria_label = reposts_elem.get('aria-label', '')
-                    match = re.search(r'(\d+)\s+reposts?', aria_label, re.IGNORECASE)
-                    if match:
-                        reposts_count = int(match.group(1))
-                        break
-
-        except Exception:
-            pass
+        reposts_elem = post_wrapper.select_one('[data-view-name="feed-repost-count"]')
+        if reposts_elem:
+            reposts_text = reposts_elem.get_text(strip=True)
+            reposts_match = re.search(r'(\d+)', reposts_text)
+            if reposts_match:
+                reposts_count = int(reposts_match.group(1))
 
         if not post_text:
             return None
 
-        try:
-            post_urn = soup.select_one("div.feed-shared-update-v2")["data-urn"]
-        except:
-            post_urn = None
+        post_urn = ""
+        tracking_scope_element = post_wrapper.select_one('[data-view-tracking-scope]')
+        if tracking_scope_element:
+            data_view_tracking_scope = tracking_scope_element.get('data-view-tracking-scope', '')
+            if data_view_tracking_scope:
+                try:
+                    import json
+                    json_data = json.loads(data_view_tracking_scope)
+                    if isinstance(json_data, list) and len(json_data) > 0 and "breadcrumb" in json_data[0] and \
+                       "content" in json_data[0]["breadcrumb"] and "data" in json_data[0]["breadcrumb"]["content"]:
+                        buffer_data = json_data[0]["breadcrumb"]["content"]["data"]
+                        decoded_string = "".join([chr(b) for b in buffer_data])
+                        urn_match = re.search(r'activity:(\d{19})', decoded_string)
+                        if urn_match:
+                            post_urn = "urn:li:activity:" + urn_match.group(1)
+                except json.JSONDecodeError:
+                    log("JSON Parse failed for data-view-tracking-scope, trying fallback...", verbose=False, is_error=False, log_caller_file="scraper_utils.py")
+
+        if not post_urn:
+            html = post_wrapper.get_attribute("outerHTML")
+            fallback_match = re.search(r'(?:activity|ugcPost):(\d{19})', html)
+            if fallback_match:
+                post_urn = "urn:li:" + fallback_match.group(0)
 
         return {
-            "source": "linkedin_feed",
+            "source": "linkedin",
             "scraped_at": datetime.now().isoformat() + "Z",
             "data": {
                 "post_id": post_id,
@@ -297,4 +330,5 @@ def extract_post_data_from_html(html_content):
         }
 
     except Exception as e:
+        log(f"Error extracting post data from HTML: {e}", verbose=False, is_error=True, log_caller_file="scraper_utils.py")
         return None

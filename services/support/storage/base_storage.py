@@ -28,10 +28,30 @@ class BaseStorage(ABC):
             success_count = 0
             for item in content:
                 profile_name = item.get('profile_name', self.profile_name)
+                conflict_column = self._get_conflict_column()
+
+                status = 'pending_review'
+
+                if conflict_column != "null":
+                    conflict_value = item.get(conflict_column)
+                    if conflict_value:
+                        existing_records = select_data(
+                            conn, table_name,
+                            f"{conflict_column} = %s",
+                            (conflict_value,),
+                            verbose
+                        )
+                        if existing_records:
+                            existing_status = existing_records[0].get('status')
+                            if existing_status in ['approved', 'posted']:
+                                status = 'posted'
+                            else:
+                                status = 'duplicate_not_posted'
+
                 record = {
                     'profile_name': profile_name,
                     'batch_id': batch_id,
-                    'status': 'pending_review',
+                    'status': status,
                     **item
                 }
 

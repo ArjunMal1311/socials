@@ -102,29 +102,35 @@ def scrape_platform_content(profile_name: str, platform: str, profile_config: di
         log(f"Error scraping {platform} for profile {profile_name}: {e}", verbose, is_error=True, log_caller_file="scraper.py")
         return None, []
 
-def scrape_and_store(profile_names: list, platforms: list, storages: dict, verbose: bool = False):
-    log(f"Starting scrape and store for profiles: {', '.join(profile_names)}", verbose, log_caller_file="scraper.py")
+def scrape_and_store(profile_platform_map: dict, storages: dict, verbose: bool = False):
+    all_profiles = set()
+    for profiles in profile_platform_map.values():
+        all_profiles.update(profiles)
+    all_platforms = list(profile_platform_map.keys())
+
+    log(f"Starting scrape and store for {len(all_profiles)} profiles across {len(all_platforms)} platforms", verbose, log_caller_file="scraper.py")
 
     now = datetime.now()
     batch_id = now.strftime("%d%m%y%H%M")
     log(f"Generated unified batch ID: {batch_id}", verbose, log_caller_file="scraper.py")
 
-    drivers = {}
+    drivers = {profile_name: {} for profile_name in all_profiles}
 
     try:
-        for profile_name in profile_names:
+        for profile_name in all_profiles:
             if profile_name not in PROFILES:
                 raise ValueError(f"Profile '{profile_name}' not found in PROFILES")
 
-        with ThreadPoolExecutor(max_workers=len(profile_names) * len(platforms)) as executor:
+        with ThreadPoolExecutor(max_workers=len(all_profiles) * len(all_platforms)) as executor:
             futures = {}
 
-            for profile_name in profile_names:
-                log(f"Processing profile: {profile_name}", verbose, log_caller_file="scraper.py")
-                profile_config = PROFILES[profile_name]
-                drivers[profile_name] = {}
+            for platform, profiles in profile_platform_map.items():
+                for profile_name in profiles:
+                    log(f"Processing profile: {profile_name} on platform: {platform}", verbose, log_caller_file="scraper.py")
+                    profile_config = PROFILES[profile_name]
+                    if profile_name not in drivers:
+                        drivers[profile_name] = {}
 
-                for platform in platforms:
                     future = executor.submit(scrape_single_platform, profile_name, platform, profile_config, batch_id, verbose)
                     futures[future] = (profile_name, platform)
 
@@ -156,7 +162,7 @@ def scrape_and_store(profile_names: list, platforms: list, storages: dict, verbo
                     log(f"Failed to scrape {platform} for profile {profile_name}: {e}", verbose, is_error=True, log_caller_file="scraper.py")
                     continue
 
-        log(f"Completed scraping for {len(profile_names)} profiles across {len(platforms)} platforms with batch ID: {batch_id}", verbose, log_caller_file="scraper.py")
+        log(f"Completed scraping for {len(all_profiles)} profiles across {len(all_platforms)} platforms with batch ID: {batch_id}", verbose, log_caller_file="scraper.py")
 
         return batch_id, drivers
 
