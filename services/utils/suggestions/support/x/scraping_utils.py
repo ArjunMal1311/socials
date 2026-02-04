@@ -114,7 +114,8 @@ def scrape_community_and_profiles(profile_name: str, max_tweets_profile: int = 2
                         continue
                 status.stop()
 
-        communities = profile_props.get('communities', [''])
+        x_scraper_config = profile_props.get('platform', {}).get('x', {}).get('scraper', {})
+        communities = x_scraper_config.get('communities', [])
         with Status(f"[white]Scraping {len(communities)} communities...[/white]", spinner="dots", console=console) as status:
             for community_name in communities:
                 try:

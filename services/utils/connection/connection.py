@@ -177,12 +177,9 @@ def main():
 
         return 0, 0
 
-    # Process LinkedIn connections
     process_platform_urls(ph_linkedin_urls, "LinkedIn", "Connection", "Product Hunt", "product_hunt", process_linkedin_connections, extract_usernames_from_linkedin_urls)
     process_platform_urls(yc_linkedin_urls, "LinkedIn", "Connection", "Y Combinator", "ycombinator", process_linkedin_connections, extract_usernames_from_linkedin_urls)
 
-    # Process X follows
-    # IMPORTANT: X (Twitter) has strict rate limits. Limiting to a maximum of 5 follows per run.
     x_connection_limit = min(connection_limit, 5)
     process_platform_urls(ph_x_urls, "X", "Follow", "Product Hunt", "product_hunt", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)
     process_platform_urls(yc_x_urls, "X", "Follow", "Y Combinator", "ycombinator", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)

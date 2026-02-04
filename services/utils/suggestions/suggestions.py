@@ -1,5 +1,5 @@
-# socials utils <profile> suggestions x [scrape, filter, web, download, generate, generate_new, review, schedule, post]
-# socials utils <profile> suggestions linkedin [scrape, filter, web, download, generate, generate_new ,schedule, review, post]
+# socials utils <profile> suggestions x [scrape, filter, web, download, trends, generate, generate_new, review, schedule, post]
+# socials utils <profile> suggestions linkedin [scrape, filter, web, download, trends, generate, generate_new ,schedule, review, post]
 # socials utils <profile> suggestions reddit [scrape, filter, web, download, trends]
 
 import os
@@ -19,6 +19,7 @@ from services.support.path_config import initialize_directories
 from services.support.storage.storage_factory import get_storage
 
 from services.utils.suggestions.support.x.web_app import run_web_app
+from services.utils.suggestions.support.x.trends_analyzer import analyze_x_trends
 from services.utils.suggestions.support.x.media_downloader import run_media_download
 from services.utils.suggestions.support.x.scraping_utils import run_suggestions_workflow
 from services.utils.suggestions.support.x.content_generator import run_content_generation
@@ -26,6 +27,7 @@ from services.utils.suggestions.support.x.scheduling_utils import run_content_sc
 from services.utils.suggestions.support.x.content_filter import filter_and_sort_content, get_latest_scraped_file
 from services.utils.suggestions.support.x.content_generator import generate_new_tweets_from_filtered as generate_new_x_tweets
 
+from services.utils.suggestions.support.linkedin.trends_analyzer import analyze_linkedin_trends
 from services.utils.suggestions.support.linkedin.media_downloader import run_linkedin_media_download
 from services.utils.suggestions.support.linkedin.scraping_utils import run_linkedin_suggestions_workflow
 from services.utils.suggestions.support.linkedin.content_generator import run_linkedin_content_generation
@@ -196,6 +198,16 @@ def main():
 
             console.print(f"[green]Downloaded media for {result['downloaded_count']} items from approved posts. Saved to {result['updated_file']}[/green]")
 
+        elif args.command == 'trends':
+            result = analyze_x_trends(profile_name, verbose=global_props.get('verbose', False))
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Analyzed trends from {result['posts_analyzed']} posts[/green]")
+            console.print(f"[green]Found {result['trends_count']} trending topics[/green]")
+
         elif args.command == 'review':
             console.print(f"[yellow]Review functionality is now integrated into the main web app.[/yellow]")
             console.print(f"[blue]Content Workflow Web App: http://localhost:5000[/blue]")
@@ -334,6 +346,16 @@ def main():
                 sys.exit(1)
 
             console.print(f"[green]Downloaded media for {result['downloaded_count']} items from approved posts. Saved to {result['updated_file']}[/green]")
+
+        elif args.command == 'trends':
+            result = analyze_linkedin_trends(profile_name, verbose=global_props.get('verbose', False))
+
+            if "error" in result:
+                log(result["error"], False, is_error=True, log_caller_file="suggestions.py")
+                sys.exit(1)
+
+            console.print(f"[green]Analyzed trends from {result['posts_analyzed']} posts[/green]")
+            console.print(f"[green]Found {result['trends_count']} trending topics[/green]")
 
         elif args.command == 'review':
             console.print(f"[yellow]Review functionality is now integrated into the main web app.[/yellow]")

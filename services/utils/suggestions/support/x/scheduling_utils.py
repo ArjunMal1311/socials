@@ -22,7 +22,7 @@ def run_content_scheduling(profile_name: str, storage_generated: Optional[BaseSt
     generated_posts = []
     if storage_generated and storage_new:
         log(f"Fetching approved generated captions from database for {profile_name}", verbose, log_caller_file="scheduling_utils.py")
-        approved_generated_captions = storage_generated.pull_approved_content(batch_id="", verbose=verbose) # batch_id is not relevant for pulling all approved
+        approved_generated_captions = storage_generated.pull_approved_content(batch_id="", verbose=verbose)
         for item in approved_generated_captions:
             generated_posts.append({
                 'content_id': item.get('content_id'),

@@ -46,7 +46,6 @@ def load_filtered_content(profile_name):
         except ImportError:
             pass
 
-        # Try LinkedIn
         try:
             from services.utils.suggestions.support.linkedin.content_filter import get_latest_filtered_linkedin_file
             filepath = get_latest_filtered_linkedin_file(profile_name)
@@ -67,7 +66,6 @@ def load_filtered_content(profile_name):
         except ImportError:
             pass
 
-        # Try X/Twitter
         filepath = get_latest_scraped_file(profile_name)
         if filepath:
             try:
@@ -657,7 +655,6 @@ class ContentWebHandler(BaseHTTPRequestHandler):
             if is_linkedin:
                 media_urls = post.get('data', {}).get('media_urls', [])
             elif is_reddit:
-                # For Reddit, extract media URLs from content or URL
                 from services.utils.suggestions.support.reddit.media_downloader import extract_reddit_media_urls
                 content = post.get('data', {}).get('content', '')
                 post_url = post.get('data', {}).get('url', '')
@@ -711,7 +708,7 @@ class ContentWebHandler(BaseHTTPRequestHandler):
             if new_content_data.get('platform') == 'linkedin':
                 new_items = new_content_data.get('new_posts', [])
             elif new_content_data.get('platform') == 'reddit':
-                new_items = new_content_data.get('new_tweets', [])  # Reddit uses same structure as X
+                new_items = new_content_data.get('new_tweets', [])
             else:
                 new_items = new_content_data.get('new_tweets', [])
             total_items += len(new_items)
