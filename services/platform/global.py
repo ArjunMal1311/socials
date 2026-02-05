@@ -10,7 +10,6 @@ import argparse
 
 from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
-
 from services.support.global_support import check_profile_credentials, delete_profile, init_profile, login_profile
 
 def main():
