@@ -245,6 +245,9 @@ def login_profile(profile_name: str, platform: str):
     if platform.lower() == 'x':
         login_url = "https://x.com/login"
         platform_name = "X"
+    elif platform.lower() == 'linkedin':
+        login_url = "https://www.linkedin.com/login"
+        platform_name = "LinkedIn"
     else:
         log(f"Platform '{platform}' not supported for login yet", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False
