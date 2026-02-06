@@ -4,23 +4,13 @@
 
 ---
 
-> Action Mode
+https://github.com/user-attachments/assets/b902f9dc-25e8-4512-a247-07ff7b1230de
 
-  <video src="https://res.cloudinary.com/dist1isdk/video/upload/v1770398005/ff_ixx4mb.mp4"
-         width="720"
-         controls
-         muted
-         loop>
-  </video>
 
-> Linkedin Replies
+https://github.com/user-attachments/assets/3008b074-1482-4c9b-bcc7-8517ee61790b
 
-  <video src="https://res.cloudinary.com/dist1isdk/video/upload/v1770398001/ff2_i25npv.mp4"
-         width="720"
-         controls
-         muted
-         loop>
-  </video>
+
+
 ## What it does currently
 - **X (Twitter)**: Direct messages, follows, posts, replies, and retrieves content from communities and specific profiles
 - **Reddit**: Retrieves the latest posts from subreddits
