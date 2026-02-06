@@ -1,10 +1,26 @@
 # socials
 
-> I scaled a faceless X account to 15k followers, got bored hunting content. Built this to automate replies, find trends, posts. Started on X, now building for other platforms
-> atg app for shown will be coming soon, you can connect your own Supabase to power it
+> scaled a faceless X account to 15k followers, got bored hunting content. Built this to automate replies, find trends, posts. Started on X, now building for other platforms, app shown below is just supabase connection, you can connect your own Supabase to power it
 
 ---
 
+> Action Mode
+
+  <video src="https://res.cloudinary.com/dist1isdk/video/upload/v1770398005/ff_ixx4mb.mp4"
+         width="720"
+         controls
+         muted
+         loop>
+  </video>
+
+> Linkedin Replies
+
+  <video src="https://res.cloudinary.com/dist1isdk/video/upload/v1770398001/ff2_i25npv.mp4"
+         width="720"
+         controls
+         muted
+         loop>
+  </video>
 ## What it does currently
 - **X (Twitter)**: Direct messages, follows, posts, replies, and retrieves content from communities and specific profiles
 - **Reddit**: Retrieves the latest posts from subreddits
