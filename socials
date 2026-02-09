@@ -64,6 +64,14 @@ MODULE_CONFIGS = {
         'modules': {
             'scraper': 'scraper.py'
         }
+    },
+    'instagram': {
+        'path_template': 'services/platform/instagram/{filename}',
+        'modules': {
+            'videos': 'videos.py',
+            'replies': 'replies.py',
+            'scraper': 'scraper.py'
+        }
     }
 }
 
@@ -156,7 +164,11 @@ def parse_args() -> Optional[Dict]:
 
         profile = sys.argv[2]
         module = sys.argv[3]
-        args = sys.argv[4:]
+
+        module_args = [profile] + sys.argv[4:]
+
+        if category == 'reddit' and module == 'scraper':
+            module_args.append('subreddits')
 
         if module not in config['modules']:
             available = ', '.join(config['modules'].keys())
@@ -164,16 +176,11 @@ def parse_args() -> Optional[Dict]:
             print(f"Available {category} modules: {available}")
             return None
 
-        if args and module in ['post', 'reply', 'scraper', 'global', 'connection']:
-            args = [args[0], '--profile', profile] + args[1:]
-        elif module in ['dm', 'post', 'scraper'] or (category == 'ycombinator' and module == 'scraper'):
-            args = ['--profile', profile]
-
         return {
             'category': category,
             'profile': profile,
             'module': module,
-            'args': args
+            'args': module_args
         }
 
     if config.get('profile_required', False):

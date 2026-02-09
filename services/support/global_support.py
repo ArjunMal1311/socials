@@ -111,6 +111,22 @@ def init_profile(profile_name: str):
                     f'                        "count": 17,',
                     f'                        "scroll_attempts": 5',
                     f'                    }}',
+                    f'                }},',
+                    f'                "instagram": {{',
+                    f'                    "videos": {{',
+                    f'                        "output_format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",',
+                    f'                        "restrict_filenames": True',
+                    f'                    }},',
+                    f'                    "replies": {{',
+                    f'                        "comments": 50,',
+                    f'                        "count": 1,',
+                    f'                        "download_reels": True',
+                    f'                    }},',
+                    f'                    "scraper": {{',
+                    f'                        "max_posts": 100,',
+                    f'                        "target_profiles": [],',
+                    f'                        "time_filter": "week"',
+                    f'                    }}',
                     f'                }}',
                     f'            }},',
                     f'            "utils": {{',
@@ -248,6 +264,9 @@ def login_profile(profile_name: str, platform: str):
     elif platform.lower() == 'linkedin':
         login_url = "https://www.linkedin.com/login"
         platform_name = "LinkedIn"
+    elif platform.lower() == 'instagram':
+        login_url = "https://www.instagram.com/accounts/login/"
+        platform_name = "Instagram"
     else:
         log(f"Platform '{platform}' not supported for login yet", verbose=True, is_error=True, log_caller_file="global_support.py")
         return False

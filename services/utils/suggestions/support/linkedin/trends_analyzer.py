@@ -8,8 +8,8 @@ from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
-from services.support.path_config import get_gemini_log_file_path
 from services.support.gemini_util import generate_gemini_with_inline_media
+from services.support.path_config import get_gemini_log_file_path, get_suggestions_dir
 
 from services.support.storage.platforms.linkedin.trends import LinkedInTrendsStorage
 
@@ -129,6 +129,16 @@ def analyze_linkedin_trends(profile_name: str, verbose: bool = False) -> Dict[st
             "posts_analyzed": aggregated_data['total_sources']
         }
 
+    suggestions_dir = get_suggestions_dir(profile_name)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    trends_filename = f"trends_content_linkedin_{timestamp}.json"
+    trends_filepath = os.path.join(suggestions_dir, trends_filename)
+
+    with open(trends_filepath, 'w', encoding='utf-8') as f:
+        json.dump(trends_data, f, indent=2, ensure_ascii=False)
+
+    log(f"Saved trends analysis to {trends_filepath}", verbose, log_caller_file="trends_analyzer.py")
+
     storage = LinkedInTrendsStorage(profile_name)
     trends_content = [{
         "profile_name": profile_name,
@@ -139,7 +149,7 @@ def analyze_linkedin_trends(profile_name: str, verbose: bool = False) -> Dict[st
         "posts_analyzed": aggregated_data['total_sources']
     }]
 
-    if storage.push_content(trends_content, batch_id=f"trends_{datetime.now().strftime('%Y%m%d_%H%M%S')}", verbose=verbose):
+    if storage.push_content(trends_content, batch_id=f"trends_{timestamp}", verbose=verbose):
         return {
             "success": True,
             "trends_count": len(trends_data.get('trends', [])),

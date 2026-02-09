@@ -18,7 +18,7 @@ def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Reddit Scraper CLI Tool")
 
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use from profiles.py")
+    parser.add_argument("profile", type=str, help="Profile name to use from profiles.py")
     parser.add_argument("mode", choices=["subreddits"], help="Scrape mode: 'subreddits' for scraping configured subreddits")
 
     args = parser.parse_args()

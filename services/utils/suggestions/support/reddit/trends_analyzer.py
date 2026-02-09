@@ -8,10 +8,10 @@ from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
-from services.support.path_config import get_gemini_log_file_path
 from services.support.postgres_util import get_postgres_connection
 from services.support.gemini_util import generate_gemini_with_inline_media
 from services.support.storage.platforms.reddit.trends import RedditTrendsStorage
+from services.support.path_config import get_gemini_log_file_path, get_suggestions_dir
 
 api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
 rate_limiter = RateLimiter()
@@ -68,7 +68,7 @@ def aggregate_reddit_data(profile_name: str, verbose: bool = False) -> Dict[str,
 
 def analyze_trends_with_gemini(data_summary: str, api_key_pool: APIKeyPool, trends_prompt: str = "", verbose: bool = False) -> str:
     if not trends_prompt:
-        trends_prompt = "Analyze the following Reddit content data and identify all key trends, topics, and keywords that people are discussing. Focus on emerging topics, popular keywords, sentiment, and viral potential. Provide structured analysis with all significant trends, keywords, sentiment insights, and content ideas."
+        trends_prompt = "Analyze the following Reddit content data and identify all key trends, topics, and keywords that people are discussing. Focus on emerging topics, popular keywords, sentiment, and viral potential. Provide structured analysis with all significant trends, keywords, sentiment insights, and detailed content ideas."
 
     prompt_parts = []
     prompt_parts.append(trends_prompt)
@@ -77,7 +77,8 @@ def analyze_trends_with_gemini(data_summary: str, api_key_pool: APIKeyPool, tren
     prompt_parts.append(data_summary)
     prompt_parts.append("")
     prompt_parts.append("Return ONLY valid JSON with this exact structure:")
-    prompt_parts.append('{"trends": ["topic1", "topic2", ...], "keywords": ["keyword1", "keyword2", ...], "sentiment": "overall sentiment analysis", "content_ideas": ["idea1", "idea2", ...]}')
+    prompt_parts.append('{"trends": ["topic1", "topic2", ...], "keywords": ["keyword1", "keyword2", ...], "sentiment": "overall sentiment analysis", "content_ideas": [{"title": "Content idea title", "coverage": "Detailed description of what can be covered in this content, including key points, angles, and potential topics to explore", "target_audience": "Who this content would appeal to", "potential_engagement": "Why this might perform well"}, ...]}')
+    prompt_parts.append("For each content idea, provide comprehensive details about what can be covered, including specific topics, angles, and potential approaches.")
     prompt_parts.append("Do not include any other text, explanations, or formatting.")
 
     profile_config = PROFILES.get('flytdev', {})
@@ -147,6 +148,16 @@ def analyze_reddit_trends(profile_name: str, verbose: bool = False) -> Dict[str,
             "posts_analyzed": aggregated_data['total_sources']
         }
 
+    suggestions_dir = get_suggestions_dir(profile_name)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    trends_filename = f"trends_content_reddit_{timestamp}.json"
+    trends_filepath = os.path.join(suggestions_dir, trends_filename)
+
+    with open(trends_filepath, 'w', encoding='utf-8') as f:
+        json.dump(trends_data, f, indent=2, ensure_ascii=False)
+
+    log(f"Saved trends analysis to {trends_filepath}", verbose, log_caller_file="trends_analyzer.py")
+
     storage = RedditTrendsStorage(profile_name)
     trends_content = [{
         "profile_name": profile_name,
@@ -157,7 +168,7 @@ def analyze_reddit_trends(profile_name: str, verbose: bool = False) -> Dict[str,
         "posts_analyzed": aggregated_data['total_sources']
     }]
 
-    if storage.push_content(trends_content, batch_id=f"trends_{datetime.now().strftime('%Y%m%d_%H%M%S')}", verbose=verbose):
+    if storage.push_content(trends_content, batch_id=f"trends_{timestamp}", verbose=verbose):
         return {
             "success": True,
             "trends_count": len(trends_data.get('trends', [])),

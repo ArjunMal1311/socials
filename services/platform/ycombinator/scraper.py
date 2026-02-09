@@ -24,8 +24,8 @@ def main():
     load_dotenv()
     initialize_directories()
     parser = argparse.ArgumentParser(description="Y Combinator Scraper CLI Tool")
-    
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     args = parser.parse_args()
 

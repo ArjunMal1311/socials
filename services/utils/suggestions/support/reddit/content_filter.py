@@ -25,10 +25,10 @@ def filter_and_sort_reddit_content(scraped_file_path: str, profile_name: str) ->
     suggestions_props = utils_props.get('suggestions', {})
     content_filter = suggestions_props.get('content_filter', {})
 
-    min_age_days = content_filter.get('min_age_days', 1)
+    min_age_days = content_filter.get('min_age_days', 0)
     max_age_days = content_filter.get('max_age_days', 7)
     min_score = content_filter.get('min_score', 10)
-    max_posts_per_subreddit = content_filter.get('max_posts_per_subreddit', 3)
+    max_posts_per_subreddit = content_filter.get('max_posts_per_subreddit', 10)
     max_posts = content_filter.get('max_posts', 15)
 
     try:

@@ -11,7 +11,6 @@ from profiles import PROFILES
 from dotenv import load_dotenv
 from rich.console import Console
 
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.support.logger_util import _log as log

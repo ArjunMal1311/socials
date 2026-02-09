@@ -16,6 +16,8 @@ from services.support.storage.platforms.linkedin.action import LinkedInActionSto
 from services.support.storage.platforms.linkedin.suggestions_new import LinkedInSuggestionsNewStorage
 from services.support.storage.platforms.linkedin.suggestions_generated import LinkedInSuggestionsGeneratedStorage
 
+from services.support.storage.platforms.instagram.action import InstagramActionStorage
+
 from services.support.storage.platforms.reddit.trends import RedditTrendsStorage
 from services.support.storage.platforms.reddit.suggestions_new import RedditSuggestionsNewStorage
 from services.support.storage.platforms.reddit.suggestions_generated import RedditSuggestionsGeneratedStorage
@@ -64,6 +66,13 @@ def get_storage(platform: str, profile_name: str, feature: str = 'action', verbo
         else:
             log(f"Unsupported LinkedIn feature: {feature}. Supported: action, connection, suggestions_generated, suggestions_new", verbose, is_error=True, log_caller_file="storage_factory.py")
             return None
+    elif platform == 'instagram':
+        if feature == 'action':
+            log(f"Creating Instagram action storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
+            return InstagramActionStorage(profile_name)
+        else:
+            log(f"Unsupported Instagram feature: {feature}. Supported: action", verbose, is_error=True, log_caller_file="storage_factory.py")
+            return None
     elif platform == 'connections':
         if feature == 'connection':
             log(f"Creating Connection storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
@@ -96,7 +105,7 @@ def get_storage(platform: str, profile_name: str, feature: str = 'action', verbo
         return None
 
 def get_supported_platforms() -> list[str]:
-    return ['x', 'twitter', 'linkedin', 'reddit', 'producthunt', 'ycombinator', 'connections', 'profiles']
+    return ['x', 'twitter', 'linkedin', 'instagram', 'reddit', 'producthunt', 'ycombinator', 'connections', 'profiles']
 
 def get_supported_features(platform: str) -> list[str]:
     platform = platform.lower().strip()
@@ -105,6 +114,8 @@ def get_supported_features(platform: str) -> list[str]:
         return ['action', 'suggestions_generated', 'suggestions_new']
     elif platform == 'linkedin':
         return ['action', 'connection', 'suggestions_generated', 'suggestions_new']
+    elif platform == 'instagram':
+        return ['action']
     elif platform == 'reddit':
         return ['suggestions_generated', 'suggestions_new', 'trends']
     elif platform == 'producthunt':

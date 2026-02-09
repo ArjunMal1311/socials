@@ -11,6 +11,7 @@ from services.support.path_config import get_linkedin_profile_dir
 
 from services.platform.x.support.home import post_approved_home_mode_replies
 from services.platform.linkedin.support.reply_utils import post_approved_linkedin_replies
+from services.platform.instagram.support.replies_utils import post_approved_replies as post_approved_instagram_replies
 
 console = Console()
 
@@ -181,6 +182,63 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                     except Exception as e:
                         log(f"Failed to post approved {platform} replies for profile {profile_name}: {e}", verbose, is_error=True, log_caller_file="poster.py")
                         failed_count = len(approved_posts)
+
+                    status.stop()
+                    total_posted += posted_count
+                    total_failed += failed_count
+
+                    log(f"Profile {profile_name} {platform} posting complete - Posted: {posted_count}, Failed: {failed_count}", verbose, log_caller_file="poster.py")
+
+        elif platform == 'instagram':
+            for profile_name, approved_reels in platform_content.items():
+                if not approved_reels:
+                    continue
+
+                if profile_name not in drivers or platform not in drivers[profile_name]:
+                    log(f"No driver found for profile {profile_name} on platform {platform}", verbose, is_error=True, log_caller_file="poster.py")
+                    total_failed += len(approved_reels)
+                    continue
+
+                driver = drivers[profile_name][platform]
+                log(f"Posting {len(approved_reels)} approved {platform} replies for profile {profile_name}", verbose, log_caller_file="poster.py")
+
+                with Status(f'[white]Posting {len(approved_reels)} approved {platform} replies for {profile_name}...[/white]', spinner="dots", console=console) as status:
+                    try:
+                        formatted_replies = []
+                        for reel in approved_reels:
+                            reply_data = {
+                                'reel_number': approved_reels.index(reel) + 1,
+                                'reel_url': reel['reel_url'],
+                                'comments_count': reel.get('comments', 0),
+                                'generated_reply': reel.get('generated_reply', ''),
+                                'video_path': reel.get('media_urls', [None])[0] if reel.get('media_urls') else None,
+                                'approved': True
+                            }
+                            formatted_replies.append(reply_data)
+
+                        summary = post_approved_instagram_replies(driver, formatted_replies, verbose, False)  # headless=False for posting
+                        posted_count = summary.get('posted', 0)
+                        failed_count = summary.get('failed', 0)
+
+                        for reel in approved_reels:
+                            try:
+                                content_id = reel.get('reel_id')
+                                if content_id:
+                                    storage = storages[profile_name][platform]
+                                    storage.update_status(
+                                        content_id=content_id,
+                                        status='posted',
+                                        additional_updates={'posted_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')},
+                                        verbose=verbose
+                                    )
+                            except Exception as e:
+                                content_id = reel.get('reel_id') or 'unknown'
+                                log(f"Failed to update status for {platform} item {content_id}: {e}", verbose, is_error=True, log_caller_file="poster.py")
+
+                    except Exception as e:
+                        log(f"Failed to post approved {platform} replies for profile {profile_name}: {e}", verbose, is_error=True, log_caller_file="poster.py")
+                        failed_count = len(approved_reels)
+                        posted_count = 0
 
                     status.stop()
                     total_posted += posted_count

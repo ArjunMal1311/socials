@@ -79,7 +79,7 @@ def main():
     invalid_platforms = [p for p in profile_platform_map.keys() if not validate_platform(p)]
     if invalid_platforms:
         log(f"Unsupported platforms: {', '.join(invalid_platforms)}", is_error=True, log_caller_file="action.py")
-        log(f"Supported platforms: {', '.join(['x', 'linkedin'])}", is_error=True, log_caller_file="action.py")
+        log(f"Supported platforms: {', '.join(['x', 'linkedin', 'instagram'])}", is_error=True, log_caller_file="action.py")
         sys.exit(1)
 
     for platform, profiles in profile_platform_map.items():

@@ -208,6 +208,10 @@ def get_instagram_videos_dir(profile: str) -> str:
     """Get Instagram videos directory: platform/instagram/{profile}/videos"""
     return os.path.join(get_platform_profile_dir("instagram", profile), "videos")
 
+def get_instagram_replies_dir(profile: str) -> str:
+    """Get Instagram replies directory: platform/instagram/{profile}/replies"""
+    return os.path.join(get_platform_profile_dir("instagram", profile), "replies")
+
 def get_google_analysis_dir(profile: str) -> str:
     """Get Google analysis directory: platform/google/{profile}/analysis"""
     return os.path.join(get_platform_profile_dir("google", profile), "analysis")
