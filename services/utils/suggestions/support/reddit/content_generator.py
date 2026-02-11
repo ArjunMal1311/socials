@@ -1,6 +1,5 @@
 import os
 import json
-import time
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -78,10 +77,8 @@ def generate_reddit_caption(post_data: Dict[str, Any], media_paths: List[str], a
         return "Error generating caption: Failed to generate content"
 
 def process_single_reddit_post(post_data: Dict[str, Any], api_key_pool: APIKeyPool, media_dir: str, verbose: bool = False) -> Dict[str, Any]:
-    # Generate a unique content_id from the Reddit URL since posts don't have native IDs
     reddit_url = post_data.get('data', {}).get('url', '')
     if reddit_url:
-        # Extract post ID from Reddit URL or use hash of URL
         import hashlib
         post_id = hashlib.md5(reddit_url.encode()).hexdigest()[:16]
     else:

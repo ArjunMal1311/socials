@@ -14,9 +14,11 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from typing import Optional, List, Dict, Tuple, Any
+from typing import Optional, List, Dict, Tuple, Any, Callable
 
 from services.support.logger_util import _log as log
+from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_browser_data_dir
 
 console = Console()
 
@@ -84,7 +86,15 @@ def extract_structured_comments(cleaned_html_content: str) -> List[Dict[str, Any
                 'likes': likes
             })
 
-    return comments
+    seen = set()
+    unique_comments = []
+    for c in comments:
+        comment_id = (c['username'], c['timestamp'], c['comment_text'])
+        if comment_id not in seen:
+            seen.add(comment_id)
+            unique_comments.append(c)
+
+    return unique_comments
 
 def scrape_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int = 50, status: Status = None, html_dump_path: Optional[str] = None, verbose: bool = False, reel_index: int = 0) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     try:
@@ -169,15 +179,37 @@ def scrape_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int 
 def extract_current_reel_url(driver) -> Optional[str]:
     try:
         current_url = driver.current_url
-        if '/reels/' in current_url and current_url != 'https://www.instagram.com/reels/':
-            return current_url
+        
+        def is_valid_reel_path(path_parts):
+            if len(path_parts) >= 2:
+                if path_parts[0] in ['reels', 'p']:
+                    if path_parts[1] not in ['audio', 'videos', 'series']:
+                        return True
+            return False
 
+        from urllib.parse import urlparse
+        parsed = urlparse(current_url)
+        path = parsed.path.strip('/')
+        path_parts = path.split('/')
+
+        if is_valid_reel_path(path_parts):
+            return current_url
         try:
-            reel_links = driver.find_elements(By.XPATH, "//a[contains(@href, '/reels/')]")
+            reel_links = driver.find_elements(By.XPATH, "//a[contains(@href, '/reels/') or contains(@href, '/p/')]")
+            valid_links = []
             for link in reel_links:
                 href = link.get_attribute('href')
-                if href and '/reels/' in href and href != 'https://www.instagram.com/reels/':
-                    return href
+                if not href: continue
+                
+                check_path = urlparse(href).path.strip('/')
+                check_parts = check_path.split('/')
+                
+                if is_valid_reel_path(check_parts):
+                    valid_links.append(href)
+            
+            if valid_links:
+                for link in reversed(valid_links):
+                    return link
         except Exception:
             pass
 
@@ -214,8 +246,6 @@ def move_to_next_reel(driver, verbose: bool = False) -> bool:
     try:
         current_url = driver.current_url
         log(f"Current reel URL before navigation: {current_url}", verbose, log_caller_file="scraper_utils.py")
-
-
 
         next_element = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Navigate to next Reel' and @role='button']"))
@@ -255,3 +285,81 @@ def move_to_next_reel(driver, verbose: bool = False) -> bool:
     except Exception as e:
         log(f"Error moving to next Instagram Reel: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
     return False
+
+def scrape_instagram_reels(profile_name: str, count: int, max_comments: int, verbose: bool = False, headless: bool = True, status: Optional[Status] = None, process_item_callback: Optional[Callable] = None) -> Tuple[Optional[Any], List[Dict[str, Any]]]:
+    browser_data_dir = get_browser_data_dir(profile_name, "instagram")
+    
+    try:
+        if status:
+            status.update(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]")
+        
+        driver, setup_messages = setup_driver(browser_data_dir, profile=profile_name, headless=headless)
+        
+        if not driver:
+            log("WebDriver could not be initialized for Instagram.", verbose, is_error=True, log_caller_file="scraper_utils.py")
+            return None, []
+
+        if status:
+            status.update("[white]Navigating to Instagram Reels...[/white]")
+        
+        driver.get("https://www.instagram.com/reels/")
+        time.sleep(5)
+
+        scraped_reels = []
+        reel_attempt = 0
+
+        while len(scraped_reels) < count and reel_attempt < count * 2:
+            reel_attempt += 1
+            log(f"--- Processing Instagram Reel Attempt {reel_attempt} ({len(scraped_reels) + 1}/{count}) ---", verbose, log_caller_file="scraper_utils.py")
+
+            reel_url = extract_current_reel_url(driver)
+            if not reel_url:
+                log(f"Could not extract reel URL for reel {reel_attempt}, skipping", verbose, log_caller_file="scraper_utils.py")
+                if not move_to_next_reel(driver, verbose=verbose):
+                    log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper_utils.py")
+                    break
+                continue
+
+            log(f"Found reel URL: {reel_url}", verbose, log_caller_file="scraper_utils.py")
+
+            if status:
+                status.update(f"[white]Scraping comments from Instagram reel {len(scraped_reels) + 1}...[/white]")
+            
+            comments_data, _ = scrape_instagram_reels_comments(
+                driver=driver,
+                max_comments=max_comments,
+                status=status,
+                html_dump_path=None,
+                verbose=verbose,
+                reel_index=len(scraped_reels)
+            )
+
+            reel_data = {
+                'reel_id': reel_url.split('/reels/')[1].split('/')[0] if '/reels/' in reel_url else f'reel_{len(scraped_reels)}',
+                'reel_url': reel_url,
+                'comments_data': comments_data,
+                'comments': len(comments_data),
+                'scraped_at': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+                'profile_name': profile_name
+            }
+
+            if process_item_callback:
+                try:
+                    reel_data = process_item_callback(reel_data, driver)
+                except Exception as e:
+                    log(f"Error in item processing callback: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+
+            scraped_reels.append(reel_data)
+            log(f"Successfully processed reel {len(scraped_reels)}", verbose, log_caller_file="scraper_utils.py")
+
+            if len(scraped_reels) < count:
+                if not move_to_next_reel(driver, verbose=verbose):
+                    log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper_utils.py")
+                    break
+
+        log(f"Completed Instagram scraping: {len(scraped_reels)} reels processed", verbose, log_caller_file="scraper_utils.py")
+        return driver, scraped_reels
+
+    except Exception as e:
+        log(f"Error during unified Instagram scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+        return None, []

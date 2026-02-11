@@ -30,13 +30,13 @@ def parse_linkedin_relative_date(relative_date_str):
 
         now = datetime.now()
 
-        if unit == 'm':  # minutes
+        if unit == 'm':
             delta = timedelta(minutes=number)
-        elif unit == 'h':  # hours
+        elif unit == 'h':
             delta = timedelta(hours=number)
-        elif unit == 'd':  # days
+        elif unit == 'd':
             delta = timedelta(days=number)
-        elif unit == 'w':  # weeks
+        elif unit == 'w':
             delta = timedelta(weeks=number)
         else:
             return datetime.now().isoformat() + "Z"

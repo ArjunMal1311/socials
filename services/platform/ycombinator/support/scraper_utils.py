@@ -39,7 +39,7 @@ def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
         if social_links.get("linkedin"):
             founder_obj["links"].append(social_links["linkedin"])
 
-        if founder_obj["name"]:  # Only add if we have a name
+        if founder_obj["name"]:
             founders.append(founder_obj)
 
     return {

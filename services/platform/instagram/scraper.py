@@ -2,7 +2,6 @@
 
 import os
 import sys
-import time
 import json
 import argparse
 
@@ -13,12 +12,10 @@ from rich.console import Console
 from profiles import PROFILES
 
 from services.support.logger_util import _log as log
-from services.support.web_driver_handler import setup_driver
+from services.support.path_config import get_instagram_profile_dir, ensure_dir_exists
 
 from services.platform.instagram.support.video_utils import download_instagram_reel
-from services.platform.instagram.support.scraper_utils import extract_current_reel_url, move_to_next_reel, scrape_instagram_reels_comments, _format_reel_data
-
-from services.support.path_config import get_browser_data_dir, get_instagram_profile_dir, ensure_dir_exists
+from services.platform.instagram.support.scraper_utils import scrape_instagram_reels, _format_reel_data
 
 console = Console()
 
@@ -58,92 +55,38 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_filename = os.path.join(get_instagram_profile_dir(profile), f"scraped_reels_{timestamp}.json")
 
+    def process_reel_for_standalone(reel_data: dict, driver) -> dict:
+        reel_url = reel_data['reel_url']
+        comments_data = reel_data['comments_data']
+        
+        with Status(f"[white]Downloading reel ({reel_url})...[/white]", spinner="dots", console=console) as status:
+            downloaded_path, cdn_link = download_instagram_reel(
+                reel_url=reel_url,
+                profile_name=profile,
+                output_format=output_format,
+                restrict_filenames=restrict_filenames,
+                status=status,
+                verbose=verbose
+            )
+        status.stop()
+
+        if downloaded_path:
+            log(f"Successfully downloaded: {os.path.basename(downloaded_path)}", verbose, log_caller_file="scraper.py")
+            return _format_reel_data(reel_url, downloaded_path, cdn_link, comments_data, profile)
+        else:
+            log(f"Failed to download reel ({reel_url})", verbose, log_caller_file="scraper.py")
+            return reel_data
+
     try:
-        user_data_dir = get_browser_data_dir(browser_profile)
-
-        with Status(f"[white]Initializing WebDriver for profile '{browser_profile}'...[/white]", spinner="dots", console=console) as status:
-            driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile, headless=headless)
-            for msg in setup_messages:
-                status.update(f"[white]{msg}[/white]")
-                time.sleep(0.1)
-            status.update("[white]WebDriver initialized.[/white]")
-        status.stop()
-
-        if not driver:
-            log("WebDriver could not be initialized. Aborting.", verbose, is_error=True, log_caller_file="scraper.py")
-            sys.exit(1)
-
-        with Status("[white]Navigating to Instagram Reels...[/white]", spinner="dots", console=console) as status:
-            driver.get("https://www.instagram.com/reels/")
-            time.sleep(5)
-        status.stop()
-
-        downloaded_reels = 0
-        reel_number = 0
-
-        while downloaded_reels < max_posts:
-            reel_number += 1
-            log(f"--- Processing Reel {reel_number} ---", verbose, log_caller_file="scraper.py")
-
-            reel_url = extract_current_reel_url(driver)
-            if not reel_url:
-                log(f"Could not extract reel URL for reel {reel_number}, waiting and retrying...", verbose, log_caller_file="scraper.py")
-                time.sleep(3)
-                reel_url = extract_current_reel_url(driver)
-                if not reel_url:
-                    log(f"Still could not extract reel URL for reel {reel_number}, skipping", verbose, log_caller_file="scraper.py")
-                    if not move_to_next_reel(driver, verbose=verbose):
-                        log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper.py")
-                        break
-                    continue
-
-            log(f"Found reel URL: {reel_url}", verbose, log_caller_file="scraper.py")
-
-            with Status(f"[white]Scraping comments from reel {reel_number}...[/white]", spinner="dots", console=console) as status:
-                comments_data, _ = scrape_instagram_reels_comments(
-                    driver=driver,
-                    max_comments=max_comments,
-                    status=status,
-                    html_dump_path=None,
-                    verbose=verbose,
-                    reel_index=reel_number - 1
-                )
-            status.stop()
-
-            if comments_data:
-                log(f"Scraped {len(comments_data)} comments from reel {reel_number}", verbose, log_caller_file="scraper.py")
-            else:
-                log(f"No comments found for reel {reel_number}", verbose, log_caller_file="scraper.py")
-                comments_data = []
-
-            with Status(f"[white]Downloading reel {reel_number} ({reel_url})...[/white]", spinner="dots", console=console) as status:
-                downloaded_path, cdn_link = download_instagram_reel(
-                    reel_url=reel_url,
-                    profile_name=profile,
-                    output_format=output_format,
-                    restrict_filenames=restrict_filenames,
-                    status=status,
-                    verbose=verbose
-                )
-            status.stop()
-
-            if downloaded_path:
-                downloaded_reels += 1
-                log(f"Successfully downloaded reel {reel_number}: {os.path.basename(downloaded_path)}", verbose, log_caller_file="scraper.py")
-                log(f"Progress: {downloaded_reels}/{max_posts} reels downloaded", verbose, log_caller_file="scraper.py")
-
-                reel_data = _format_reel_data(reel_url, downloaded_path, cdn_link, comments_data, profile)
-                all_reels_data.append(reel_data)
-            else:
-                log(f"Failed to download reel {reel_number} ({reel_url})", verbose, log_caller_file="scraper.py")
-
-            if not move_to_next_reel(driver, verbose=verbose):
-                log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper.py")
-                break
-
-            if downloaded_reels >= max_posts:
-                log(f"Reached maximum reels limit ({max_posts}). Stopping scraping.", verbose, log_caller_file="scraper.py")
-                break
+        driver, all_reels_data = scrape_instagram_reels(
+            profile_name=profile,
+            count=max_posts,
+            max_comments=max_comments,
+            verbose=verbose,
+            headless=headless,
+            status=None,
+            process_item_callback=process_reel_for_standalone
+        )
 
         if all_reels_data:
             ensure_dir_exists(os.path.dirname(output_filename))
@@ -153,7 +96,7 @@ def main():
         else:
             log("No reels data to save.", verbose, is_error=False, log_caller_file="scraper.py")
 
-        log(f"Scraping complete. Downloaded {downloaded_reels} reels.", verbose, log_caller_file="scraper.py")
+        log(f"Scraping complete. Processed {len(all_reels_data)} reels.", verbose, log_caller_file="scraper.py")
 
     except Exception as e:
         log(f"An unexpected error occurred during scraping: {e}", verbose, is_error=True, log_caller_file="scraper.py")

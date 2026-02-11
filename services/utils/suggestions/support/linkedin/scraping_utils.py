@@ -57,8 +57,6 @@ def run_linkedin_suggestions_workflow(profile_name: str, max_posts_per_profile: 
     profile_config = PROFILES[profile_name]
     linkedin_target_profiles = profile_config.get('target_profiles', [])
 
-    # Just scrape home page for now when no target profiles are configured
-    # This scrapes the LinkedIn feed/home page instead of specific target profiles
     if not linkedin_target_profiles:
         log(f"No linkedin_target_profiles found for {profile_name}. Scraping LinkedIn home page feed instead.", verbose, log_caller_file="scraping_utils.py")
         scraped_posts = scrape_linkedin_feed_posts(

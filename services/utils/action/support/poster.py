@@ -216,7 +216,7 @@ def post_platform_content(platform: str, platform_content: dict, storages: dict,
                             }
                             formatted_replies.append(reply_data)
 
-                        summary = post_approved_instagram_replies(driver, formatted_replies, verbose, False)  # headless=False for posting
+                        summary = post_approved_instagram_replies(driver, formatted_replies, verbose, False)
                         posted_count = summary.get('posted', 0)
                         failed_count = summary.get('failed', 0)
 

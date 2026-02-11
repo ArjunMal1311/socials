@@ -199,7 +199,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
 
                             comment_button = post.find_element(By.CSS_SELECTOR, "button[data-view-name='feed-comment-button']")
                             comment_button.click()
-                            time.sleep(6)  # Increased wait time for comment box to appear
+                            time.sleep(6)
 
                             log(f"Clicked comment button, looking for comment input", verbose, status, log_caller_file="reply_utils.py")
 

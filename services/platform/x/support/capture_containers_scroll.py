@@ -7,12 +7,10 @@ from services.support.logger_util import _log as log
 console = Console()
 
 def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose: bool = False, status=None):
-    # Debug: Check current page state
     current_url = driver.current_url
     page_title = driver.title
     log(f"DEBUG: Current URL: {current_url}, Title: {page_title}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
 
-    # Try multiple selectors for tweets
     tweet_selectors = [
         'article[data-testid="tweet"]',
         'article[role="article"]',

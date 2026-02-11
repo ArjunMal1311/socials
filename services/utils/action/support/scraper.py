@@ -10,15 +10,15 @@ from profiles import PROFILES
 
 from services.support.logger_util import _log as log
 from services.support.path_config import get_browser_data_dir
+from services.support.storage.storage_factory import get_storage
 
 from services.platform.instagram.support.video_utils import download_instagram_reel
+from services.platform.instagram.support.scraper_utils import scrape_instagram_reels
 from services.platform.instagram.support.replies_utils import generate_instagram_replies
-from services.platform.instagram.support.scraper_utils import extract_current_reel_url, move_to_next_reel, scrape_instagram_reels_comments
 
 from services.platform.x.support.home import run_home_mode
-from services.platform.linkedin.support.reply_utils import run_linkedin_reply_mode
 
-from services.support.web_driver_handler import setup_driver
+from services.platform.linkedin.support.reply_utils import run_linkedin_reply_mode
 
 console = Console()
 
@@ -212,99 +212,56 @@ def scrape_and_store(profile_platform_map: dict, storages: dict, verbose: bool =
         raise
 
 def scrape_instagram_for_action(profile_name: str, count: int, max_comments: int, output_format: str, restrict_filenames: bool, verbose: bool, headless: bool, browser_data_dir: str, status: Status):
+    def process_reel_for_action(reel_data: dict, driver) -> dict:
+        reel_url = reel_data['reel_url']
+        comments_data = reel_data['comments_data']
+        
+        local_path, cdn_link = None, None
+        log(f"Downloading Instagram Reel: {reel_url}...", verbose, log_caller_file="scraper.py")
+        local_path, cdn_link = download_instagram_reel(reel_url, profile_name, output_format, restrict_filenames, status, verbose=verbose)
+        
+        if not (local_path and cdn_link):
+            log(f"Failed to download reel or get CDN link for {reel_url}", verbose, is_error=True, log_caller_file="scraper.py")
+        
+        log("Generating automated reply...", verbose, log_caller_file="scraper.py")
+        generated_reply = generate_instagram_replies(
+            comments_data=comments_data,
+            video_path=local_path,
+            verbose=verbose,
+            profile=profile_name,
+            all_replies=all_replies
+        )
+        
+        reel_data.update({
+            'local_path': local_path,
+            'cdn_link': cdn_link,
+            'media_urls': [cdn_link] if cdn_link else [],
+            'generated_reply': generated_reply if generated_reply and not generated_reply.startswith("Error") else "",
+            'reel_text': '',
+            'likes': 0,
+            'views': 0,
+            'shares': 0
+        })
+        return reel_data
+
+    all_replies = []
     try:
-        with Status(f"[white]Initializing WebDriver for Instagram profile '{profile_name}'...[/white]", spinner="dots", console=console) as status:
-            driver, setup_messages = setup_driver(browser_data_dir, profile=profile_name, headless=headless)
-            for msg in setup_messages:
-                status.update(f"[white]{msg}[/white]")
-                time.sleep(0.1)
-            status.update("[white]WebDriver initialized.[/white]")
-        status.stop()
-
-        if not driver:
-            log("WebDriver could not be initialized for Instagram.", verbose, is_error=True, log_caller_file="scraper.py")
-            return None, []
-
-        with Status("[white]Navigating to Instagram Reels...[/white]", spinner="dots", console=console) as status:
-            driver.get("https://www.instagram.com/reels/")
-            time.sleep(5)
-        status.stop()
-
-        scraped_reels = []
-        reel_index = 0
-
-        while len(scraped_reels) < count and reel_index < count * 2:
-            reel_index += 1
-            log(f"--- Processing Instagram Reel {reel_index} ---", verbose, log_caller_file="scraper.py")
-
-            reel_url = extract_current_reel_url(driver)
-            if not reel_url:
-                log(f"Could not extract reel URL for reel {reel_index}, skipping", verbose, log_caller_file="scraper.py")
-                if not move_to_next_reel(driver, verbose=verbose):
-                    log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper.py")
-                    break
-                continue
-
-            log(f"Found reel URL: {reel_url}", verbose, log_caller_file="scraper.py")
-
-            with Status(f"[white]Scraping comments from Instagram reel {len(scraped_reels) + 1}...[/white]", spinner="dots", console=console) as status:
-                comments_data, _ = scrape_instagram_reels_comments(
-                    driver=driver,
-                    max_comments=max_comments,
-                    status=status,
-                    html_dump_path=None,
-                    verbose=verbose,
-                    reel_index=len(scraped_reels)
-                )
-            status.stop()
-
-            if comments_data:
-                local_path, cdn_link = None, None
-                with Status(f"[white]Downloading Instagram Reel: {reel_url}...[/white]", spinner="dots", console=console) as status:
-                    local_path, cdn_link = download_instagram_reel(reel_url, profile_name, output_format, restrict_filenames, status, verbose=verbose)
-                status.stop()
-
-                if local_path and cdn_link:
-                    log(f"Downloaded reel to: {local_path}, CDN link: {cdn_link}", verbose, log_caller_file="scraper.py")
-                else:
-                    log(f"Failed to download reel or get CDN link for {reel_url}", verbose, is_error=True, log_caller_file="scraper.py")
-                
-                generated_reply = generate_instagram_replies(
-                    comments_data=comments_data,
-                    video_path=local_path,
-                    verbose=verbose,
-                    profile=profile_name
-                )
-
-                reel_data = {
-                    'reel_id': reel_url.split('/reels/')[1].split('/')[0] if '/reels/' in reel_url else f'reel_{len(scraped_reels)}',
-                    'reel_url': reel_url,
-                    'local_path': local_path,
-                    'cdn_link': cdn_link,
-                    'reel_text': '',
-                    'reel_date': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
-                    'likes': 0,
-                    'comments': len(comments_data),
-                    'views': 0,
-                    'shares': 0,
-                    'media_urls': [cdn_link] if cdn_link else [],
-                    'generated_reply': generated_reply if generated_reply and not generated_reply.startswith("Error") else "",
-                    'profile_name': profile_name
-                }
-
-                scraped_reels.append(reel_data)
-                log(f"Successfully scraped reel {len(scraped_reels)} with {len(comments_data)} comments", verbose, log_caller_file="scraper.py")
+        storage = get_storage('instagram', profile_name, 'action', verbose)
+        if storage:
+            if hasattr(storage, 'get_all_approved_and_posted_reels'):
+                all_replies = storage.get_all_approved_and_posted_reels(verbose)
+                log(f"Loaded {len(all_replies)} approved and posted reels for context", verbose, log_caller_file="scraper.py")
             else:
-                log(f"No comments found for reel {reel_index}", verbose, log_caller_file="scraper.py")
-
-            if len(scraped_reels) < count:
-                if not move_to_next_reel(driver, verbose=verbose):
-                    log("Could not move to next reel. Ending scraping process.", verbose, log_caller_file="scraper.py")
-                    break
-
-        log(f"Completed Instagram scraping: {len(scraped_reels)} reels scraped", verbose, log_caller_file="scraper.py")
-        return driver, scraped_reels
-
+                log("Warning: Instagram storage missing get_all_approved_and_posted_reels", verbose, log_caller_file="scraper.py")
     except Exception as e:
-        log(f"Error during Instagram scraping for action: {e}", verbose, is_error=True, log_caller_file="scraper.py")
-        return None, []
+        log(f"Warning: Could not initialize Instagram storage for context: {e}", verbose, log_caller_file="scraper.py")
+
+    return scrape_instagram_reels(
+        profile_name=profile_name,
+        count=count,
+        max_comments=max_comments,
+        verbose=verbose,
+        headless=headless,
+        status=status,
+        process_item_callback=process_reel_for_action
+    )

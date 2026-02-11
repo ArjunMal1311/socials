@@ -18,7 +18,7 @@ from services.support.logger_util import _log as log
 from services.support.rate_limiter import RateLimiter
 from services.support.web_driver_handler import setup_driver
 from services.support.storage.storage_factory import get_storage
-from services.support.path_config import get_browser_data_dir, get_x_replies_dir, ensure_dir_exists
+from services.support.path_config import get_browser_data_dir, ensure_dir_exists
 
 from services.platform.x.support.process_container import process_container
 from services.platform.x.support.post_approved_tweets import post_tweet_reply
@@ -286,8 +286,7 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                 )
                 found_tweet_element = tweet_link_element.find_element(By.XPATH, './ancestor::article[@role="article"]')
 
-                # Store a more stable identifier instead of the element reference
-                tweet_elements_map[tweet_id] = tweet_id  # Just store the ID, we'll find the element fresh each time
+                tweet_elements_map[tweet_id] = tweet_id
                 log(f"Found tweet {tweet_id} on attempt {scroll_attempts + 1}", verbose, log_caller_file="home.py")
                 break
 
@@ -317,7 +316,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
         if tweet_id not in tweet_elements_map:
             continue
 
-        # Find the tweet element fresh each time to avoid stale element issues
         try:
             tweet_link_element = WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
@@ -328,7 +326,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
             failed += 1
             continue
 
-        # Retry posting up to 3 times to handle transient issues
         max_post_retries = 3
         post_success = False
 
@@ -336,7 +333,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
             try:
                 log(f"Posting reply to tweet ID: {tweet_id} (attempt {post_attempt + 1}/{max_post_retries})", verbose, log_caller_file="home.py")
 
-                # Re-find tweet element each attempt to avoid staleness
                 try:
                     tweet_link_element = WebDriverWait(driver, 5).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
@@ -371,7 +367,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                         continue
 
                 if not reply_button:
-                    # Try to find reply button by looking for elements with reply-related text
                     try:
                         all_buttons = tweet_element.find_elements(By.CSS_SELECTOR, 'button, [role="button"]')
                         for btn in all_buttons:
@@ -399,7 +394,6 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
 
                 time.sleep(random.uniform(2, 3))
 
-                # Try multiple selectors for the textarea
                 textarea_selectors = [
                     '[data-testid="tweetTextarea_0"]',
                     '[role="textbox"][contenteditable="true"]',
@@ -425,13 +419,10 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                 reply_textarea.clear()
                 time.sleep(0.5)
 
-                # Type the reply more reliably
                 driver.execute_script("arguments[0].focus();", reply_textarea)
                 time.sleep(0.5)
                 reply_textarea.send_keys(generated_reply)
                 time.sleep(random.uniform(1, 2))
-
-                # Find post button with multiple selectors
                 post_button_selectors = [
                     '[data-testid="tweetButton"]',
                     'button[data-testid*="tweet"][data-testid*="Button"]',
@@ -463,9 +454,8 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                     log(f"Selenium post button click failed, trying JavaScript: {post_click_e}", verbose, log_caller_file="home.py")
                     driver.execute_script("arguments[0].click();", post_button)
 
-                time.sleep(random.uniform(3, 5))  # Wait longer for posting
+                time.sleep(random.uniform(3, 5))
 
-                # Check if dialog is closed (success indicator)
                 try:
                     WebDriverWait(driver, 10).until(
                         EC.invisibility_of_element_located((By.CSS_SELECTOR, '[data-testid="tweetTextarea_0"]'))
@@ -474,12 +464,10 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                     post_success = True
                 except Exception as verify_e:
                     log(f"Could not verify reply was posted: {verify_e}", verbose, is_error=False, log_caller_file="home.py")
-                    # Even if verification fails, assume success if we got this far
                     post_success = True
 
                 if post_success:
                     try:
-                        # Re-find tweet element for liking
                         tweet_link_element = WebDriverWait(driver, 3).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, f'article[role="article"][data-testid="tweet"] a[href*="/status/{tweet_id}"]'))
                         )
@@ -497,12 +485,12 @@ def post_approved_home_mode_replies(driver, profile_name: str, post_via_api: boo
                     log(f"Successfully posted reply to {tweet_url}", verbose, is_error=False, log_caller_file="home.py")
                     posted += 1
                     tweet_data['status'] = 'posted'
-                    break  # Success, exit retry loop
+                    break
 
             except Exception as e:
                 log(f"Post attempt {post_attempt + 1} failed: {e}", verbose, is_error=True, log_caller_file="home.py")
                 if post_attempt < max_post_retries - 1:
-                    time.sleep(random.uniform(2, 4))  # Wait before retry
+                    time.sleep(random.uniform(2, 4))
                 else:
                     log(f"All post attempts failed for {tweet_url}", verbose, is_error=True, log_caller_file="home.py")
                     failed += 1

@@ -5,14 +5,11 @@ import json
 from rich.status import Status
 from rich.console import Console
 
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
-
-from typing import Optional, List, Dict, Tuple, Any
 
 from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
@@ -23,12 +20,15 @@ from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir, get_instagram_profile_dir
 
 from profiles import PROFILES
-from services.platform.instagram.support.scraper_utils import scrape_instagram_reels_comments, move_to_next_reel
+
 from services.platform.instagram.support.video_utils import download_instagram_reel
+from services.platform.instagram.support.scraper_utils import scrape_instagram_reels_comments, move_to_next_reel
+
+from services.support.storage.storage_factory import get_storage
 
 console = Console()
 
-def generate_instagram_replies(comments_data: list, video_path: str = None, verbose: bool = False, profile: str = None):
+def generate_instagram_replies(comments_data: list, video_path: str = None, verbose: bool = False, profile: str = None, all_replies: list = None):
     try:
         api_key_pool = APIKeyPool()
         api_call_tracker = APICallTracker()
@@ -37,28 +37,42 @@ def generate_instagram_replies(comments_data: list, video_path: str = None, verb
         top_comments = comments_data[:10]
         comments_json = json.dumps(top_comments, indent=2)
 
+        sample_section = ''
+        if all_replies:
+            approved_examples = []
+            for r in all_replies:
+                if r.get('approved') and r.get('reply'):
+                    context_text = r.get('reel_text', 'Previous Context')
+                    approved_examples.append(f"Content: {context_text}\nApproved Reply: {r['reply']}")
+            
+            if approved_examples:
+                sample_section = 'Sample approved content-reply pairs from this account:\n' + '\n---\n'.join(approved_examples) + '\n\n'
+
         if profile and profile in PROFILES and 'prompts' in PROFILES[profile] and 'reply_generation' in PROFILES[profile]['prompts']:
             custom_prompt = PROFILES[profile]['prompts']['reply_generation']
-            if custom_prompt.strip():
-                prompt_text = custom_prompt
-            else:
-                prompt_text = (
-                    "Analyze the following Instagram Reel comments and the video content.\n"
-                    "Generate a single, highly engaging, and relevant reply that could be posted by the channel owner.\n"
-                    "Make the reply concise, witty, and positive. Avoid generic phrases.\n\n"
-                    f"Top comments (JSON):\n{comments_json}"
-                )
         else:
-            prompt_text = (
-                "Analyze the following Instagram Reel comments and the video content.\n"
-                "Generate a single, highly engaging, and relevant reply that could be posted by the channel owner.\n"
-                "Make the reply concise, witty, and positive. Avoid generic phrases.\n\n"
-                f"Top comments (JSON):\n{comments_json}"
-            )
+            custom_prompt = "Generate a single, highly engaging, and relevant reply that could be posted by me as a person"
+
+        prompt_text = f"""{custom_prompt}
+            {sample_section}
+
+            Analyze the following Instagram Reel comments and the video content.
+            Make the reply concise, witty, and positive. Avoid generic phrases.
+
+            Top comments (JSON):
+            {comments_json}
+        """
 
         if video_path and os.path.exists(video_path):
-            prompt_text += f"\n\nVideo content is available at: {video_path}"
-            prompt_text += "\nThe video is a short, engaging clip. Focus replies on humor and positivity."
+            prompt_text += f"\nVideo content (visual context) is available."
+            prompt_text += "\nFocus replies on humor and positivity related to the visual content."
+
+        prompt_text += "\n\nImportant: Generate exactly ONE reply. Do not provide multiple options or explanations. Do not include quotes around your reply. Take inspiration from the sample_section for writing style and tone."
+        prompt_text += "\nJust write a single direct reply."
+
+        profile_props = PROFILES.get(profile, {}).get('properties', {})
+        global_props = profile_props.get('global', {})
+        model_name = global_props.get('model_name', 'gemini-2.5-flash-lite')
 
         max_api_retries = 3
         for api_attempt in range(max_api_retries):
@@ -69,13 +83,13 @@ def generate_instagram_replies(comments_data: list, video_path: str = None, verb
                     api_call_tracker=api_call_tracker,
                     rate_limiter=rate_limiter,
                     prompt_text=prompt_text,
-                    model_name='gemini-2.5-flash-lite',
+                    model_name=model_name,
                     status=None,
                     verbose=verbose
                 )
 
                 if reply:
-                    return reply
+                    return reply.strip().replace('"', '').replace('"', '')
                 else:
                     log(f"API attempt {api_attempt + 1}: No reply generated", verbose, log_caller_file="replies_utils.py")
                     continue
@@ -181,6 +195,15 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
         return [], None
 
     try:
+        all_replies_context = []
+        try:
+            storage = get_storage('instagram', profile, 'action', verbose)
+            if storage and hasattr(storage, 'get_all_approved_and_posted_reels'):
+                all_replies_context = storage.get_all_approved_and_posted_reels(verbose)
+                log(f"Loaded {len(all_replies_context)} approved and posted reels for context", verbose, log_caller_file="replies_utils.py")
+        except Exception as e:
+            log(f"Warning: Could not initialize Instagram storage for context: {e}", verbose, log_caller_file="replies_utils.py")
+
         with Status("[white]Navigating to Instagram Reels...[/white]", spinner="dots", console=console) as status:
             driver.get("https://www.instagram.com/reels/")
             time.sleep(5)
@@ -231,7 +254,8 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
                         comments_data=structured_comments_for_gemini,
                         video_path=video_path,
                         verbose=verbose,
-                        profile=profile
+                        profile=profile,
+                        all_replies=all_replies_context
                     )
                     status.stop()
 
