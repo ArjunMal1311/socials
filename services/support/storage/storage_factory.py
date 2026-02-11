@@ -17,6 +17,7 @@ from services.support.storage.platforms.linkedin.suggestions_new import LinkedIn
 from services.support.storage.platforms.linkedin.suggestions_generated import LinkedInSuggestionsGeneratedStorage
 
 from services.support.storage.platforms.instagram.action import InstagramActionStorage
+from services.support.storage.platforms.instagram.learning import InstagramLearningStorage
 
 from services.support.storage.platforms.reddit.trends import RedditTrendsStorage
 from services.support.storage.platforms.reddit.suggestions_new import RedditSuggestionsNewStorage
@@ -70,8 +71,11 @@ def get_storage(platform: str, profile_name: str, feature: str = 'action', verbo
         if feature == 'action':
             log(f"Creating Instagram action storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
             return InstagramActionStorage(profile_name)
+        elif feature == 'learning':
+            log(f"Creating Instagram learning storage for profile: {profile_name}", verbose, log_caller_file="storage_factory.py")
+            return InstagramLearningStorage(profile_name)
         else:
-            log(f"Unsupported Instagram feature: {feature}. Supported: action", verbose, is_error=True, log_caller_file="storage_factory.py")
+            log(f"Unsupported Instagram feature: {feature}. Supported: action, learning", verbose, is_error=True, log_caller_file="storage_factory.py")
             return None
     elif platform == 'connections':
         if feature == 'connection':
@@ -115,7 +119,7 @@ def get_supported_features(platform: str) -> list[str]:
     elif platform == 'linkedin':
         return ['action', 'connection', 'suggestions_generated', 'suggestions_new']
     elif platform == 'instagram':
-        return ['action']
+        return ['action', 'learning']
     elif platform == 'reddit':
         return ['suggestions_generated', 'suggestions_new', 'trends']
     elif platform == 'producthunt':

@@ -363,3 +363,93 @@ def scrape_instagram_reels(profile_name: str, count: int, max_comments: int, ver
     except Exception as e:
         log(f"Error during unified Instagram scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
         return None, []
+
+def scrape_profile_posts(profile_name: str, target_profile: str, count: int, verbose: bool = False, headless: bool = True, status: Optional[Status] = None) -> Tuple[Optional[Any], List[Dict[str, Any]]]:
+    browser_data_dir = get_browser_data_dir(profile_name, "instagram")
+    
+    try:
+        if status:
+            status.update(f"[white]Initializing WebDriver for profile '{profile_name}'...[/white]")
+        
+        driver, setup_messages = setup_driver(browser_data_dir, profile=profile_name, headless=headless)
+        
+        if not driver:
+            log("WebDriver could not be initialized for Instagram.", verbose, is_error=True, log_caller_file="scraper_utils.py")
+            return None, []
+
+        if status:
+            status.update(f"[white]Navigating to Instagram profile '{target_profile}'...[/white]")
+        
+        driver.get(f"https://www.instagram.com/{target_profile}/")
+        time.sleep(5)
+
+        scraped_posts = []
+        collected_urls = set()
+        
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        
+        posts_xpath = "//a[contains(@href, '/reel/') or contains(@href, '/p/')]"
+        
+        scroll_attempts = 0
+        max_scroll_attempts = count // 3 + 5 
+
+        while len(scraped_posts) < count and scroll_attempts < max_scroll_attempts:
+            if status:
+                status.update(f"[white]Scanning feed... Found {len(scraped_posts)}/{count} posts[/white]")
+
+            links = driver.find_elements(By.XPATH, posts_xpath)
+            
+            new_batch_found = False
+            for link in links:
+                if len(scraped_posts) >= count:
+                    break
+                
+                try:
+                    href = link.get_attribute('href')
+                    if not href or href in collected_urls:
+                        continue
+                    
+                    collected_urls.add(href)
+                    
+                    caption = ""
+                    try:
+                        img_tag = link.find_element(By.TAG_NAME, "img")
+                        if img_tag:
+                            caption = img_tag.get_attribute("alt") or ""
+                    except Exception:
+                        pass
+                    
+                    post_data = {
+                        'post_url': href,
+                        'id': href.split('/')[-2] if href.strip('/').count('/') >= 1 else '',
+                        'scraped_at': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+                        'profile_name': target_profile,
+                        'caption': caption
+                    }
+                    
+                    scraped_posts.append(post_data)
+                    new_batch_found = True
+                    log(f"Found post: {href}", verbose, log_caller_file="scraper_utils.py")
+                    
+                except Exception as e:
+                    log(f"Error extracting element data: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+
+            if len(scraped_posts) >= count:
+                break
+
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
+            
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height and not new_batch_found:
+                scroll_attempts += 1
+            elif new_batch_found:
+                scroll_attempts = 0
+                
+            last_height = new_height
+            
+        return driver, scraped_posts
+
+    except Exception as e:
+        log(f"Error during profile scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+        return None, []

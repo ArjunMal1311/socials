@@ -59,6 +59,7 @@ def download_instagram_reel(reel_url: str, profile_name: str, output_format: str
             'yt-dlp',
             '--format', output_format,
             '--output', output_template,
+            '--print', 'after_move:filepath',
         ]
 
         if restrict_filenames:
@@ -73,18 +74,13 @@ def download_instagram_reel(reel_url: str, profile_name: str, output_format: str
             log(f"Downloading reel with yt-dlp command: {' '.join(download_command)}", verbose, log_caller_file="video_utils.py")
 
         download_result = subprocess.run(download_command, capture_output=True, text=True, check=True)
+        downloaded_file_path = download_result.stdout.strip()
 
-        downloaded_file_path = None
-        for line in download_result.stdout.split('\n'):
-            if '[download] Destination:' in line:
-                downloaded_file_path = line.split('[download] Destination:')[1].strip()
-                break
-
-        if downloaded_file_path:
+        if downloaded_file_path and os.path.exists(downloaded_file_path):
             log(f"Successfully downloaded reel to: {downloaded_file_path}", verbose, log_caller_file="video_utils.py")
             return downloaded_file_path, cdn_link
         else:
-            log(f"Could not determine downloaded file path for {reel_url}", verbose, is_error=True, log_caller_file="video_utils.py")
+            log(f"Could not determine or find downloaded file path for {reel_url}. Output: {download_result.stdout}", verbose, is_error=True, log_caller_file="video_utils.py")
             return None, cdn_link
 
     except subprocess.CalledProcessError as e:
@@ -123,6 +119,7 @@ def download_instagram_videos(video_urls: list, profile_name: str, output_format
                 'yt-dlp',
                 '--format', output_format,
                 '--output', output_template,
+                '--print', 'after_move:filepath',
             ]
 
             if restrict_filenames:
@@ -132,16 +129,15 @@ def download_instagram_videos(video_urls: list, profile_name: str, output_format
 
             result = subprocess.run(command, capture_output=True, text=True, check=True)
 
-            downloaded_file_match = re.search(r'\[download\] Destination: (.+)', result.stdout)
-            if downloaded_file_match:
-                downloaded_file = downloaded_file_match.group(1)
+            downloaded_file = result.stdout.strip()
+            if downloaded_file and os.path.exists(downloaded_file):
                 downloaded_paths.append(downloaded_file)
                 if status:
                     status.update(f"[green]Successfully downloaded {os.path.basename(downloaded_file)}[/green]")
                 else:
                     log(f"Successfully downloaded {os.path.basename(downloaded_file)}", verbose, log_caller_file="video_utils.py")
             else:
-                raise Exception("yt-dlp output did not contain expected download destination.")
+                log(f"yt-dlp output did not contain expected download destination or file not found. Output: {result.stdout}", verbose, is_warning=True, log_caller_file="video_utils.py")
 
         except subprocess.CalledProcessError as e:
             if status:

@@ -11,7 +11,8 @@ MODULE_CONFIGS = {
             'connection': 'connection.py',
             'ideas': 'idea.py',
             'networking': 'networking.py',
-            'suggestions': 'suggestions.py'
+            'suggestions': 'suggestions.py',
+            'learning': 'learning.py'
         },
         'profile_required': True
     },
@@ -70,7 +71,8 @@ MODULE_CONFIGS = {
         'modules': {
             'videos': 'videos.py',
             'replies': 'replies.py',
-            'scraper': 'scraper.py'
+            'scraper': 'scraper.py',
+            'profiles': 'profile.py'
         }
     }
 }
