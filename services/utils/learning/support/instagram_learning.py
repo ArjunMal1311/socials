@@ -16,7 +16,7 @@ from services.support.api_call_tracker import APICallTracker
 from services.support.storage.base_storage import BaseStorage
 from services.support.path_config import get_platform_profile_dir, get_base_dir
 
-from services.platform.instagram.support.video_utils import download_instagram_reel
+from services.platform.instagram.support.video_utils import download_instagram_videos
 
 console = Console()
 
@@ -84,13 +84,15 @@ def process_instagram_learning(profile_name: str, target_profiles: List[str], le
             output_format = videos_props.get('output_format', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]')
             restrict_filenames = videos_props.get('restrict_filenames', True)
 
-            media_path, cdn_link = download_instagram_reel(
-                reel_url=post_url,
+            media_path, cdn_link = download_instagram_videos(
+                video_urls=post_url,
                 profile_name=profile_name,
                 output_format=output_format,
                 restrict_filenames=restrict_filenames,
                 status=status,
-                verbose=verbose
+                verbose=verbose,
+                extract_cdn_links=True,
+                use_reels_dir=True
             )
             
             if not media_path:

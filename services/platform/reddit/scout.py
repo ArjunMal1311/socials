@@ -28,6 +28,7 @@ def main():
         log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True)
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     verbose = global_props.get('verbose', False)

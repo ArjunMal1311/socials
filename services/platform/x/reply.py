@@ -20,7 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
 
-from services.platform.x.support.home import run_home_mode, post_approved_home_mode_replies
+from services.platform.x.support.reply_home import run_home_mode, post_approved_home_mode_replies
 
 console = Console()
 
@@ -45,13 +45,14 @@ def main():
 
     profile = args.profile
     if profile not in PROFILES:
-        log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
-        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", False, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+        log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="reply.py")
+        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", False, is_error=True, status=None, api_info=None, log_caller_file="reply.py")
         sys.exit(1)
 
+    # profile parameters 
     profile_name = PROFILES[profile]['name']
     custom_prompt = PROFILES[profile]['prompts']['reply_generation']
-
+    
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     platform_props = profile_props.get('platform', {})
@@ -67,10 +68,10 @@ def main():
         with Status(f'[white]Running Home Mode: Gemini reply to tweets for {profile_name}...[/white]', spinner="dots", console=console) as status:
             driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.api, verbose=verbose, headless=headless)
             status.stop()
-            log("Home Mode Results:", verbose, status=status, api_info=None, log_caller_file="replies.py")
+            log("Home Mode Results:", verbose, status=status, api_info=None, log_caller_file="reply.py")
 
             if args.auto_approve:
-                log("Auto-approving all generated replies...", verbose, log_caller_file="replies.py")
+                log("Auto-approving all generated replies...", verbose, log_caller_file="reply.py")
                 replies_dir = os.path.join("tmp", "replies", profile_name)
                 replies_path = os.path.join(replies_dir, 'replies.json')
                 if os.path.exists(replies_path):
@@ -83,16 +84,16 @@ def main():
                     with open(replies_path, 'w') as f:
                         json.dump(items, f, indent=2)
             else:
-                log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="replies.py")
+                log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="reply.py")
                 input()
 
             if not args.dry_run:
                 with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
                     summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
                     status.stop()
-                    log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
+                    log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="reply.py")
             else:
-                log("Dry run: Skipping posting replies.", verbose, log_caller_file="replies.py")
+                log("Dry run: Skipping posting replies.", verbose, log_caller_file="reply.py")
 
             if driver and not args.api:
                 driver.quit()
@@ -100,7 +101,7 @@ def main():
     if args.mode == "profiles":
         target_profiles = PROFILES[profile].get('target_profiles', [])
         if not target_profiles:
-            log(f"No target profiles found for {profile}. Add target_profiles to profiles.py", verbose, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
+            log(f"No target profiles found for {profile}. Add target_profiles to profiles.py", verbose, is_error=True, status=None, api_info=None, log_caller_file="reply.py")
             sys.exit(1)
 
         query_parts = [f"from:{p}" for p in target_profiles]
@@ -111,15 +112,15 @@ def main():
         with Status(f'[white]Running Profiles Mode: Gemini reply to tweets from {", ".join(target_profiles)} for {profile_name}...[/white]', spinner="dots", console=console) as status:
             driver, _ = run_home_mode(profile_name, custom_prompt, max_tweets=count, status=status, ignore_video_tweets=ignore_video_tweets, post_via_api=args.api, verbose=verbose, headless=headless, specific_search_url=specific_search_url)
             status.stop()
-            log("Profiles Mode Results:", verbose, status=status, api_info=None, log_caller_file="replies.py")
+            log("Profiles Mode Results:", verbose, status=status, api_info=None, log_caller_file="reply.py")
 
-            log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="replies.py")
+            log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="reply.py")
             input()
 
             with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
                 summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
                 status.stop()
-                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
+                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="reply.py")
 
             if driver and not args.api:
                 driver.quit()

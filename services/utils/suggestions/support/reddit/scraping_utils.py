@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 from services.support.logger_util import _log as log
 from services.support.path_config import get_suggestions_dir
 
-from services.platform.reddit.support.scraper_utils import run_reddit_scraper
+from services.platform.reddit.support.scout_utils import run_reddit_scout
 
 console = Console()
 
@@ -26,7 +26,7 @@ def run_reddit_suggestions_workflow(profile_name: str, max_posts: int = 15, verb
     log(f"Starting Reddit suggestions scraping workflow for profile: {profile_name}", verbose, log_caller_file="scraping_utils.py")
 
     with Status(f"[white]Scraping Reddit posts for suggestions...[/white]", spinner="dots", console=console) as status:
-        scraped_posts = run_reddit_scraper(profile_name, status=status, verbose=verbose)
+        scraped_posts = run_reddit_scout(profile_name, status=status, verbose=verbose)
 
     if not scraped_posts:
         return {"error": "No Reddit posts were scraped"}

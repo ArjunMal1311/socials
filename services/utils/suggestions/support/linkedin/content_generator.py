@@ -14,7 +14,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
 from services.support.path_config import get_gemini_log_file_path, get_suggestions_dir
-from services.support.gemini_util import generate_gemini_with_inline_media, create_inline_media_data
+from services.support.gemini_util import generate_gemini, create_inline_media_data
 
 from services.utils.suggestions.support.linkedin.media_downloader import download_linkedin_post_media
 from services.utils.suggestions.support.linkedin.scraping_utils import get_latest_filtered_linkedin_file
@@ -50,7 +50,7 @@ def generate_linkedin_caption(post_data: Dict[str, Any], media_paths: List[str],
 
     log(f"[HITTING API] Calling Gemini API for post {post_id}", verbose, log_caller_file="content_generator.py")
 
-    result, _ = generate_gemini_with_inline_media(
+    result, _ = generate_gemini(
         prompt_parts=prompt_parts,
         api_key_pool=api_key_pool,
         api_call_tracker=api_call_tracker,
@@ -260,7 +260,7 @@ def generate_new_linkedin_tweets_from_filtered(profile_name: str, storage: Optio
         prompt_parts.append(f"\n\n{new_posts_prompt}")
         prompt_parts.append(f"\n\nReturn exactly {num_posts} new posts, one per line. Do not include analysis or explanations - only the post text.")
 
-        result, _ = generate_gemini_with_inline_media(
+        result, _ = generate_gemini(
             prompt_parts=prompt_parts,
             api_key_pool=api_key_pool,
             api_call_tracker=api_call_tracker,

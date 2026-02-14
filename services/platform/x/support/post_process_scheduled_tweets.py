@@ -15,8 +15,8 @@ from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
 from services.support.path_config import get_browser_data_dir, get_schedule_file_path
 
-from services.platform.x.support.schedule_tweet import schedule_tweet
-from services.platform.x.support.save_tweet_schedules import save_tweet_schedules
+from services.platform.x.support.post_schedule_tweet import post_schedule_tweet
+from services.platform.x.support.post_save_tweet_schedules import save_tweet_schedules
 
 console = Console()
 
@@ -62,7 +62,7 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
 
                 status.update(f"[white]Attempting to schedule tweet for {scheduled_time} with text '{tweet_text}'[/white]")
 
-                success = schedule_tweet(driver, tweet_text, media_file, scheduled_time, profile_name, status, verbose=verbose)
+                success = post_schedule_tweet(driver, tweet_text, media_file, scheduled_time, profile_name, status, verbose=verbose)
 
                 if success:
                     scheduled_tweets[i]['posted'] = True

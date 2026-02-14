@@ -38,4 +38,4 @@ def save_tweet_schedules(schedules, profile_name="Default", verbose: bool = Fals
         json.dump(all_schedules, f, indent=2)
         f.truncate()
         
-    log(f"Updated {updated_count} tweet schedules in {schedule_file_path}", verbose, log_caller_file="save_tweet_schedules.py")
+    log(f"Updated {updated_count} tweet schedules in {schedule_file_path}", verbose, log_caller_file="post_save_tweet_schedules.py")

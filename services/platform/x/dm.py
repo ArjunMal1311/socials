@@ -8,14 +8,16 @@ import sys
 import argparse
 
 from profiles import PROFILES
-
 from dotenv import load_dotenv
+
 from rich.console import Console
 from rich.status import Status
+
 from services.support.logger_util import _log as log
-from services.platform.x.support.home import setup_driver
 from services.support.path_config import get_browser_data_dir, initialize_directories
-from services.platform.x.support.x_dm_utils import check_dm_button, send_dm, send_dm_api
+
+from services.platform.x.support.reply_home import setup_driver
+from services.platform.x.support.dm_utils import check_dm_button, send_dm, send_dm_api
 
 console = Console()
 
@@ -24,6 +26,8 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="X DM CLI Tool")
+    args = parser.parse_args()
+
     # profile
     parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
@@ -35,17 +39,15 @@ def main():
     parser.add_argument("message", nargs='?', help="Message to send (required for send/bulk modes)")
 
     # method override
-    parser.add_argument("--method", type=str, choices=["api", "browser"], default="browser", help="Method to send DM: 'api' or 'browser'. Defaults to 'browser'.")
-    
+    parser.add_argument("--method", type=str, choices=["api", "browser"], default="browser", help="Method to send DM: 'api' or 'browser'. Defaults to 'browser'.")    
     parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without actually sending DMs.")
-
-    args = parser.parse_args()
 
     profile = args.profile
     if profile not in PROFILES:
         log(f"Profile '{profile}' not found in PROFILES.", verbose=False, is_error=True, log_caller_file="dm.py")
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     verbose = global_props.get('verbose', False)

@@ -18,7 +18,6 @@ from services.platform.reddit.support.reddit_api_utils import initialize_praw, g
 
 console = Console()
 
-
 def run_reddit_scout(profile_name: str, status: Optional[Status] = None, verbose: bool = False) -> List[Dict[str, Any]]:
     load_dotenv()
     

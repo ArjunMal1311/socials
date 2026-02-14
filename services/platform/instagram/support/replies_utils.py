@@ -6,7 +6,6 @@ from rich.status import Status
 from rich.console import Console
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
@@ -21,14 +20,14 @@ from services.support.path_config import get_browser_data_dir, get_instagram_pro
 
 from profiles import PROFILES
 
-from services.platform.instagram.support.video_utils import download_instagram_reel
-from services.platform.instagram.support.scraper_utils import scrape_instagram_reels_comments, move_to_next_reel
+from services.platform.instagram.support.video_utils import download_instagram_videos
+from services.platform.instagram.support.scout_utils import scout_instagram_reels_comments, move_to_next_reel
 
 from services.support.storage.storage_factory import get_storage
 
 console = Console()
 
-def generate_instagram_replies(comments_data: list, video_path: str = None, verbose: bool = False, profile: str = None, all_replies: list = None):
+def generate_instagram_replies(comments_data: list, video_path: str = None, verbose: bool = False, profile: str = None, replies: list = None):
     try:
         api_key_pool = APIKeyPool()
         api_call_tracker = APICallTracker()
@@ -38,9 +37,9 @@ def generate_instagram_replies(comments_data: list, video_path: str = None, verb
         comments_json = json.dumps(top_comments, indent=2)
 
         sample_section = ''
-        if all_replies:
+        if replies:
             approved_examples = []
-            for r in all_replies:
+            for r in replies:
                 if r.get('approved') and r.get('reply'):
                     context_text = r.get('reel_text', 'Previous Context')
                     approved_examples.append(f"Content: {context_text}\nApproved Reply: {r['reply']}")
@@ -74,40 +73,21 @@ def generate_instagram_replies(comments_data: list, video_path: str = None, verb
         global_props = profile_props.get('global', {})
         model_name = global_props.get('model_name', 'gemini-2.5-flash-lite')
 
-        max_api_retries = 3
-        for api_attempt in range(max_api_retries):
-            try:
-                reply, _ = generate_gemini(
-                    media_path=video_path if video_path and os.path.exists(video_path) else None,
-                    api_key_pool=api_key_pool,
-                    api_call_tracker=api_call_tracker,
-                    rate_limiter=rate_limiter,
-                    prompt_text=prompt_text,
-                    model_name=model_name,
-                    status=None,
-                    verbose=verbose
-                )
+        reply, _ = generate_gemini(
+            media_path=video_path if video_path and os.path.exists(video_path) else None,
+            api_key_pool=api_key_pool,
+            api_call_tracker=api_call_tracker,
+            rate_limiter=rate_limiter,
+            prompt_text=prompt_text,
+            model_name=model_name,
+            status=None,
+            verbose=verbose
+        )
 
-                if reply:
-                    return reply.strip().replace('"', '').replace('"', '')
-                else:
-                    log(f"API attempt {api_attempt + 1}: No reply generated", verbose, log_caller_file="replies_utils.py")
-                    continue
-
-            except Exception as e:
-                error_str = str(e)
-                if "429" in error_str or "quota" in error_str.lower() or "exceeded" in error_str.lower():
-                    log(f"API attempt {api_attempt + 1}: Rate limit/quota exceeded, trying next API key", verbose, log_caller_file="replies_utils.py")
-                    if api_attempt < max_api_retries - 1:
-                        time.sleep(2)
-                        continue
-                    else:
-                        return f"Error: All API keys exhausted due to rate limits"
-                else:
-                    log(f"API attempt {api_attempt + 1}: Unexpected error: {error_str}", verbose, is_error=True, log_caller_file="replies_utils.py")
-                    return f"Error: {error_str}"
-
-        return f"Error: No reply generated after {max_api_retries} API attempts"
+        if reply:
+            return reply.strip().replace('"', '').replace('"', '')
+        
+        return "Error: No reply generated"
 
     except Exception as e:
         log(f"Error generating Instagram reply with Gemini: {e}", verbose, is_error=True, log_caller_file="replies_utils.py")
@@ -195,12 +175,12 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
         return [], None
 
     try:
-        all_replies_context = []
+        replies_context = []
         try:
             storage = get_storage('instagram', profile, 'action', verbose)
             if storage and hasattr(storage, 'get_all_approved_and_posted_reels'):
-                all_replies_context = storage.get_all_approved_and_posted_reels(verbose)
-                log(f"Loaded {len(all_replies_context)} approved and posted reels for context", verbose, log_caller_file="replies_utils.py")
+                replies_context = storage.get_all_approved_and_posted_reels(verbose)
+                log(f"Loaded {len(replies_context)} approved and posted reels for context", verbose, log_caller_file="replies_utils.py")
         except Exception as e:
             log(f"Warning: Could not initialize Instagram storage for context: {e}", verbose, log_caller_file="replies_utils.py")
 
@@ -218,12 +198,12 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
 
         for i in range(number_of_reels):
             video_path = None
-            log(f"--- Processing Reel {i+1}/{number_of_reels} ---", verbose, log_caller_file="replies_utils.py")
+            log(f"Processing Reel {i+1}/{number_of_reels}", verbose, log_caller_file="replies_utils.py")
 
             html_dump_path = os.path.join(profile_base_dir, "instagram_comments_dump.html")
 
             with Status(f"[white]Running Instagram Replies: Scraping comments for {profile}...[/white]", spinner="dots", console=console) as status:
-                structured_comments_for_gemini, reel_url = scrape_instagram_reels_comments(
+                comments, reel_url = scout_instagram_reels_comments(
                     driver=driver,
                     max_comments=max_comments,
                     status=status,
@@ -233,8 +213,8 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
                 )
             status.stop()
 
-            if reel_url and structured_comments_for_gemini:
-                log(f"Scraped {len(structured_comments_for_gemini)} comments from {reel_url}.", verbose, log_caller_file="replies_utils.py")
+            if reel_url and comments:
+                log(f"Scraped {len(comments)} comments from {reel_url}.", verbose, log_caller_file="replies_utils.py")
 
                 video_path = None
                 if download_reels:
@@ -243,7 +223,7 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
                     restrict_filenames = videos_props.get('restrict_filenames', True)
 
                     with Status(f"[white]Downloading Instagram Reel: {reel_url}...[/white]", spinner="dots", console=console) as status:
-                        video_path, cdn_link = download_instagram_reel(reel_url, profile, output_format, restrict_filenames, status, verbose=verbose)
+                        video_path, cdn_link = download_instagram_videos(reel_url, profile, output_format, restrict_filenames, status, verbose=verbose, extract_cdn_links=True, use_reels_dir=True)
                     status.stop()
 
                     if video_path and cdn_link:
@@ -251,11 +231,11 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
 
                 with Status("[white]Generating reply...[/white]", spinner="dots", console=console) as status:
                     generated_reply = generate_instagram_replies(
-                        comments_data=structured_comments_for_gemini,
+                        comments_data=comments,
                         video_path=video_path,
                         verbose=verbose,
                         profile=profile,
-                        all_replies=all_replies_context
+                        replies=replies_context
                     )
                     status.stop()
 
@@ -266,7 +246,7 @@ def generate_replies_for_approval(profile, max_comments, number_of_reels, downlo
                     reply_data = {
                         "reel_number": i + 1,
                         "reel_url": reel_url,
-                        "comments_count": len(structured_comments_for_gemini),
+                        "comments_count": len(comments),
                         "generated_reply": generated_reply,
                         "video_path": video_path,
                         "cdn_link": cdn_link,

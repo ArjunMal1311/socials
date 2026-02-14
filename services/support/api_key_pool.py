@@ -1,11 +1,13 @@
 import os
 import re
 import time
+import json
 import threading
 
 from collections import deque
 from rich.console import Console
 from services.support.logger_util import _log as log
+from services.support.path_config import get_pool_dir, ensure_dir_exists
 
 console = Console()
 
@@ -18,6 +20,7 @@ class APIKeyPool:
         self.key_index = 0
         self.verbose = verbose
         self._cooldowns = {}
+        self.usage_file = os.path.join(ensure_dir_exists(get_pool_dir()), "api_key_usage.json")
         self.load_keys(api_keys_string, verbose)
 
     def set_explicit_key(self, api_key: str):
@@ -46,31 +49,59 @@ class APIKeyPool:
             self.api_keys.extend(keys_to_load)
             self.key_usage_times = {key: deque() for key in self.api_keys}
 
+    def _get_usage_counts(self):
+        try:
+            if os.path.exists(self.usage_file):
+                with open(self.usage_file, 'r') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {}
+
+    def _save_usage_counts(self, counts):
+        try:
+            with open(self.usage_file, 'w') as f:
+                json.dump(counts, f, indent=2)
+        except Exception:
+            pass
+
     def get_key(self):
         with self.lock:
             if not self.api_keys:
                 return None
 
-            while True:
-                current_key = self.api_keys[self.key_index]
-                self.key_index = (self.key_index + 1) % len(self.api_keys)
+            current_time = time.time()
+            usage_counts = self._get_usage_counts()
 
-                current_time = time.time()
-                cooldown_until = self._cooldowns.get(current_key)
-                if cooldown_until and cooldown_until > current_time:
-                    continue
+            available_keys = []
+            for key in self.api_keys:
+                cooldown_until = self._cooldowns.get(key)
+                if not (cooldown_until and cooldown_until > current_time):
+                    available_keys.append(key)
+
+            if not available_keys:
+                selected_key = self.api_keys[self.key_index]
+                self.key_index = (self.key_index + 1) % len(self.api_keys)
+            else:
+                selected_key = min(available_keys, key=lambda k: usage_counts.get(k, 0))
+
+            while self.key_usage_times[selected_key] and \
+                  self.key_usage_times[selected_key][0] <= current_time - 60:
+                self.key_usage_times[selected_key].popleft()
+
+            if len(self.key_usage_times[selected_key]) < self.rpm:
+                self.key_usage_times[selected_key].append(current_time)
                 
-                while self.key_usage_times[current_key] and \
-                      self.key_usage_times[current_key][0] <= current_time - 60:
-                    self.key_usage_times[current_key].popleft()
+                usage_counts[selected_key] = usage_counts.get(selected_key, 0) + 1
+                self._save_usage_counts(usage_counts)
                 
-                if len(self.key_usage_times[current_key]) < self.rpm:
-                    self.key_usage_times[current_key].append(current_time)
-                    return current_key
-                else:
-                    time_to_wait = 60 - (current_time - self.key_usage_times[current_key][0])
-                    if time_to_wait > 0:
-                        time.sleep(time_to_wait)
+                return selected_key
+            else:
+                time_to_wait = 60 - (current_time - self.key_usage_times[selected_key][0])
+                if time_to_wait > 0:
+                    time.sleep(time_to_wait)
+                
+                return self.get_key()
 
     def mark_cooldown(self, api_key: str, seconds: float = 65.0):
         with self.lock:

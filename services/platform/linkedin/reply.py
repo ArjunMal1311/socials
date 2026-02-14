@@ -30,9 +30,10 @@ def main():
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
-        log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True, log_caller_file="reply.py")
+        log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True)
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[args.profile].get('properties', {})
     global_props = profile_props.get('global', {})
     platform_props = profile_props.get('platform', {})
@@ -53,7 +54,7 @@ def main():
             status.stop()
 
             if replies_data:
-                log(f"Generated {len(replies_data)} LinkedIn replies", verbose, log_caller_file="reply.py")
+                log(f"Generated {len(replies_data)} LinkedIn replies", verbose)
                 console.print(f"[green]Generated {len(replies_data)} LinkedIn replies[/green]")
                 console.print(f"[yellow]Review replies in: {replies_file}[/yellow]")
                 console.print("[yellow]Edit the file and set 'approved': true for replies you want to post[/yellow]")
@@ -64,10 +65,10 @@ def main():
                 with Status(f"[white]Posting approved LinkedIn replies for {args.profile}...[/white]", spinner="dots", console=console) as status:
                     summary = post_approved_linkedin_replies(driver, args.profile, verbose=verbose, status=status)
                     status.stop()
-                    log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, log_caller_file="reply.py")
+                    log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose)
                     console.print(f"[green]Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}[/green]")
             else:
-                log("No replies were generated", verbose, is_error=True, log_caller_file="reply.py")
+                log("No replies were generated", verbose, is_error=True)
                 console.print("[red]No replies were generated[/red]")
 
             if driver:

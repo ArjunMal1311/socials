@@ -15,8 +15,7 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
         'article[data-testid="tweet"]',
         'article[role="article"]',
         '[data-testid="Tweet-User-Text"]',
-        '.tweet',
-        '.css-1dbjc4n'
+        '.tweet'
     ]
 
     tweet_elements = []

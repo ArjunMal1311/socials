@@ -9,7 +9,7 @@ from services.support.api_key_pool import APIKeyPool
 from services.support.rate_limiter import RateLimiter
 from services.support.api_call_tracker import APICallTracker
 from services.support.postgres_util import get_postgres_connection
-from services.support.gemini_util import generate_gemini_with_inline_media
+from services.support.gemini_util import generate_gemini
 from services.support.storage.platforms.reddit.trends import RedditTrendsStorage
 from services.support.path_config import get_gemini_log_file_path, get_suggestions_dir
 
@@ -84,7 +84,7 @@ def analyze_trends_with_gemini(data_summary: str, api_key_pool: APIKeyPool, tren
     profile_config = PROFILES.get('flytdev', {})
     model_name = profile_config.get('properties', {}).get('model_name', 'gemini-2.5-flash-lite')
 
-    result, _ = generate_gemini_with_inline_media(
+    result, _ = generate_gemini(
         prompt_parts=prompt_parts,
         api_key_pool=api_key_pool,
         api_call_tracker=api_call_tracker,

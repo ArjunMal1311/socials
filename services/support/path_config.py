@@ -76,25 +76,25 @@ def get_platform_profile_dir(platform: str, profile: str) -> str:
 # X (Twitter) PLATFORM
 # =============================================================================
 
-def get_x_scraper_dir(profile: str) -> str:
-    """Get X scraper directory: platform/x/{profile}/scraper"""
-    return os.path.join(get_platform_profile_dir("x", profile), "scraper")
+def get_x_scout_dir(profile: str) -> str:
+    """Get X scout directory: platform/x/{profile}/scout"""
+    return os.path.join(get_platform_profile_dir("x", profile), "scout")
 
-def get_x_scraper_home_dir(profile: str) -> str:
-    """Get X home feed scraper directory: platform/x/{profile}/scraper/home"""
-    return os.path.join(get_x_scraper_dir(profile), "home")
+def get_x_scout_home_dir(profile: str) -> str:
+    """Get X home feed scout directory: platform/x/{profile}/scout/home"""
+    return os.path.join(get_x_scout_dir(profile), "home")
 
-def get_x_scraper_community_dir(profile: str) -> str:
-    """Get X community scraper directory: platform/x/{profile}/scraper/community"""
-    return os.path.join(get_x_scraper_dir(profile), "community")
+def get_x_scout_community_dir(profile: str) -> str:
+    """Get X community scout directory: platform/x/{profile}/scout/community"""
+    return os.path.join(get_x_scout_dir(profile), "community")
 
-def get_x_scraper_profiles_dir(profile: str) -> str:
-    """Get X profiles scraper directory: platform/x/{profile}/scraper/profiles"""
-    return os.path.join(get_x_scraper_dir(profile), "profiles")
+def get_x_scout_profiles_dir(profile: str) -> str:
+    """Get X profiles scout directory: platform/x/{profile}/scout/profiles"""
+    return os.path.join(get_x_scout_dir(profile), "profiles")
 
-def get_x_scraper_url_dir(profile: str) -> str:
-    """Get X URL scraper directory: platform/x/{profile}/scraper/url"""
-    return os.path.join(get_x_scraper_dir(profile), "url")
+def get_x_scout_url_dir(profile: str) -> str:
+    """Get X URL scout directory: platform/x/{profile}/scout/url"""
+    return os.path.join(get_x_scout_dir(profile), "url")
 
 def get_x_replies_dir(profile: str) -> str:
     """Get X replies directory: platform/x/{profile}/replies"""
@@ -104,11 +104,6 @@ def get_x_posts_dir(profile: str) -> str:
     """Get X posts directory: platform/x/{profile}/posts"""
     return os.path.join(get_platform_profile_dir("x", profile), "posts")
 
-def get_scrape_output_file_path(profile: str, scrape_type: str, target_name: str, timestamp: str) -> str:
-    """Get X scrape output file path."""
-    base_dir = get_x_scraper_dir(profile)
-    output_dir = os.path.join(base_dir, scrape_type)
-    return os.path.join(output_dir, f"{target_name}_{timestamp}.json")
 
 def get_x_media_dir(profile: str) -> str:
     """Get X media directory: platform/x/{profile}/media"""
@@ -146,9 +141,9 @@ def get_ycombinator_profile_dir(profile: str) -> str:
     """Get Y Combinator profile directory: platform/ycombinator/{profile}"""
     return get_platform_profile_dir("ycombinator", profile)
 
-def get_linkedin_scraper_dir(profile: str) -> str:
-    """Get LinkedIn scraper directory: platform/linkedin/{profile}/scraper"""
-    return os.path.join(get_platform_profile_dir("linkedin", profile), "scraper")
+def get_linkedin_scout_dir(profile: str) -> str:
+    """Get LinkedIn scout directory: platform/linkedin/{profile}/scout"""
+    return os.path.join(get_platform_profile_dir("linkedin", profile), "scout")
 
 def get_linkedin_replies_dir(profile: str) -> str:
     """Get LinkedIn replies directory: platform/linkedin/{profile}/replies"""
@@ -304,31 +299,31 @@ def get_google_log_file_path(profile_name: str = None) -> str:
 # OUTPUT FILE FUNCTIONS
 # =============================================================================
 
-def get_x_scraper_output_file_path(profile: str, scrape_type: str, target_name: str, timestamp: str) -> str:
-    """Get X scraper output file path."""
-    if scrape_type == "community":
-        base_dir = get_x_scraper_community_dir(profile)
-    elif scrape_type == "home":
-        base_dir = get_x_scraper_home_dir(profile)
-    elif scrape_type == "profiles":
-        base_dir = get_x_scraper_profiles_dir(profile)
-    elif scrape_type == "url":
-        base_dir = get_x_scraper_url_dir(profile)
+def get_x_scout_output_file_path(profile: str, scout_type: str, target_name: str, timestamp: str) -> str:
+    """Get X scout output file path."""
+    if scout_type == "community":
+        base_dir = get_x_scout_community_dir(profile)
+    elif scout_type == "home":
+        base_dir = get_x_scout_home_dir(profile)
+    elif scout_type == "profiles":
+        base_dir = get_x_scout_profiles_dir(profile)
+    elif scout_type == "url":
+        base_dir = get_x_scout_url_dir(profile)
     else:
-        base_dir = get_x_scraper_dir(profile)
+        base_dir = get_x_scout_dir(profile)
     return os.path.join(base_dir, f"{target_name}_{timestamp}.json")
 
 def get_reddit_scout_output_file_path(profile: str, timestamp: str) -> str:
     """Get Reddit scout output file path."""
-    return os.path.join(get_reddit_scout_dir(profile), f"reddit_scraped_data_{timestamp}.json")
+    return os.path.join(get_reddit_scout_dir(profile), f"reddit_scouted_data_{timestamp}.json")
 
 def get_reddit_analysis_output_file_path(profile: str, timestamp: str) -> str:
     """Get Reddit analysis output file path."""
     return os.path.join(get_reddit_analysis_dir(profile), f"reddit_content_suggestions_{timestamp}.txt")
 
-def get_linkedin_scraper_output_file_path(profile: str, target_type: str, timestamp: str) -> str:
-    """Get LinkedIn scraper output file path."""
-    return os.path.join(get_linkedin_scraper_dir(profile), f"linkedin_{target_type}_{timestamp}.json")
+def get_linkedin_scout_output_file_path(profile: str, target_type: str, timestamp: str) -> str:
+    """Get LinkedIn scout output file path."""
+    return os.path.join(get_linkedin_scout_dir(profile), f"linkedin_{target_type}_{timestamp}.json")
 
 def get_product_hunt_output_file_path(profile: str, timestamp: str) -> str:
     """Get Product Hunt output file path."""

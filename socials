@@ -51,19 +51,19 @@ MODULE_CONFIGS = {
     'producthunt': {
         'path_template': 'services/platform/producthunt/{filename}',
         'modules': {
-            'scraper': 'scraper.py'
+            'scout': 'scout.py'
         }
     },
     'ycombinator': {
         'path_template': 'services/platform/ycombinator/{filename}',
         'modules': {
-            'scraper': 'scraper.py'
+            'scout': 'scout.py'
         }
     },
     'reddit': {
         'path_template': 'services/platform/reddit/{filename}',
         'modules': {
-            'scraper': 'scraper.py'
+            'scout': 'scout.py'
         }
     },
     'instagram': {
@@ -169,7 +169,7 @@ def parse_args() -> Optional[Dict]:
 
         module_args = [profile] + sys.argv[4:]
 
-        if category == 'reddit' and module == 'scraper':
+        if category == 'reddit' and module == 'scout':
             module_args.append('subreddits')
 
         if module not in config['modules']:

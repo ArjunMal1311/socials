@@ -5,7 +5,7 @@ from rich.console import Console
 
 from datetime import datetime, timedelta
 from services.support.logger_util import _log as log
-from services.platform.x.support.save_tweet_schedules import save_tweet_schedules
+from services.platform.x.support.post_save_tweet_schedules import save_tweet_schedules
 
 console = Console()
 

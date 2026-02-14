@@ -35,6 +35,7 @@ def main():
         log(f"Profile '{args.profile}' not found in PROFILES.", verbose=True, is_error=True, log_caller_file="post.py")
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[args.profile].get('properties', {})
     global_props = profile_props.get('global', {})
     verbose = global_props.get('verbose', False)

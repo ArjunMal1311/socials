@@ -12,8 +12,8 @@ from services.support.logger_util import _log as log
 from services.support.path_config import get_browser_data_dir
 from services.support.storage.storage_factory import get_storage
 
-from services.platform.instagram.support.video_utils import download_instagram_reel
-from services.platform.instagram.support.scraper_utils import scrape_instagram_reels
+from services.platform.instagram.support.video_utils import download_instagram_videos
+from services.platform.instagram.support.scout_utils import scout_instagram_reels
 from services.platform.instagram.support.replies_utils import generate_instagram_replies
 
 from services.platform.x.support.home import run_home_mode
@@ -218,7 +218,7 @@ def scrape_instagram_for_action(profile_name: str, count: int, max_comments: int
         
         local_path, cdn_link = None, None
         log(f"Downloading Instagram Reel: {reel_url}...", verbose, log_caller_file="scraper.py")
-        local_path, cdn_link = download_instagram_reel(reel_url, profile_name, output_format, restrict_filenames, status, verbose=verbose)
+        local_path, cdn_link = download_instagram_videos(reel_url, profile_name, output_format, restrict_filenames, status, verbose=verbose, extract_cdn_links=True, use_reels_dir=True)
         
         if not (local_path and cdn_link):
             log(f"Failed to download reel or get CDN link for {reel_url}", verbose, is_error=True, log_caller_file="scraper.py")
@@ -229,7 +229,7 @@ def scrape_instagram_for_action(profile_name: str, count: int, max_comments: int
             video_path=local_path,
             verbose=verbose,
             profile=profile_name,
-            all_replies=all_replies
+            replies=all_replies
         )
         
         reel_data.update({
@@ -256,7 +256,7 @@ def scrape_instagram_for_action(profile_name: str, count: int, max_comments: int
     except Exception as e:
         log(f"Warning: Could not initialize Instagram storage for context: {e}", verbose, log_caller_file="scraper.py")
 
-    return scrape_instagram_reels(
+    return scout_instagram_reels(
         profile_name=profile_name,
         count=count,
         max_comments=max_comments,

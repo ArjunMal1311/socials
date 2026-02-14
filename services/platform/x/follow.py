@@ -10,8 +10,8 @@ from rich.console import Console
 from services.support.logger_util import _log as log
 from services.support.path_config import get_browser_data_dir, initialize_directories
 
-from services.platform.x.support.home import setup_driver
-from services.platform.x.support.x_follow_utils import check_follow_status, follow_user, unfollow_user
+from services.platform.x.support.reply_home import setup_driver
+from services.platform.x.support.follow_utils import check_follow_status, follow_user, unfollow_user
 
 console = Console()
 
@@ -20,19 +20,25 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="X Follow CLI Tool")
+    args = parser.parse_args()
+
+    # profile
     parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+    
+    # mode
     parser.add_argument("mode", choices=["follow", "unfollow", "check", "bulk"], help="Follow mode: 'follow' to follow user, 'unfollow' to unfollow user, 'check' to check follow status, 'bulk' to follow multiple users")
+    
+    # target
     parser.add_argument("target", help="Target username(s) - single @username for follow/unfollow/check, comma-separated for bulk")
 
     parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without actually following/unfollowing.")
-
-    args = parser.parse_args()
 
     profile = args.profile
     if profile not in PROFILES:
         log(f"Profile '{profile}' not found in PROFILES.", verbose=False, is_error=True, log_caller_file="follow.py")
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     verbose = global_props.get('verbose', False)

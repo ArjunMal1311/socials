@@ -36,6 +36,7 @@ def main():
         log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="replies.py")
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     platform_props = profile_props.get('platform', {})
@@ -48,7 +49,6 @@ def main():
     max_comments = replies_props.get('comments', 50)
     number_of_reels = replies_props.get('count', 1)
     download_reels = replies_props.get('download_reels', True)
-
 
     with Status(f'[white]Generating Instagram replies for {profile}...[/white]', spinner="dots", console=console) as status:
         generated_replies, driver = generate_replies_for_approval(profile, max_comments, number_of_reels, download_reels, verbose, headless)
@@ -122,7 +122,7 @@ def main():
         driver.quit()
         return
 
-    formatted_replies = []
+    replies = []
     for item in approved_replies:
         reply_data = {
             'reel_number': items.index(item) + 1,
@@ -132,19 +132,19 @@ def main():
             'video_path': item['media_urls'][0] if item['media_urls'] else None,
             'approved': True
         }
-        formatted_replies.append(reply_data)
+        replies.append(reply_data)
 
-    with Status(f"[white]Posting {len(formatted_replies)} approved replies...[/white]", spinner="dots", console=console) as status:
+    with Status(f"[white]Posting {len(replies)} approved replies...[/white]", spinner="dots", console=console) as status:
         if args.dry_run:
-            log(f"[DRY RUN] Would post {len(formatted_replies)} replies.", verbose, log_caller_file="replies.py")
-            summary = {'posted': len(formatted_replies), 'failed': 0}
+            log(f"[DRY RUN] Would post {len(replies)} replies.", verbose, log_caller_file="replies.py")
+            summary = {'posted': len(replies), 'failed': 0}
         else:
-            summary = post_approved_replies(driver, formatted_replies, verbose, headless)
+            summary = post_approved_replies(driver, replies, verbose, headless)
         status.stop()
 
     for item in items:
         if item.get('status') == 'approved':
-            if item['reel_url'] in [r['reel_url'] for r in formatted_replies]:
+            if item['reel_url'] in [r['reel_url'] for r in replies]:
                 item['status'] = 'posted'
             else:
                 item['status'] = 'failed'

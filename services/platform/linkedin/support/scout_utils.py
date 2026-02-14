@@ -1,9 +1,10 @@
 import os
 import re
+import json
 import time
 
-from datetime import datetime, timedelta
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
@@ -47,14 +48,14 @@ def parse_linkedin_relative_date(relative_date_str):
     except Exception:
         return datetime.now().isoformat() + "Z"
 
-def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: str, max_posts_per_profile: int = 10, headless: bool = True, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
+def scout_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: str, max_posts_per_profile: int = 10, headless: bool = True, status=None, verbose: bool = False) -> List[Dict[str, Any]]:
     all_posts = []
 
     for profile_url in linkedin_target_profiles:
         if not profile_url.startswith('http'):
             profile_url = f"https://www.linkedin.com/in/{profile_url}"
 
-        log(f"Processing profile: {profile_url}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Processing profile: {profile_url}", verbose, status=status, log_caller_file="scout_utils.py")
 
         for i in range(min(max_posts_per_profile, 5)):
             post_data = {
@@ -76,13 +77,13 @@ def scrape_linkedin_profiles(linkedin_target_profiles: List[str], profile_name: 
             }
             all_posts.append(post_data)
 
-        log(f"Generated {min(max_posts_per_profile, 5)} dummy posts from {profile_url}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Generated {min(max_posts_per_profile, 5)} dummy posts from {profile_url}", verbose, status=status, log_caller_file="scout_utils.py")
 
-    log(f"Total dummy posts generated: {len(all_posts)}", verbose, status=status, log_caller_file="scraper_utils.py")
+    log(f"Total dummy posts generated: {len(all_posts)}", verbose, status=status, log_caller_file="scout_utils.py")
 
     return all_posts
 
-def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless: bool = True, status=None, verbose: bool = False, existing_driver=None) -> List[Dict[str, Any]]:
+def scout_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless: bool = True, status=None, verbose: bool = False, existing_driver=None) -> List[Dict[str, Any]]:
     all_posts = []
     processed_posts = []
     driver = existing_driver
@@ -91,10 +92,10 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
         user_data_dir = get_browser_data_dir(profile_name)
         driver, setup_messages = setup_driver(user_data_dir, profile=profile_name, verbose=verbose, status=status, headless=headless)
         for msg in setup_messages:
-            log(msg, verbose, status, log_caller_file="scraper_utils.py")
+            log(msg, verbose, status, log_caller_file="scout_utils.py")
 
     try:
-        log("Navigating to LinkedIn feed...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Navigating to LinkedIn feed...", verbose, status=status, log_caller_file="scout_utils.py")
         driver.get("https://www.linkedin.com/feed/")
         time.sleep(5)
 
@@ -123,28 +124,28 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
                     break
                 last_height = new_height
                 scroll_attempt += 1
-        log("Scraping LinkedIn feed posts...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Scraping LinkedIn feed posts...", verbose, status=status, log_caller_file="scout_utils.py")
 
         debug_dir = "tmp/debug"
         os.makedirs(debug_dir, exist_ok=True)
 
-        posts_scraped = 0
+        posts_scoutd = 0
         scroll_attempts = 0
         max_scrolls = 5
         processed_post_ids = set()
 
-        while posts_scraped < max_posts and scroll_attempts < max_scrolls:
+        while posts_scoutd < max_posts and scroll_attempts < max_scrolls:
             try:
                 posts = driver.find_elements(By.CSS_SELECTOR, "[data-view-name=\"feed-full-update\"]")
-                log(f"Found {len(posts)} posts on page", verbose, status=status, log_caller_file="scraper_utils.py")
+                log(f"Found {len(posts)} posts on page", verbose, status=status, log_caller_file="scout_utils.py")
 
                 new_posts_found = False
                 for post in posts:
                     if "Promoted" in post.get_attribute("outerHTML"):
-                        log("Skipping promoted post.", verbose, status=status, log_caller_file="scraper_utils.py")
+                        log("Skipping promoted post.", verbose, status=status, log_caller_file="scout_utils.py")
                         continue
 
-                    if posts_scraped >= max_posts:
+                    if posts_scoutd >= max_posts:
                         break
 
                     try:
@@ -156,34 +157,34 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
                         processed_post_ids.add(post_id)
 
                         html_content = post.get_attribute("outerHTML")
-                        html_file = os.path.join(debug_dir, f"post_{posts_scraped + 1}_{int(time.time())}.html")
+                        html_file = os.path.join(debug_dir, f"post_{posts_scoutd + 1}_{int(time.time())}.html")
 
                         with open(html_file, 'w', encoding='utf-8') as f:
                             f.write(html_content)
 
                         all_posts.append({"html_file": html_file, "post_id": post_id})
-                        posts_scraped += 1
+                        posts_scoutd += 1
                         new_posts_found = True
-                        log(f"Saved HTML for post {posts_scraped}/{max_posts}: {html_file}", verbose, status=status, log_caller_file="scraper_utils.py")
+                        log(f"Saved HTML for post {posts_scoutd}/{max_posts}: {html_file}", verbose, status=status, log_caller_file="scout_utils.py")
                     except Exception as e:
-                        log(f"Error saving post HTML: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+                        log(f"Error saving post HTML: {e}", verbose, is_error=True, log_caller_file="scout_utils.py")
                         continue
 
-                if posts_scraped >= max_posts:
+                if posts_scoutd >= max_posts:
                     break
 
                 if not new_posts_found and scroll_attempts >= 2:
-                    log("No new posts found in last scroll, stopping", verbose, status=status, log_caller_file="scraper_utils.py")
+                    log("No new posts found in last scroll, stopping", verbose, status=status, log_caller_file="scout_utils.py")
                     break
 
 
             except Exception as e:
-                log(f"Error during scrolling: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+                log(f"Error during scrolling: {e}", verbose, is_error=True, log_caller_file="scout_utils.py")
                 break
 
-        log(f"Scraped {len(all_posts)} LinkedIn feed posts", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Scoutd {len(all_posts)} LinkedIn feed posts", verbose, status=status, log_caller_file="scout_utils.py")
 
-        log("Processing saved HTML files...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Processing saved HTML files...", verbose, status=status, log_caller_file="scout_utils.py")
         processed_posts = []
         for post_info in all_posts:
             try:
@@ -194,23 +195,22 @@ def scrape_linkedin_feed_posts(profile_name: str, max_posts: int = 10, headless:
                 post_data = extract_post_data_from_html(html_content)
                 if post_data:
                     processed_posts.append(post_data)
-                    log(f"Processed post from {os.path.basename(html_file)}", verbose, status=status, log_caller_file="scraper_utils.py")
+                    log(f"Processed post from {os.path.basename(html_file)}", verbose, status=status, log_caller_file="scout_utils.py")
 
             except Exception as e:
-                log(f"Error processing HTML file {post_info.get('html_file', 'unknown')}: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+                log(f"Error processing HTML file {post_info.get('html_file', 'unknown')}: {e}", verbose, is_error=True, log_caller_file="scout_utils.py")
                 continue
 
-        log(f"Successfully processed {len(processed_posts)} posts from HTML", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Successfully processed {len(processed_posts)} posts from HTML", verbose, status=status, log_caller_file="scout_utils.py")
 
 
     except Exception as e:
-        log(f"Error in feed scraping: {e}", verbose, is_error=True, log_caller_file="scraper_utils.py")
+        log(f"Error in feed scraping: {e}", verbose, is_error=True, log_caller_file="scout_utils.py")
     finally:
         if existing_driver is None and driver:
             driver.quit()
 
     return processed_posts
-
 
 def extract_post_data_from_html(html_content):
     try:
@@ -292,7 +292,6 @@ def extract_post_data_from_html(html_content):
             data_view_tracking_scope = tracking_scope_element.get('data-view-tracking-scope', '')
             if data_view_tracking_scope:
                 try:
-                    import json
                     json_data = json.loads(data_view_tracking_scope)
                     if isinstance(json_data, list) and len(json_data) > 0 and "breadcrumb" in json_data[0] and \
                        "content" in json_data[0]["breadcrumb"] and "data" in json_data[0]["breadcrumb"]["content"]:
@@ -302,7 +301,7 @@ def extract_post_data_from_html(html_content):
                         if urn_match:
                             post_urn = "urn:li:activity:" + urn_match.group(1)
                 except json.JSONDecodeError:
-                    log("JSON Parse failed for data-view-tracking-scope, trying fallback...", verbose=False, is_error=False, log_caller_file="scraper_utils.py")
+                    log("JSON Parse failed for data-view-tracking-scope, trying fallback...", verbose=False, is_error=False, log_caller_file="scout_utils.py")
 
         if not post_urn:
             html = post_wrapper.get_attribute("outerHTML")
@@ -330,5 +329,5 @@ def extract_post_data_from_html(html_content):
         }
 
     except Exception as e:
-        log(f"Error extracting post data from HTML: {e}", verbose=False, is_error=True, log_caller_file="scraper_utils.py")
+        log(f"Error extracting post data from HTML: {e}", verbose=False, is_error=True, log_caller_file="scout_utils.py")
         return None

@@ -6,6 +6,7 @@ import google.generativeai as genai
 
 from bs4 import BeautifulSoup
 from datetime import datetime
+
 from profiles import PROFILES
 
 from selenium.webdriver.common.by import By
@@ -16,10 +17,12 @@ from services.support.logger_util import _log as log
 from services.support.api_key_pool import APIKeyPool
 from services.support.web_driver_handler import setup_driver
 from services.support.api_call_tracker import APICallTracker
+from services.support.rate_limiter import RateLimiter
+from services.support.gemini_util import generate_gemini
 from services.support.storage.storage_factory import get_storage
 from services.support.path_config import get_browser_data_dir, get_gemini_log_file_path, get_linkedin_profile_dir
 
-from services.platform.linkedin.support.scraper_utils import scrape_linkedin_feed_posts
+from services.platform.linkedin.support.scout_utils import scout_linkedin_feed_posts
 
 def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_posts: int = 10, verbose: bool = False, headless: bool = True, status=None, browser_data_dir: str = None):
     user_data_dir = browser_data_dir or get_browser_data_dir(browser_profile_name)
@@ -31,7 +34,7 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
             log(msg, verbose, status, log_caller_file="reply_utils.py")
 
         log("Scraping LinkedIn home feed posts...", verbose, status, log_caller_file="reply_utils.py")
-        feed_posts = scrape_linkedin_feed_posts(browser_profile_name, max_posts=max_posts, verbose=verbose, status=status, headless=headless, existing_driver=driver)
+        feed_posts = scout_linkedin_feed_posts(browser_profile_name, max_posts=max_posts, verbose=verbose, status=status, headless=headless, existing_driver=driver)
 
         if not feed_posts:
             log("No posts found in LinkedIn feed", verbose, is_error=True, log_caller_file="reply_utils.py")
@@ -111,7 +114,6 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
     processed = 0
     posted = 0
     failed = 0
-
 
     for reply_data in replies_data:
         if not reply_data.get("approved", False) or reply_data.get("posted", False):
@@ -263,7 +265,6 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
 
                             time.sleep(4)
 
-
                             try:
                                 comment_container = comment_input.find_element(By.XPATH, "ancestor::*[contains(@data-view-name, 'comment') or contains(@class, 'comments-comment-box') or contains(@class, 'comment-box')][1]")
 
@@ -346,6 +347,7 @@ def post_approved_linkedin_replies(driver, profile_name: str, verbose: bool = Fa
 
 def generate_linkedin_reply(post_data, api_key_pool, profile_name, all_replies=None, verbose=False, status=None):
     api_call_tracker = APICallTracker(log_file=get_gemini_log_file_path())
+    rate_limiter = RateLimiter()
 
     try:
         post_text = post_data.get("data", {}).get("text", "")
@@ -359,47 +361,35 @@ def generate_linkedin_reply(post_data, api_key_pool, profile_name, all_replies=N
         prompts = profile_config.get('prompts', {})
         reply_prompt = prompts.get('reply_generation', 'Generate a professional LinkedIn reply to this post. Keep it concise, engaging, and add value to the conversation.')
 
-        log(f"Using model: {model_name}", verbose, status, log_caller_file="reply_utils.py")
-
-        api_key = api_key_pool.get_key()
-        log(f"Got API key: {api_key[-10:] if api_key else 'None'}", verbose, status, log_caller_file="reply_utils.py")
-        if not api_key:
-            log("No API key available from pool", verbose, is_error=True, log_caller_file="reply_utils.py")
-            return None
-
-        can_call, reason = api_call_tracker.can_make_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key[-4:])
-        if not can_call:
-            log(f"Rate limit: {reason}", verbose, is_error=True, log_caller_file="reply_utils.py")
-            return None
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
-
         context_section = ""
         if all_replies:
             context_replies = "\n".join([f"- {reply.get('generated_reply', '')}" for reply in all_replies if reply.get('generated_reply')])
             if context_replies:
                 context_section = f"""
-                Previously approved/posted replies for context (avoid generating similar responses):
-                {context_replies}
-            """
+                    Previously approved/posted replies for context (avoid generating similar responses):
+                    {context_replies}
+                """
 
         prompt = f"""
-        {reply_prompt}
+            {reply_prompt}
 
-        {context_section}
-        Post to reply to: "{post_text}"
-        Generate exactly ONE reply. Keep it professional, engaging, and under 200 characters. Do not include quotes around your reply.
+            {context_section}
+            Post to reply to: "{post_text}"
+            Generate exactly ONE reply. Keep it professional, engaging, and under 200 characters. Do not include quotes around your reply.
         """
 
-        response = model.generate_content(prompt)
-        reply_text = response.text.strip()
-
-        api_call_tracker.record_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key[-4:], success=True)
+        reply_text, _ = generate_gemini(
+            prompt_text=prompt,
+            api_key_pool=api_key_pool,
+            api_call_tracker=api_call_tracker,
+            rate_limiter=rate_limiter,
+            model_name=model_name,
+            status=status,
+            verbose=verbose
+        )
 
         return reply_text
 
     except Exception as e:
         log(f"Error generating reply: {e}", verbose, is_error=True, log_caller_file="reply_utils.py")
-        api_call_tracker.record_call("gemini", "generate_content", model=model_name, api_key_suffix=api_key[-4:] if 'api_key' in locals() else "unknown", success=False)
         return None

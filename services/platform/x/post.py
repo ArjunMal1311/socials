@@ -16,10 +16,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.support.logger_util import _log as log
 from services.support.path_config import initialize_directories
+
 from services.platform.x.support.post_watcher import run_watcher
-from services.platform.x.support.clear_media_files import clear_media
-from services.platform.x.support.generate_sample_posts import generate_sample_posts
-from services.platform.x.support.process_scheduled_tweets import process_scheduled_tweets
+from services.platform.x.support.post_clear_media_files import clear_media
+from services.platform.x.support.post_generate_sample import generate_sample_posts
+from services.platform.x.support.post_process_scheduled_tweets import process_scheduled_tweets
 
 console = Console()
 
@@ -46,6 +47,7 @@ def main():
         log(f"Profile '{profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, status=None, api_info=None, log_caller_file="post.py")
         sys.exit(1)
 
+    # profile parameters
     profile_props = PROFILES[profile].get('properties', {})
     global_props = profile_props.get('global', {})
     platform_props = profile_props.get('platform', {})

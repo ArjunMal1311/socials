@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
-from services.support.path_config import get_scrape_output_file_path
+from services.support.path_config import get_x_scout_output_file_path
 from services.support.path_config import get_browser_data_dir, ensure_dir_exists
 
 from selenium.webdriver.common.by import By
@@ -21,7 +21,7 @@ from services.platform.x.support.capture_containers_scroll import capture_contai
 console = Console()
 
 def _format_tweet_data(raw_tweet_data: dict) -> dict:
-    scraped_at_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+    scouted_at_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
     likes = int(raw_tweet_data.get('likes', 0) * 1000) if isinstance(raw_tweet_data.get('likes'), float) and raw_tweet_data.get('likes') < 100 else int(raw_tweet_data.get('likes', 0))
 
     tweet_date_str = raw_tweet_data.get('tweet_date', '')
@@ -32,7 +32,7 @@ def _format_tweet_data(raw_tweet_data: dict) -> dict:
 
     return {
         "source": "x",
-        "scraped_at": scraped_at_str,
+        "scraped_at": scouted_at_str,
         "engagement": {
             "likes": likes,
             "retweets": int(raw_tweet_data.get('retweets', 0)),
@@ -50,7 +50,7 @@ def _format_tweet_data(raw_tweet_data: dict) -> dict:
         }
     }
 
-def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, community_name: Optional[str] = None, verbose: bool = False, status=None, specific_search_url: Optional[str] = None):
+def fetch_scout_tweets(driver, service=None, profile_name="Default", max_tweets=1000, community_name: Optional[str] = None, verbose: bool = False, status=None, specific_search_url: Optional[str] = None):
     all_tweets_data = []
     processed_tweet_ids = set()
     no_new_content_count = 0
@@ -58,24 +58,24 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
     scroll_count = 0
 
     if specific_search_url:
-        log(f"Navigating to specific URL: {specific_search_url}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Navigating to specific URL: {specific_search_url}", verbose, status=status, log_caller_file="scout_utils.py")
         driver.get(specific_search_url)
     else:
-        log("Navigating to X.com home page...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Navigating to X.com home page...", verbose, status=status, log_caller_file="scout_utils.py")
         driver.get("https://x.com/home")
     time.sleep(5)
 
     if community_name:
-        log(f"Attempting to navigate to community: {community_name}...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Attempting to navigate to community: {community_name}...", verbose, status=status, log_caller_file="scout_utils.py")
         try:
             community_tab = WebDriverWait(driver, 5).until(
                 EC.element_to_be_clickable((By.XPATH, f"//a[@role='tab']//span[contains(text(), '{community_name}')]"))
             )
             community_tab.click()
-            log(f"Successfully clicked on '{community_name}' community tab.", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Successfully clicked on '{community_name}' community tab.", verbose, status=status, log_caller_file="scout_utils.py")
             time.sleep(5)
         except Exception as e:
-            log(f"Community tab not found, trying search approach: {e}", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Community tab not found, trying search approach: {e}", verbose, status=status, log_caller_file="scout_utils.py")
             try:
                 search_box = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.XPATH, "//input[@data-testid='SearchBox_Search_Input']"))
@@ -94,20 +94,20 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
 
                 if community_links:
                     community_links[0].click()
-                    log(f"Successfully navigated to community via search: {community_name}", verbose, status=status, log_caller_file="scraper_utils.py")
+                    log(f"Successfully navigated to community via search: {community_name}", verbose, status=status, log_caller_file="scout_utils.py")
                     time.sleep(5)
                 else:
                     raise Exception("No community links found in search results")
 
             except Exception as search_e:
-                log(f"Could not navigate to community '{community_name}' via search either: {search_e}. Proceeding with general home feed scraping.", verbose, is_error=False, status=status, log_caller_file="scraper_utils.py")
+                log(f"Could not navigate to community '{community_name}' via search either: {search_e}. Proceeding with general home feed scouting.", verbose, is_error=False, status=status, log_caller_file="scout_utils.py")
                 driver.get("https://x.com/home")
                 time.sleep(5)
 
     try:
         while len(processed_tweet_ids) < max_tweets and no_new_content_count < max_retries:
             raw_containers = []
-            no_new_content_count, scroll_count, new_tweets_in_pass = capture_containers_and_scroll(
+            no_new_content_count, scroll_count, _ = capture_containers_and_scroll(
                 driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose, status
             )
 
@@ -120,58 +120,53 @@ def fetch_tweets(driver, service=None, profile_name="Default", max_tweets=1000, 
 
             all_tweets_data.extend(newly_processed_tweets)
             
-            log(f"Collected tweets: {len(all_tweets_data)} collected...", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Collected tweets: {len(all_tweets_data)} collected...", verbose, status=status, log_caller_file="scout_utils.py")
             time.sleep(1)
 
             if len(all_tweets_data) >= max_tweets:
-                log(f"Reached target tweet count ({len(all_tweets_data)})!", verbose, status=status, log_caller_file="scraper_utils.py")
+                log(f"Reached target tweet count ({len(all_tweets_data)})!", verbose, status=status, log_caller_file="scout_utils.py")
                 break
             if no_new_content_count >= max_retries:
-                log("No new content after multiple attempts, stopping collection.", verbose, is_error=False, status=status, log_caller_file="scraper_utils.py")
+                log("No new content after multiple attempts, stopping collection.", verbose, is_error=False, status=status, log_caller_file="scout_utils.py")
                 break
 
     except KeyboardInterrupt:
-        log(f"Collection stopped manually.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Collection stopped manually.", verbose, status=status, log_caller_file="scout_utils.py")
     
     return all_tweets_data
 
-def scrape_tweets(scrape_type: str, target_name: str, profile_name: str, browser_profile: Optional[str] = None, max_tweets: int = 1000, verbose: bool = False, headless: bool = True, status=None, specific_search_url: Optional[str] = None):
+def scout_tweets(scout_type: str, target_name: str, profile_name: str, browser_profile: Optional[str] = None, max_tweets: int = 1000, verbose: bool = False, headless: bool = True, status=None, specific_search_url: Optional[str] = None):
     driver = None
     all_tweets_data = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = get_scrape_output_file_path(profile_name, scrape_type, target_name, timestamp)
+    output_filename = get_x_scout_output_file_path(profile_name, scout_type, target_name, timestamp)
 
     try:
         user_data_dir = get_browser_data_dir(browser_profile or profile_name)
         driver, setup_messages = setup_driver(user_data_dir, profile=browser_profile or profile_name, verbose=verbose, headless=headless, status=status)
         for msg in setup_messages:
-            log(msg, verbose, status=status, log_caller_file="scraper_utils.py")
+            log(msg, verbose, status=status, log_caller_file="scout_utils.py")
         
-        log("Proceeding with browser profile. Assuming pre-existing login session.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Proceeding with browser profile. Assuming pre-existing login session.", verbose, status=status, log_caller_file="scout_utils.py")
 
-        log("Starting tweet scraping...", verbose, status=status, log_caller_file="scraper_utils.py")
-        for i in range(3, 0, -1):
-            log(f"{i} seconds left...", verbose, status=status, log_caller_file="scraper_utils.py")
-            time.sleep(1)
-
-        target_desc = f"community '{target_name}'" if scrape_type == "community" else "home feed"
-        log(f"Starting {target_desc} tweet scraping (target: {max_tweets} tweets)...", verbose, status=status, log_caller_file="scraper_utils.py")
+        target_desc = f"community '{target_name}'" if scout_type == "community" else "home feed"
+        log(f"Starting {target_desc} tweet scouting (target: {max_tweets} tweets)...", verbose, status=status, log_caller_file="scout_utils.py")
         
-        community_name_for_fetch = target_name if scrape_type == "community" else None
-        all_tweets_data = fetch_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name_for_fetch, verbose=verbose, status=status, specific_search_url=specific_search_url)
+        community_name = target_name if scout_type == "community" else None
+        all_tweets_data = fetch_scout_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name, verbose=verbose, status=status, specific_search_url=specific_search_url)
 
         if all_tweets_data:
             formatted_for_saving = [_format_tweet_data(tweet) for tweet in all_tweets_data]
             ensure_dir_exists(os.path.dirname(output_filename))
             with open(output_filename, 'w', encoding='utf-8') as f:
                 json.dump(formatted_for_saving, f, ensure_ascii=False, indent=4)
-            log(f"Successfully saved {len(formatted_for_saving)} tweets to {output_filename}", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Successfully saved {len(formatted_for_saving)} tweets to {output_filename}", verbose, status=status, log_caller_file="scout_utils.py")
         else:
-            log("No tweets to save.", verbose, is_error=False, status=status, log_caller_file="scraper_utils.py")
+            log("No tweets to save.", verbose, is_error=False, status=status, log_caller_file="scout_utils.py")
 
     except Exception as e:
-        target_desc = f"community '{target_name}'" if scrape_type == "community" else "home feed"
-        log(f"An error occurred during {target_desc} scraping: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        target_desc = f"community '{target_name}'" if scout_type == "community" else "home feed"
+        log(f"An error occurred during {target_desc} scouting: {e}", verbose, is_error=True, status=status, log_caller_file="scout_utils.py")
     finally:
         if driver:
             driver.quit()
