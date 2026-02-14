@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import uuid
 import undetected_chromedriver as uc
 
 from bs4 import BeautifulSoup
@@ -9,7 +8,6 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from rich.status import Status
-from rich.console import Console
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -20,48 +18,15 @@ from services.support.logger_util import _log as log
 from services.support.web_driver_handler import cleanup_chrome_locks, kill_chrome_processes_by_user_data_dir
 from services.support.path_config import get_product_hunt_output_file_path, get_browser_data_dir, ensure_dir_exists
 
-console = Console()
+from services.platform.producthunt.support.format_product_data import _format_product_data
 
-def _format_product_data(product_data: Dict[str, Any]) -> Dict[str, Any]:
-    scraped_at = datetime.now().isoformat()
-
-    founders_data = product_data.get("founders_data", [])
-
-    founders = []
-    for founder in founders_data:
-        founder_obj = {
-            "name": founder.get("name", ""),
-            "img": founder.get("img", ""),
-            "links": founder.get("links", [])
-        }
-        if founder_obj["name"]:
-            founders.append(founder_obj)
-
-    return {
-        "id": str(uuid.uuid4()),
-        "source": "product_hunt",
-        "scraped_at": scraped_at,
-        "core": {
-            "name": product_data.get("product_name", "N/A"),
-            "description": product_data.get("product_description", "N/A"),
-            "website": product_data.get("website_link", "N/A"),
-            "source_url": product_data.get("product_link", "N/A"),
-            "logo": product_data.get("logo_url", "")
-        },
-        "founders": founders,
-        "data": {
-            "upvotes_count": product_data.get("upvotes", 0),
-            "tagline": product_data.get("tagline", "N/A")
-        }
-    }
-
-def scrape_product_details(driver: uc.Chrome, product_data: Dict[str, Any], verbose: bool = False, status: Optional[Status] = None) -> Dict[str, Any]:
+def scout_product_details(driver: uc.Chrome, product_data: Dict[str, Any], verbose: bool = False, status: Optional[Status] = None) -> Dict[str, Any]:
     product_link = product_data.get("product_link")
     if not product_link or product_link == "N/A":
-        log(f"Invalid or missing product link provided for details scraping. Skipping. Product: {product_data.get('product_name')}.", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"Invalid or missing product link provided for details scouting. Skipping. Product: {product_data.get('product_name')}.", verbose, is_error=True, status=status)
         return product_data
 
-    log(f"Scraping details for product: {product_data.get('product_name')} from {product_link}", verbose, status=status, log_caller_file="scraper_utils.py")
+    log(f"Scouting details for product: {product_data.get('product_name')} from {product_link}", verbose, status=status)
 
     try:
         driver.get(product_link)
@@ -131,21 +96,21 @@ def scrape_product_details(driver: uc.Chrome, product_data: Dict[str, Any], verb
                     founders_data.append(founder_info)
 
             except Exception as e:
-                log(f"Error hovering or scraping founder info for a maker: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Error hovering or scouting founder info for a maker: {e}", verbose, is_error=True, status=status)
                 continue
 
         product_data["founders_data"] = founders_data
 
-        log(f"Successfully scraped details for {product_data.get('product_name')}.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Successfully scoutd details for {product_data.get('product_name')}.", verbose, status=status)
 
         return product_data
 
     except Exception as e:
-        log(f"Error scraping details for {product_data.get('product_name')}: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"Error scouting details for {product_data.get('product_name')}: {e}", verbose, is_error=True, status=status)
         return product_data
 
-def scrape_product_hunt_products(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, headless: bool = True) -> List[Dict[str, Any]]:
-    log(f"Starting Product Hunt today's leaderboard scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
+def scout_product_hunt_products(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, headless: bool = True) -> List[Dict[str, Any]]:
+    log(f"Starting Product Hunt today's leaderboard scouting for profile '{profile_name}'...", verbose, status=status)
 
     from datetime import timedelta
     yesterday = datetime.now() - timedelta(days=1)
@@ -161,7 +126,7 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
         kill_chrome_processes_by_user_data_dir(browser_user_data_dir, verbose=verbose, status=status)
         cleanup_chrome_locks(browser_user_data_dir, verbose=verbose, status=status)
 
-        log("Initializing undetected_chromedriver for Product Hunt scraping...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Initializing undetected_chromedriver for Product Hunt scouting...", verbose, status=status)
 
         options = uc.ChromeOptions()
         options.add_argument(f"--user-data-dir={browser_user_data_dir}")
@@ -171,10 +136,10 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
 
         driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=144)
 
-        log(f"Directly navigating to Product Hunt leaderboard: {target_url}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Directly navigating to Product Hunt leaderboard: {target_url}", verbose, status=status)
         driver.get(target_url)
 
-        log("Waiting for product items on Product Hunt daily leaderboard...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Waiting for product items on Product Hunt daily leaderboard...", verbose, status=status)
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "section[data-test^='post-item-']"))
         )
@@ -197,41 +162,41 @@ def scrape_product_hunt_products(profile_name: str, verbose: bool = False, statu
                     "product_link": product_link,
                     "tagline": tagline,
                     "upvotes": upvotes,
-                    "scraped_date": yesterday.isoformat()
+                    "scoutd_date": yesterday.isoformat()
                 })
             except Exception as e:
-                log(f"Error parsing leaderboard product item: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Error parsing leaderboard product item: {e}", verbose, is_error=True, status=status)
                 continue
 
         if not leaderboard_products:
-            log("No products found on the daily leaderboard. Cannot scrape detailed product information.", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+            log("No products found on the daily leaderboard. Cannot scout detailed product information.", verbose, is_error=True, status=status)
             return []
 
-        products_to_scrape = leaderboard_products[:limit] if limit is not None else leaderboard_products
+        products_to_scout = leaderboard_products[:limit] if limit is not None else leaderboard_products
 
-        for product_item in products_to_scrape:
+        for product_item in products_to_scout:
             time.sleep(20)
-            detailed_product_data = scrape_product_details(driver, product_item, verbose, status)
+            detailed_product_data = scout_product_details(driver, product_item, verbose, status)
             if detailed_product_data:
                 formatted_data = _format_product_data(detailed_product_data)
                 all_formatted_products.append(formatted_data)
-                log(f"Successfully scraped and formatted product information for {formatted_data['core']['name']}.", verbose, status=status, log_caller_file="scraper_utils.py")
+                log(f"Successfully scoutd and formatted product information for {formatted_data['core']['name']}.", verbose, status=status)
 
         output_file_path = get_product_hunt_output_file_path(profile_name, yesterday.strftime("%Y%m%d"))
         ensure_dir_exists(os.path.dirname(output_file_path))
         with open(output_file_path, 'w', encoding='utf-8') as f:
             json.dump(all_formatted_products, f, indent=2, ensure_ascii=False)
 
-        log(f"Scraped and saved {len(all_formatted_products)} products to {output_file_path}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"scoutd and saved {len(all_formatted_products)} products to {output_file_path}", verbose, status=status)
 
         return all_formatted_products
 
     except Exception as e:
-        log(f"An error occurred during Product Hunt scraping: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"An error occurred during Product Hunt scouting: {e}", verbose, is_error=True, status=status)
         return []
     finally:
         if driver:
             driver.quit()
         kill_chrome_processes_by_user_data_dir(browser_user_data_dir, verbose=verbose, status=status)
         cleanup_chrome_locks(browser_user_data_dir, verbose=verbose, status=status)
-        log(f"Product Hunt scraping completed for profile '{profile_name}'.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Product Hunt scouting completed for profile '{profile_name}'.", verbose, status=status)

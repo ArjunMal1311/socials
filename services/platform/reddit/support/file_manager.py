@@ -12,10 +12,10 @@ def get_latest_dated_json_file(directory: str, prefix: str, verbose: bool = Fals
     latest_date = None
 
     if not os.path.exists(directory):
-        log(f"Directory does not exist: {directory}", verbose, log_caller_file="file_manager.py")
+        log(f"Directory does not exist: {directory}", verbose)
         return None
 
-    log(f"Searching for JSON files with prefix '{prefix}' in {directory}", verbose, log_caller_file="file_manager.py")
+    log(f"Searching for JSON files with prefix '{prefix}' in {directory}", verbose)
     
     for f in os.listdir(directory):
         if f.startswith(prefix) and f.endswith('.json'):
@@ -26,14 +26,14 @@ def get_latest_dated_json_file(directory: str, prefix: str, verbose: bool = Fals
                     if latest_date is None or current_date > latest_date:
                         latest_date = current_date
                         latest_json_path = os.path.join(directory, f)
-                        log(f"Found newer file: {f} (date: {current_date})", verbose, log_caller_file="file_manager.py")
+                        log(f"Found newer file: {f} (date: {current_date})", verbose)
             except ValueError:
-                log(f"Skipping file with invalid date format: {f}", verbose, log_caller_file="file_manager.py")
+                log(f"Skipping file with invalid date format: {f}", verbose)
                 continue
     
     if latest_json_path:
-        log(f"Latest JSON file found: {latest_json_path}", verbose, log_caller_file="file_manager.py")
+        log(f"Latest JSON file found: {latest_json_path}", verbose)
     else:
-        log(f"No JSON files found with prefix '{prefix}'", verbose, log_caller_file="file_manager.py")
+        log(f"No JSON files found with prefix '{prefix}'", verbose)
     
     return latest_json_path

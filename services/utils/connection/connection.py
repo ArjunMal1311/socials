@@ -14,7 +14,7 @@ from rich.status import Status
 from rich.console import Console
 
 from services.support.logger_util import _log as log
-from services.support.path_config import initialize_directories, get_product_hunt_scraper_dir, get_ycombinator_scraper_dir
+from services.support.path_config import initialize_directories, get_product_hunt_scout_dir, get_ycombinator_scout_dir
 
 from services.support.storage.storage_factory import get_storage
 from services.support.storage.platforms.connections.connection_storage import ConnectionStorage
@@ -36,8 +36,8 @@ def main():
     args = parser.parse_args()
 
     if args.profile not in PROFILES:
-        log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True, log_caller_file="connection.py")
-        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", False, is_error=True, log_caller_file="connection.py")
+        log(f"Profile '{args.profile}' not found in PROFILES. Available profiles: {', '.join(PROFILES.keys())}", False, is_error=True)
+        log("Please create a profiles.py file based on profiles.sample.py to define your profiles.", False, is_error=True)
         sys.exit(1)
 
     profile_name = PROFILES[args.profile]['name']
@@ -52,18 +52,18 @@ def main():
     connection_limit = connection_props.get('count', 15)
     headless = global_props.get('headless', False)
 
-    log(f"Starting LinkedIn and X connections/follows from Product Hunt and Y Combinator data for profile '{profile_name}'", verbose, log_caller_file="connection.py")
+    log(f"Starting LinkedIn and X connections/follows from Product Hunt and Y Combinator data for profile '{profile_name}'", verbose)
 
     ph_linkedin_urls = []
     ph_x_urls = []
     yc_linkedin_urls = []
     yc_x_urls = []
 
-    ph_data_dir = get_product_hunt_scraper_dir(profile_name)
+    ph_data_dir = get_product_hunt_scout_dir(profile_name)
     if os.path.exists(ph_data_dir):
         ph_files = glob.glob(os.path.join(ph_data_dir, "product_hunt_*.json"))
         if ph_files:
-            log(f"Found {len(ph_files)} Product Hunt data files", verbose, log_caller_file="connection.py")
+            log(f"Found {len(ph_files)} Product Hunt data files", verbose)
             for file_path in ph_files:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -79,13 +79,13 @@ def main():
                                     elif "twitter.com/" in link_url or "x.com/" in link_url:
                                         ph_x_urls.append(link_url)
                 except Exception as e:
-                    log(f"Error reading PH file {file_path}: {e}", verbose, is_error=True, log_caller_file="connection.py")
+                    log(f"Error reading PH file {file_path}: {e}", verbose, is_error=True)
 
-    yc_data_dir = get_ycombinator_scraper_dir(profile_name)
+    yc_data_dir = get_ycombinator_scout_dir(profile_name)
     if os.path.exists(yc_data_dir):
         yc_files = glob.glob(os.path.join(yc_data_dir, "ycombinator_*.json"))
         if yc_files:
-            log(f"Found {len(yc_files)} Y Combinator data files", verbose, log_caller_file="connection.py")
+            log(f"Found {len(yc_files)} Y Combinator data files", verbose)
             for file_path in yc_files:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -101,17 +101,17 @@ def main():
                                     elif "twitter.com/" in link_url or "x.com/" in link_url:
                                         yc_x_urls.append(link_url)
                 except Exception as e:
-                    log(f"Error reading YC file {file_path}: {e}", verbose, is_error=True, log_caller_file="connection.py")
+                    log(f"Error reading YC file {file_path}: {e}", verbose, is_error=True)
 
     linkedin_urls = ph_linkedin_urls + yc_linkedin_urls
     x_urls = ph_x_urls + yc_x_urls
 
     if not linkedin_urls and not x_urls:
-        log("No LinkedIn or X URLs found in Product Hunt or Y Combinator data. Nothing to process.", verbose, is_error=True, log_caller_file="connection.py")
+        log("No LinkedIn or X URLs found in Product Hunt or Y Combinator data. Nothing to process.", verbose, is_error=True)
         return
 
-    log(f"Found {len(linkedin_urls)} LinkedIn URLs ({len(ph_linkedin_urls)} from PH, {len(yc_linkedin_urls)} from YC)", verbose, log_caller_file="connection.py")
-    log(f"Found {len(x_urls)} X URLs ({len(ph_x_urls)} from PH, {len(yc_x_urls)} from YC)", verbose, log_caller_file="connection.py")
+    log(f"Found {len(linkedin_urls)} LinkedIn URLs ({len(ph_linkedin_urls)} from PH, {len(yc_linkedin_urls)} from YC)", verbose)
+    log(f"Found {len(x_urls)} X URLs ({len(ph_x_urls)} from PH, {len(yc_x_urls)} from YC)", verbose)
 
     def process_platform_urls(platform_urls, platform_name, connection_type_name, source_name, source_tag, processor_func, username_extractor_func, limit=None):
         if not platform_urls:
@@ -122,14 +122,14 @@ def main():
 
         source_pending_urls = get_pending_urls(platform_urls, tracking_data, platform_name.lower())
         if not source_pending_urls:
-            log(f"All {source_name} {platform_name} URLs have already been processed.", verbose, log_caller_file="connection.py")
+            log(f"All {source_name} {platform_name} URLs have already been processed.", verbose)
             return 0, 0
 
         source_pending_usernames = username_extractor_func(source_pending_urls)
         source_limited_usernames = source_pending_usernames[:connection_limit] if len(source_pending_usernames) > connection_limit else source_pending_usernames
 
         if source_limited_usernames:
-            log(f"Processing {len(source_limited_usernames)} {source_name} {connection_type_name} (max {connection_limit})", verbose, log_caller_file="connection.py")
+            log(f"Processing {len(source_limited_usernames)} {source_name} {connection_type_name} (max {connection_limit})", verbose)
             with Status(f"[white]Processing {platform_name} {connection_type_name} to {len(source_limited_usernames)} {source_name} profiles...[/white]", spinner="dots", console=console) as status:
                 results = processor_func(source_limited_usernames, profile_name, verbose, status, limit=connection_limit, headless=headless)
 
@@ -161,17 +161,17 @@ def main():
                                 "source": source_tag,
                                 "sent_at": datetime.now().isoformat(),
                             })
-                            log(f"Successfully saved {connection_type_name.lower()} request for {url} to database.", verbose, log_caller_file="connection.py")
+                            log(f"Successfully saved {connection_type_name.lower()} request for {url} to database.", verbose)
                         except Exception as e:
-                            log(f"Failed to save {connection_type_name.lower()} request for {url} to database: {e}", verbose, is_error=True, log_caller_file="connection.py")
+                            log(f"Failed to save {connection_type_name.lower()} request for {url} to database: {e}", verbose, is_error=True)
 
             save_connection_tracking(profile_name, tracking_data, platform_name.lower())
 
             final_stats = get_stats(tracking_data, platform_name.lower())
-            log(f"{platform_name} {source_name} processing complete!", verbose, log_caller_file="connection.py")
-            log(f"Total processed: {final_stats['total_processed']} (+{final_stats['total_processed'] - initial_stats['total_processed']} new)", verbose, log_caller_file="connection.py")
-            log(f"Successful: {final_stats['successful']} (+{final_stats['successful'] - initial_stats['successful']} new)", verbose, log_caller_file="connection.py")
-            log(f"Failed: {final_stats['failed']} (+{final_stats['failed'] - initial_stats['failed']} new)", verbose, log_caller_file="connection.py")
+            log(f"{platform_name} {source_name} processing complete!", verbose)
+            log(f"Total processed: {final_stats['total_processed']} (+{final_stats['total_processed'] - initial_stats['total_processed']} new)", verbose)
+            log(f"Successful: {final_stats['successful']} (+{final_stats['successful'] - initial_stats['successful']} new)", verbose)
+            log(f"Failed: {final_stats['failed']} (+{final_stats['failed'] - initial_stats['failed']} new)", verbose)
 
             return processed_count, successful_count
 
@@ -184,7 +184,7 @@ def main():
     process_platform_urls(ph_x_urls, "X", "Follow", "Product Hunt", "product_hunt", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)
     process_platform_urls(yc_x_urls, "X", "Follow", "Y Combinator", "ycombinator", process_x_connections, extract_usernames_from_x_urls, limit=x_connection_limit)
 
-    log("All connection/follow processing complete!", verbose, log_caller_file="connection.py")
+    log("All connection/follow processing complete!", verbose)
 
 if __name__ == "__main__":
     main()

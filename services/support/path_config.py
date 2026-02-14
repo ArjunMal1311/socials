@@ -104,6 +104,12 @@ def get_x_posts_dir(profile: str) -> str:
     """Get X posts directory: platform/x/{profile}/posts"""
     return os.path.join(get_platform_profile_dir("x", profile), "posts")
 
+def get_scrape_output_file_path(profile: str, scrape_type: str, target_name: str, timestamp: str) -> str:
+    """Get X scrape output file path."""
+    base_dir = get_x_scraper_dir(profile)
+    output_dir = os.path.join(base_dir, scrape_type)
+    return os.path.join(output_dir, f"{target_name}_{timestamp}.json")
+
 def get_x_media_dir(profile: str) -> str:
     """Get X media directory: platform/x/{profile}/media"""
     return os.path.join(get_platform_profile_dir("x", profile), "media")
@@ -164,9 +170,9 @@ def get_linkedin_messages_dir(profile: str) -> str:
 # REDDIT PLATFORM
 # =============================================================================
 
-def get_reddit_scraper_dir(profile: str) -> str:
-    """Get Reddit scraper directory: platform/reddit/{profile}/scraper"""
-    return os.path.join(get_platform_profile_dir("reddit", profile), "scraper")
+def get_reddit_scout_dir(profile: str) -> str:
+    """Get Reddit scout directory: platform/reddit/{profile}/scout"""
+    return os.path.join(get_platform_profile_dir("reddit", profile), "scout")
 
 def get_reddit_analysis_dir(profile: str) -> str:
     """Get Reddit analysis directory: platform/reddit/{profile}/analysis"""
@@ -216,13 +222,13 @@ def get_google_analysis_dir(profile: str) -> str:
     """Get Google analysis directory: platform/google/{profile}/analysis"""
     return os.path.join(get_platform_profile_dir("google", profile), "analysis")
 
-def get_product_hunt_scraper_dir(profile: str) -> str:
-    """Get Product Hunt scraper directory: platform/producthunt/{profile}/scraper"""
-    return os.path.join(get_platform_profile_dir("producthunt", profile), "scraper")
+def get_product_hunt_scout_dir(profile: str) -> str:
+    """Get Product Hunt scout directory: platform/producthunt/{profile}/scout"""
+    return os.path.join(get_platform_profile_dir("producthunt", profile), "scout")
 
-def get_ycombinator_scraper_dir(profile: str) -> str:
-    """Get Y Combinator scraper directory: platform/ycombinator/{profile}/scraper"""
-    return os.path.join(get_platform_profile_dir("ycombinator", profile), "scraper")
+def get_ycombinator_scout_dir(profile: str) -> str:
+    """Get Y Combinator scout directory: platform/ycombinator/{profile}/scout"""
+    return os.path.join(get_platform_profile_dir("ycombinator", profile), "scout")
 
 # =============================================================================
 # SPECIAL DIRECTORIES
@@ -312,9 +318,9 @@ def get_x_scraper_output_file_path(profile: str, scrape_type: str, target_name: 
         base_dir = get_x_scraper_dir(profile)
     return os.path.join(base_dir, f"{target_name}_{timestamp}.json")
 
-def get_reddit_scraper_output_file_path(profile: str, timestamp: str) -> str:
-    """Get Reddit scraper output file path."""
-    return os.path.join(get_reddit_scraper_dir(profile), f"reddit_scraped_data_{timestamp}.json")
+def get_reddit_scout_output_file_path(profile: str, timestamp: str) -> str:
+    """Get Reddit scout output file path."""
+    return os.path.join(get_reddit_scout_dir(profile), f"reddit_scraped_data_{timestamp}.json")
 
 def get_reddit_analysis_output_file_path(profile: str, timestamp: str) -> str:
     """Get Reddit analysis output file path."""
@@ -326,11 +332,11 @@ def get_linkedin_scraper_output_file_path(profile: str, target_type: str, timest
 
 def get_product_hunt_output_file_path(profile: str, timestamp: str) -> str:
     """Get Product Hunt output file path."""
-    return os.path.join(get_product_hunt_scraper_dir(profile), f"product_hunt_{timestamp}.json")
+    return os.path.join(get_product_hunt_scout_dir(profile), f"product_hunt_{timestamp}.json")
 
 def get_ycombinator_output_file_path(profile: str, timestamp: str) -> str:
     """Get Y Combinator output file path."""
-    return os.path.join(get_ycombinator_scraper_dir(profile), f"ycombinator_{timestamp}.json")
+    return os.path.join(get_ycombinator_scout_dir(profile), f"ycombinator_{timestamp}.json")
 
 # =============================================================================
 # SCHEDULE FILE FUNCTIONS

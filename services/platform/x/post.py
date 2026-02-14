@@ -29,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description="X Post Scheduler CLI Tool")
     
     # Profile
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
     
     # Mode
     parser.add_argument("mode", choices=["generate", "process", "clear-media", "watch"], help="Post mode: 'generate' for sample posts, 'process' for scheduling, 'clear-media' for cleanup, 'watch' for post watcher")
@@ -37,7 +37,7 @@ def main():
     # Generate options
     parser.add_argument("--days", type=int, help="Number of days to generate sample posts for")
 
-    # Watch options (none needed - uses profile settings)
+    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without actually posting or scheduling.")
 
     args = parser.parse_args()
 
@@ -79,8 +79,11 @@ def main():
         log("Sample posts generated and saved to schedule.json", verbose, status=None, api_info=None, log_caller_file="post.py")
         
     elif args.mode == "process":
-        process_scheduled_tweets(profile, headless=headless, verbose=verbose)
-        log("Processing complete.", verbose, status=None, api_info=None, log_caller_file="post.py")
+        if not args.dry_run:
+            process_scheduled_tweets(profile, headless=headless, verbose=verbose)
+            log("Processing complete.", verbose, status=None, api_info=None, log_caller_file="post.py")
+        else:
+            log("Dry run: Skipping process_scheduled_tweets.", verbose, status=None, api_info=None, log_caller_file="post.py")
 
     elif args.mode == "clear-media":
         clear_media(profile, verbose=verbose)

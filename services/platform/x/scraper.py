@@ -31,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description="X Scraper CLI Tool")
 
     # Profile
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     # Mode and target
     parser.add_argument("mode", choices=["home", "community", "profiles", "url"], help="Scrape mode: 'home' for home feed, 'community' for community scraping, 'profiles' for target profiles, 'url' for specific URL")

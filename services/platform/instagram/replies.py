@@ -27,6 +27,8 @@ def main():
     parser = argparse.ArgumentParser(description="Instagram Replies CLI Tool")
 
     parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+    parser.add_argument("--auto-approve", action="store_true", help="Automatically approve all generated replies and skip manual review.")
+    parser.add_argument("--dry-run", action="store_true", help="Generate replies but do not actually post them.")
     args = parser.parse_args()
     profile = args.profile
 
@@ -89,9 +91,16 @@ def main():
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     log(f"Saved {len(results)} generated replies to {replies_file}", verbose, log_caller_file="replies.py")
-    log("Edit the file to change 'status' from 'ready_for_approval' to 'approved' for replies you want to post.", verbose, log_caller_file="replies.py")
-    log("Press Enter when you are done reviewing and want to post approved replies.", verbose, log_caller_file="replies.py")
-    input()
+    if args.auto_approve:
+        for record in results:
+            record['status'] = 'approved'
+        with open(replies_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        log(f"Auto-approved {len(results)} replies.", verbose, log_caller_file="replies.py")
+    else:
+        log("Edit the file to change 'status' from 'ready_for_approval' to 'approved' for replies you want to post.", verbose, log_caller_file="replies.py")
+        log("Press Enter when you are done reviewing and want to post approved replies.", verbose, log_caller_file="replies.py")
+        input()
 
     if not os.path.exists(replies_file):
         log(f"Replies file not found: {replies_file}", verbose, is_error=True, log_caller_file="replies.py")
@@ -126,7 +135,11 @@ def main():
         formatted_replies.append(reply_data)
 
     with Status(f"[white]Posting {len(formatted_replies)} approved replies...[/white]", spinner="dots", console=console) as status:
-        summary = post_approved_replies(driver, formatted_replies, verbose, headless)
+        if args.dry_run:
+            log(f"[DRY RUN] Would post {len(formatted_replies)} replies.", verbose, log_caller_file="replies.py")
+            summary = {'posted': len(formatted_replies), 'failed': 0}
+        else:
+            summary = post_approved_replies(driver, formatted_replies, verbose, headless)
         status.stop()
 
     for item in items:

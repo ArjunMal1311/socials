@@ -30,13 +30,16 @@ def main():
     parser = argparse.ArgumentParser(description="X Replies CLI Tool")
     
     # Profile
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     # Mode
     parser.add_argument("mode", choices=["home", "profiles"], help="Reply mode: 'home' for home feed replies, 'profiles' for profile-based replies")
 
     # API
     parser.add_argument("--api", action="store_true", help="Use X API to post replies instead of browser automation. This is faster and more reliable than browser-based posting.")
+
+    parser.add_argument("--auto-approve", action="store_true", help="Automatically approve all generated replies and skip manual review.")
+    parser.add_argument("--dry-run", action="store_true", help="Generate replies but do not actually post them.")
 
     args = parser.parse_args()
 
@@ -66,13 +69,30 @@ def main():
             status.stop()
             log("Home Mode Results:", verbose, status=status, api_info=None, log_caller_file="replies.py")
 
-            log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="replies.py")
-            input()
+            if args.auto_approve:
+                log("Auto-approving all generated replies...", verbose, log_caller_file="replies.py")
+                replies_dir = os.path.join("tmp", "replies", profile_name)
+                replies_path = os.path.join(replies_dir, 'replies.json')
+                if os.path.exists(replies_path):
+                    import json
+                    with open(replies_path, 'r') as f:
+                        items = json.load(f)
+                    for item in items:
+                        if item.get('status') == 'ready_for_approval':
+                            item['status'] = 'approved'
+                    with open(replies_path, 'w') as f:
+                        json.dump(items, f, indent=2)
+            else:
+                log("Press Enter here when you are done reviewing the generated replies and want to post them.", verbose, status=None, api_info=None, log_caller_file="replies.py")
+                input()
 
-            with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
-                summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
-                status.stop()
-                log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
+            if not args.dry_run:
+                with Status(f"[white]Posting generated replies for {profile_name}...[/white]", spinner="dots", console=console) as status:
+                    summary = post_approved_home_mode_replies(driver, profile_name, post_via_api=args.api, verbose=verbose)
+                    status.stop()
+                    log(f"Processed: {summary['processed']}, Posted: {summary['posted']}, Failed: {summary['failed']}", verbose, status=status, api_info=None, log_caller_file="replies.py")
+            else:
+                log("Dry run: Skipping posting replies.", verbose, log_caller_file="replies.py")
 
             if driver and not args.api:
                 driver.quit()

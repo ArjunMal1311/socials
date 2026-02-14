@@ -1,3 +1,5 @@
+# socials instagram <profile> profile
+
 import os
 import sys
 import json
@@ -19,7 +21,7 @@ console = Console()
 
 def main():
     parser = argparse.ArgumentParser(description="Instagram Profile Posts Scraper")
-    parser.add_argument("profile", type=str, help="The configuration profile to use (e.g., akg)")
+    parser.add_argument("profile", type=str, help="The configuration profile to use")
     
     args = parser.parse_args()
     profile = args.profile

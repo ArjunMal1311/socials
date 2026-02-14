@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import uuid
 import undetected_chromedriver as uc
 
 from bs4 import BeautifulSoup
@@ -18,51 +17,14 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import cleanup_chrome_locks, kill_chrome_processes_by_user_data_dir
-from services.support.path_config import get_yc_scrape_output_file_path, get_browser_data_dir, ensure_dir_exists
+from services.support.path_config import get_ycombinator_output_file_path, get_browser_data_dir, ensure_dir_exists
+
+from services.platform.ycombinator.support.format_yc_data import _format_yc_data
 
 console = Console()
 
-def _format_yc_data(company_data: Dict[str, Any]) -> Dict[str, Any]:
-    scraped_at = datetime.now().isoformat()
-
-    founders = []
-    for founder in company_data.get("founders", []):
-        founder_obj = {
-            "name": founder.get("name", ""),
-            "img": founder.get("avatar_url", ""),
-            "links": []
-        }
-
-        social_links = founder.get("social_links", {})
-        if social_links.get("x"):
-            founder_obj["links"].append(social_links["x"])
-        if social_links.get("linkedin"):
-            founder_obj["links"].append(social_links["linkedin"])
-
-        if founder_obj["name"]:
-            founders.append(founder_obj)
-
-    return {
-        "id": str(uuid.uuid4()),
-        "source": "ycombinator",
-        "scraped_at": scraped_at,
-        "core": {
-            "name": company_data.get("company_name", "N/A"),
-            "description": company_data.get("description", "N/A"),
-            "website": company_data.get("website", "N/A"),
-            "source_url": company_data.get("company_url", "N/A"),
-            "logo": company_data.get("logo_url", "")
-        },
-        "founders": founders,
-        "data": {
-            "location": company_data.get("location", "N/A"),
-            "batch": company_data.get("batch", "N/A"),
-            "industries": company_data.get("industries", [])
-        }
-    }
-
-def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, scroll_attempts: int = 5, headless: bool = True) -> List[Dict[str, Any]]:
-    log(f"Starting Y Combinator companies scraping for profile '{profile_name}'...", verbose, status=status, log_caller_file="scraper_utils.py")
+def get_yc_companies(profile_name: str, verbose: bool = False, status: Optional[Status] = None, limit: Optional[int] = None, scroll_attempts: int = 5, headless: bool = True) -> List[Dict[str, Any]]:
+    log(f"Starting Y Combinator companies scraping for profile '{profile_name}'...", verbose, status=status)
 
     target_url = "https://www.ycombinator.com/companies"
 
@@ -76,7 +38,7 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
         kill_chrome_processes_by_user_data_dir(browser_user_data_dir, verbose=verbose, status=status)
         cleanup_chrome_locks(browser_user_data_dir, verbose=verbose, status=status)
 
-        log("Initializing undetected_chromedriver for YC scraping...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Initializing undetected_chromedriver for YC scraping...", verbose, status=status)
         options = uc.ChromeOptions()
         options.add_argument(f"--user-data-dir={browser_user_data_dir}")
         options.add_argument("--profile-directory=Default")
@@ -87,7 +49,7 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
 
         driver = uc.Chrome(options=options, browser_executable_path="/usr/bin/chromium-browser", version_main=142)
 
-        log("Navigating to Y Combinator companies page...", verbose, status=status, log_caller_file="scraper_utils.py")
+        log("Navigating to Y Combinator companies page...", verbose, status=status)
         driver.get(target_url)
 
         WebDriverWait(driver, 30).until(
@@ -95,7 +57,7 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
         )
 
         try:
-            log("Sorting companies by launch date...", verbose, status=status, log_caller_file="scraper_utils.py")
+            log("Sorting companies by launch date...", verbose, status=status)
             sort_dropdown = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "select"))
             )
@@ -107,21 +69,21 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
             WebDriverWait(driver, 30).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "a[href^='/companies/']"))
             )
-            log("Successfully sorted by launch date", verbose, status=status, log_caller_file="scraper_utils.py")
+            log("Successfully sorted by launch date", verbose, status=status)
 
         except Exception as e:
-            log(f"Could not sort by launch date, continuing with default sorting: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+            log(f"Could not sort by launch date, continuing with default sorting: {e}", verbose, is_error=True, status=status)
 
-        # scroll attempts is coming from profiles.py based on this number of companies will be scraped (to be fixed next time)
+        # scroll attempts is coming from profiles.py based on this number of companies will be scouted (to be fixed next time)
         for i in range(scroll_attempts):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            log(f"Scrolled to bottom (attempt {i+1}/{scroll_attempts})", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Scrolled to bottom (attempt {i+1}/{scroll_attempts})", verbose, status=status)
             time.sleep(3)
 
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         company_links = soup.find_all('a', href=lambda x: x and x.startswith('/companies/'))
 
-        log(f"Found {len(company_links)} company links on the page after scrolling.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Found {len(company_links)} company links on the page after scrolling.", verbose, status=status)
 
         companies_to_process = company_links[:limit] if limit is not None else company_links
 
@@ -129,21 +91,21 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
             company_url = f"https://www.ycombinator.com{company_link['href']}"
             company_name = company_link.get('href', '').replace('/companies/', '')
 
-            log(f"Processing company {i+1}/{len(companies_to_process)}: {company_name}", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Processing company {i+1}/{len(companies_to_process)}: {company_name}", verbose, status=status)
 
             if i > 0 and i % 10 == 0:
                 try:
-                    log("Refreshing browser driver to maintain stability...", verbose, status=status, log_caller_file="scraper_utils.py")
+                    log("Refreshing browser driver to maintain stability...", verbose, status=status)
                     driver.refresh()
                     time.sleep(3)
                 except Exception as refresh_error:
-                    log(f"Driver refresh failed: {refresh_error}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                    log(f"Driver refresh failed: {refresh_error}", verbose, is_error=True, status=status)
 
             try:
                 basic_data = extract_company_from_main_page(company_link, company_name, company_url, verbose, status)
 
                 if basic_data:
-                    detailed_data = scrape_company_details(driver, company_url, company_name, verbose, status)
+                    detailed_data = get_company_details(driver, company_url, company_name, verbose, status)
 
                     if detailed_data:
                         basic_data.update(detailed_data)
@@ -151,33 +113,33 @@ def scrape_yc_companies(profile_name: str, verbose: bool = False, status: Option
                     formatted_data = _format_yc_data(basic_data)
                     all_formatted_companies.append(formatted_data)
 
-                    log(f"Successfully scraped {company_name} with {len(formatted_data['founders'])} founders", verbose, status=status, log_caller_file="scraper_utils.py")
+                    log(f"Successfully scouted {company_name} with {len(formatted_data['founders'])} founders", verbose, status=status)
 
                 delay = 2 + (time.time() % 3)
                 time.sleep(delay)
 
             except Exception as e:
-                log(f"Error processing company {company_name}: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Error processing company {company_name}: {e}", verbose, is_error=True, status=status)
                 continue
 
         today = datetime.now()
-        output_file_path = get_yc_scrape_output_file_path(profile_name, today.strftime("%Y%m%d"))
+        output_file_path = get_ycombinator_output_file_path(profile_name, today.strftime("%Y%m%d"))
         ensure_dir_exists(os.path.dirname(output_file_path))
         with open(output_file_path, 'w', encoding='utf-8') as f:
             json.dump(all_formatted_companies, f, indent=2, ensure_ascii=False)
 
-        log(f"Scraped and saved {len(all_formatted_companies)} companies to {output_file_path}", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Scouted and saved {len(all_formatted_companies)} companies to {output_file_path}", verbose, status=status)
         return all_formatted_companies
 
     except Exception as e:
-        log(f"An error occurred during YC scraping: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"An error occurred during YC scraping: {e}", verbose, is_error=True, status=status)
         return []
     finally:
         if driver:
             driver.quit()
         kill_chrome_processes_by_user_data_dir(browser_user_data_dir, verbose=verbose, status=status)
         cleanup_chrome_locks(browser_user_data_dir, verbose=verbose, status=status)
-        log(f"Y Combinator scraping completed for profile '{profile_name}'.", verbose, status=status, log_caller_file="scraper_utils.py")
+        log(f"Y Combinator scraping completed for profile '{profile_name}'.", verbose, status=status)
 
 def extract_company_from_main_page(company_link_element, company_name: str, company_url: str, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
     try:
@@ -221,14 +183,14 @@ def extract_company_from_main_page(company_link_element, company_name: str, comp
         return company_data
 
     except Exception as e:
-        log(f"Error extracting company from main page for {company_name}: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"Error extracting company from main page for {company_name}: {e}", verbose, is_error=True, status=status)
         return None
 
-def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: str, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
+def get_company_details(driver: uc.Chrome, company_url: str, company_name: str, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            log(f"Attempting to load {company_name} (attempt {attempt + 1}/{max_retries})", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Attempting to load {company_name} (attempt {attempt + 1}/{max_retries})", verbose, status=status)
 
             driver.get(company_url)
 
@@ -247,7 +209,7 @@ def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: st
                     )
                 )
             except Exception as wait_error:
-                log(f"Page load timeout for {company_name}: {wait_error}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Page load timeout for {company_name}: {wait_error}", verbose, is_error=True, status=status)
                 if attempt < max_retries - 1:
                     time.sleep(2)
                     continue
@@ -297,7 +259,7 @@ def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: st
             founders = []
             founder_cards = soup.find_all('div', class_='ycdc-card-new')
 
-            log(f"Found {len(founder_cards)} potential founder cards for {company_name}", verbose, status=status, log_caller_file="scraper_utils.py")
+            log(f"Found {len(founder_cards)} potential founder cards for {company_name}", verbose, status=status)
 
             for founder_card in founder_cards[:20]:
                 try:
@@ -305,7 +267,7 @@ def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: st
                     if founder_data:
                         founders.append(founder_data)
                 except Exception as e:
-                    log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                    log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status)
                     continue
 
             company_data["founders"] = founders
@@ -313,12 +275,12 @@ def scrape_company_details(driver: uc.Chrome, company_url: str, company_name: st
             return company_data
 
         except Exception as e:
-            log(f"Error loading {company_name} (attempt {attempt + 1}): {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+            log(f"Error loading {company_name} (attempt {attempt + 1}): {e}", verbose, is_error=True, status=status)
             if attempt < max_retries - 1:
-                log(f"Retrying {company_name} in 3 seconds...", verbose, status=status, log_caller_file="scraper_utils.py")
+                log(f"Retrying {company_name} in 3 seconds...", verbose, status=status)
                 time.sleep(3)
             else:
-                log(f"Failed to load {company_name} after {max_retries} attempts", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+                log(f"Failed to load {company_name} after {max_retries} attempts", verbose, is_error=True, status=status)
                 return None
 
 def extract_founder_info(founder_element, verbose: bool = False, status: Optional[Status] = None) -> Optional[Dict[str, Any]]:
@@ -361,5 +323,5 @@ def extract_founder_info(founder_element, verbose: bool = False, status: Optiona
         return None
 
     except Exception as e:
-        log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status, log_caller_file="scraper_utils.py")
+        log(f"Error extracting founder info: {e}", verbose, is_error=True, status=status)
         return None

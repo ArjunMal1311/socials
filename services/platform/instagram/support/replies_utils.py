@@ -178,7 +178,7 @@ def post_instagram_reply(driver, reply_text: str, status: Status, verbose: bool 
 def generate_replies_for_approval(profile, max_comments, number_of_reels, download_reels, verbose, headless):
     generated_replies = []
 
-    user_data_dir = get_browser_data_dir(PROFILES[profile].get('properties', {}).get('global', {}).get('browser_profile', profile))
+    user_data_dir = get_browser_data_dir(PROFILES[profile].get('properties', {}).get('global', {}).get('browser_profile', profile), platform="instagram")
     profile_base_dir = get_instagram_profile_dir(profile)
     os.makedirs(profile_base_dir, exist_ok=True)
 

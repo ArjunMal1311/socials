@@ -35,9 +35,6 @@ class APICallTracker:
                 "subreddit_yesterday": {"rpm": 60, "tpm": -1, "rpd": 1000},
                 "subreddit_top_day": {"rpm": 60, "tpm": -1, "rpd": 1000},
                 "post_comments": {"rpm": 60, "tpm": -1, "rpd": 1000},
-            },
-            "google_search": {
-                "search_query": {"rpm": 100, "tpm": -1, "rpd": 10000}
             }
         }
         self._load_log()
@@ -109,17 +106,13 @@ class APICallTracker:
             if method not in self.service_quotas["reddit"]:
                 return False, f"Unknown Reddit method: {method}"
             quotas = self.service_quotas["reddit"][method]
-        elif service == "google_search":
-            if method not in self.service_quotas["google_search"]:
-                return False, f"Unknown Google Search method: {method}"
-            quotas = self.service_quotas["google_search"][method]
         else:
             return False, f"Unknown service: {service}"
 
-        if quotas.get("quota_type") == "rpm" and rpm_count >= quotas.get("limit", 0):
+        if quotas.get("rpm", -1) != -1 and rpm_count >= quotas["rpm"]:
             return False, f"Rate limit (RPM) exceeded for {service}/{method} (model: {model})."
         
-        if quotas.get("quota_type") == "rpd" and rpd_count >= quotas.get("limit", 0):
+        if quotas.get("rpd", -1) != -1 and rpd_count >= quotas["rpd"]:
             return False, f"Rate limit (RPD) exceeded for {service}/{method} (model: {model})."
 
         return True, "Call allowed."
@@ -129,11 +122,9 @@ class APICallTracker:
         
         quotas = None
         if service == "gemini":
-            quotas = self.service_quotas["gemini"].get(method_name)
+            quotas = self.service_quotas["gemini"].get(model)
         elif service == "reddit":
             quotas = self.service_quotas["reddit"].get(method_name)
-        elif service == "google_search":
-            quotas = self.service_quotas["google_search"].get(method_name)
         else:
             return {"error": "Quota information not found.", "message": "Unknown service.", "service": service, "method": method_name}
 
@@ -143,19 +134,12 @@ class APICallTracker:
         info = {
             "service": service,
             "method": method_name,
-            "model": None,
-            "rpm_current": None,
-            "rpm_limit": None,
-            "rpd_current": None,
-            "rpd_limit": None,
+            "model": model,
+            "rpm_current": rpm_count,
+            "rpm_limit": quotas.get("rpm"),
+            "rpd_current": rpd_count,
+            "rpd_limit": quotas.get("rpd"),
             "message": f"Quota for {service}.{method_name} reached."
         }
-
-        if quotas.get("quota_type") == "rpm":
-            info["rpm_current"] = rpm_count
-            info["rpm_limit"] = quotas.get("limit")
-        elif quotas.get("quota_type") == "rpd":
-            info["rpd_current"] = rpd_count
-            info["rpd_limit"] = quotas.get("limit")
             
         return info

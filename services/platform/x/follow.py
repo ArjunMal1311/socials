@@ -20,9 +20,11 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="X Follow CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Browser profile name to use.")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
     parser.add_argument("mode", choices=["follow", "unfollow", "check", "bulk"], help="Follow mode: 'follow' to follow user, 'unfollow' to unfollow user, 'check' to check follow status, 'bulk' to follow multiple users")
     parser.add_argument("target", help="Target username(s) - single @username for follow/unfollow/check, comma-separated for bulk")
+
+    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without actually following/unfollowing.")
 
     args = parser.parse_args()
 
@@ -69,23 +71,29 @@ def main():
 
         elif args.mode in ["follow", "bulk"]:
             for username in usernames:
-                log(f"Attempting to follow {username}...", verbose, log_caller_file="follow.py")
-                success, result = follow_user(driver, username, verbose=verbose, status=status)
-                if success:
-                    log(f"Successfully followed {username}.", verbose, log_caller_file="follow.py")
-                elif result == "already_following":
-                    log(f"Already following {username}.", verbose, log_caller_file="follow.py")
+                if not args.dry_run:
+                    log(f"Attempting to follow {username}...", verbose, log_caller_file="follow.py")
+                    success, result = follow_user(driver, username, verbose=verbose, status=status)
+                    if success:
+                        log(f"Successfully followed {username}.", verbose, log_caller_file="follow.py")
+                    elif result == "already_following":
+                        log(f"Already following {username}.", verbose, log_caller_file="follow.py")
+                    else:
+                        log(f"Failed to follow {username}: {result}", verbose, is_error=True, log_caller_file="follow.py")
                 else:
-                    log(f"Failed to follow {username}: {result}", verbose, is_error=True, log_caller_file="follow.py")
+                    log(f"Dry run: Skipping follow for {username}.", verbose, log_caller_file="follow.py")
 
         elif args.mode == "unfollow":
             for username in usernames:
-                log(f"Attempting to unfollow {username}...", verbose, log_caller_file="follow.py")
-                success, result = unfollow_user(driver, username, verbose=verbose, status=status)
-                if success:
-                    log(f"Successfully unfollowed {username}.", verbose, log_caller_file="follow.py")
+                if not args.dry_run:
+                    log(f"Attempting to unfollow {username}...", verbose, log_caller_file="follow.py")
+                    success, result = unfollow_user(driver, username, verbose=verbose, status=status)
+                    if success:
+                        log(f"Successfully unfollowed {username}.", verbose, log_caller_file="follow.py")
+                    else:
+                        log(f"Failed to unfollow {username}: {result}", verbose, is_error=True, log_caller_file="follow.py")
                 else:
-                    log(f"Failed to unfollow {username}: {result}", verbose, is_error=True, log_caller_file="follow.py")
+                    log(f"Dry run: Skipping unfollow for {username}.", verbose, log_caller_file="follow.py")
 
     except Exception as e:
         log(f"An error occurred: {e}", verbose=True, is_error=True, log_caller_file="follow.py")

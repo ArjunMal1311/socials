@@ -25,7 +25,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="X DM CLI Tool")
     # profile
-    parser.add_argument("--profile", type=str, default="Default", help="Browser profile name to use.")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
 
     # mode
     parser.add_argument("mode", choices=["send", "check", "bulk"], help="DM mode: 'send' to send DM, 'check' to check DM availability, 'bulk' to send to multiple users")
@@ -37,6 +37,8 @@ def main():
     # method override
     parser.add_argument("--method", type=str, choices=["api", "browser"], default="browser", help="Method to send DM: 'api' or 'browser'. Defaults to 'browser'.")
     
+    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without actually sending DMs.")
+
     args = parser.parse_args()
 
     profile = args.profile
@@ -56,7 +58,7 @@ def main():
     elif args.mode == "check":
         if args.message:
             log("Message not allowed for check mode.", verbose, is_error=True, log_caller_file="dm.py")
-        sys.exit(1)
+            sys.exit(1)
 
     if args.mode == "bulk":
         usernames = [username.strip() for username in args.target.split(',') if username.strip()]
@@ -67,7 +69,7 @@ def main():
         usernames = [args.target.strip()]
         if not usernames[0]:
             log("Username is required.", verbose, is_error=True, log_caller_file="dm.py")
-        sys.exit(1)
+            sys.exit(1)
 
     user_data_dir = get_browser_data_dir(profile)
     driver = None
@@ -100,21 +102,24 @@ def main():
                         log(f"DM not available for {username}. Skipping.", verbose, is_error=True, log_caller_file="dm.py")
                         continue
 
-                if args.method == "api":
-                    log(f"Attempting to send DM to {username} via API with message: '{args.message}'", verbose, log_caller_file="dm.py")
-                    recipient_id = username
-                    send_dm_success = send_dm_api(profile, recipient_id, args.message, verbose=verbose)
-                    if send_dm_success:
-                        log(f"Successfully sent DM to {username} via API.", verbose, log_caller_file="dm.py")
+                if not args.dry_run:
+                    if args.method == "api":
+                        log(f"Attempting to send DM to {username} via API with message: '{args.message}'", verbose, log_caller_file="dm.py")
+                        recipient_id = username
+                        send_dm_success = send_dm_api(profile, recipient_id, args.message, verbose=verbose)
+                        if send_dm_success:
+                            log(f"Successfully sent DM to {username} via API.", verbose, log_caller_file="dm.py")
+                        else:
+                            log(f"Failed to send DM to {username} via API.", verbose, is_error=True, log_caller_file="dm.py")
                     else:
-                        log(f"Failed to send DM to {username} via API.", verbose, is_error=True, log_caller_file="dm.py")
+                        log(f"Attempting to send DM to {username} via browser with message: '{args.message}'", verbose, log_caller_file="dm.py")
+                        send_dm_success = send_dm(driver, username, args.message, verbose=verbose, status=status)
+                        if send_dm_success:
+                            log(f"Successfully sent DM to {username}.", verbose, log_caller_file="dm.py")
+                        else:
+                            log(f"Failed to send DM to {username}.", verbose, is_error=True, log_caller_file="dm.py")
                 else:
-                    log(f"Attempting to send DM to {username} via browser with message: '{args.message}'", verbose, log_caller_file="dm.py")
-                    send_dm_success = send_dm(driver, username, args.message, verbose=verbose, status=status)
-                    if send_dm_success:
-                        log(f"Successfully sent DM to {username}.", verbose, log_caller_file="dm.py")
-                    else:
-                        log(f"Failed to send DM to {username}.", verbose, is_error=True, log_caller_file="dm.py")
+                    log(f"Dry run: Skipping DM to {username} with message '{args.message}'", verbose, log_caller_file="dm.py")
 
     except Exception as e:
         log(f"An error occurred: {e}", verbose=True, is_error=True, log_caller_file="dm.py")

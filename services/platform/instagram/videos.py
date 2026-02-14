@@ -18,7 +18,7 @@ console = Console()
 
 def main():
     parser = argparse.ArgumentParser(description="Instagram Video Downloader CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration. Must match a profile defined in the profiles configuration.")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration.")
     parser.add_argument("--urls", type=str, required=True, help="Comma-separated list of Instagram video URLs to download.")
 
     args = parser.parse_args()

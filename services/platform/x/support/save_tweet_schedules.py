@@ -12,6 +12,10 @@ def save_tweet_schedules(schedules, profile_name="Default", verbose: bool = Fals
     schedule_file_path = get_schedule_file_path(profile_name)
     ensure_dir_exists(os.path.dirname(schedule_file_path))
     
+    if not os.path.exists(schedule_file_path):
+        with open(schedule_file_path, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+            
     with open(schedule_file_path, 'r+') as f:
         try:
             all_schedules = json.load(f)
