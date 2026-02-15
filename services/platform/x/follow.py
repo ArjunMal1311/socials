@@ -1,3 +1,8 @@
+# socials x <profile> follow follow @username
+# socials x <profile> follow unfollow @username
+# socials x <profile> follow check @username
+# socials x <profile> follow bulk "@user1,@user2"
+
 import sys
 import argparse
 

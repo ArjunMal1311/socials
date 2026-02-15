@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 from services.support.logger_util import _log as log
 from services.support.path_config import get_suggestions_dir
 
-from services.platform.linkedin.support.scraper_utils import scrape_linkedin_profiles, scrape_linkedin_feed_posts
+from services.platform.linkedin.support.scout_utils import scout_linkedin_profiles, scout_linkedin_feed_posts
 
 console = Console()
 
@@ -59,14 +59,14 @@ def run_linkedin_suggestions_workflow(profile_name: str, max_posts_per_profile: 
 
     if not linkedin_target_profiles:
         log(f"No linkedin_target_profiles found for {profile_name}. Scraping LinkedIn home page feed instead.", verbose, log_caller_file="scraping_utils.py")
-        scraped_posts = scrape_linkedin_feed_posts(
+        scraped_posts = scout_linkedin_feed_posts(
             profile_name=profile_name,
             max_posts=max_posts_per_profile,
             headless=headless,
             verbose=verbose
         )
     else:
-        scraped_posts = scrape_linkedin_profiles(
+        scraped_posts = scout_linkedin_profiles(
             linkedin_target_profiles=linkedin_target_profiles,
             profile_name=profile_name,
             max_posts_per_profile=max_posts_per_profile,

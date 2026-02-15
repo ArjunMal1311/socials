@@ -9,7 +9,7 @@ from rich.console import Console
 from services.support.logger_util import _log as log
 from services.support.path_config import get_linkedin_profile_dir
 
-from services.platform.x.support.home import post_approved_home_mode_replies
+from services.platform.x.support.reply_home import post_approved_home_mode_replies
 from services.platform.linkedin.support.reply_utils import post_approved_linkedin_replies
 from services.platform.instagram.support.replies_utils import post_approved_replies as post_approved_instagram_replies
 

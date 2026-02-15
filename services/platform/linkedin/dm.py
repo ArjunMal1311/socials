@@ -27,7 +27,7 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="LinkedIn DM CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Browser profile name to use.")
+    parser.add_argument("profile", type=str, help="Browser profile name to use.")
 
     args = parser.parse_args()
 

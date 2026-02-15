@@ -1,8 +1,8 @@
 from services.support.logger_util import _log as log
 from services.support.path_config import get_browser_data_dir
 
-from services.platform.x.support.home import setup_driver
-from services.platform.x.support.x_follow_utils import follow_user
+from services.platform.x.support.reply_home import setup_driver
+from services.platform.x.support.follow_utils import follow_user
 
 def extract_usernames_from_x_urls(urls):
     usernames = []

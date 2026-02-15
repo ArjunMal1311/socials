@@ -9,7 +9,7 @@ from profiles import PROFILES
 
 from services.support.logger_util import _log as log
 from services.support.web_driver_handler import setup_driver
-from services.support.path_config import get_schedule_file_path, get_suggestions_dir, get_browser_data_dir
+from services.support.path_config import get_schedule_file_path, get_suggestions_dir, get_browser_data_dir, get_project_root
 
 from services.support.storage.base_storage import BaseStorage
 
@@ -177,10 +177,12 @@ def run_linkedin_content_scheduling(profile_name: str, storage_generated: Option
             media_paths = [path for path in media_paths if path is not None] if post.get('downloaded_media_paths') else []
 
             if media_paths:
-                project_root = os.getcwd()
+                project_root = get_project_root()
                 media_paths = [os.path.relpath(path, project_root) if os.path.isabs(path) else path for path in media_paths]
 
             schedule_entry = {
+                "content_id": post.get('content_id'),
+                "type": post.get('type'),
                 "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "scheduled_post": post['generated_caption'],
                 "scheduled_image": media_paths,

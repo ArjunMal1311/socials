@@ -4,6 +4,7 @@ import time
 
 from bs4 import BeautifulSoup
 from datetime import datetime
+from urllib.parse import urlparse
 
 from rich.status import Status
 from rich.console import Console

@@ -1,12 +1,17 @@
 import os
 import shutil
 
-# Base directory
-BASE_TMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tmp")
+# Project root directory
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE_TMP_DIR = os.path.join(PROJECT_ROOT, "tmp")
 
 # =============================================================================
 # BASE FUNCTIONS
 # =============================================================================
+
+def get_project_root() -> str:
+    """Get the absolute path to the project root directory."""
+    return PROJECT_ROOT
 
 def get_base_dir() -> str:
     """Get the base tmp directory."""

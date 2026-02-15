@@ -10,9 +10,8 @@ from profiles import PROFILES
 from services.support.storage.base_storage import BaseStorage
 from services.support.logger_util import _log as log
 
-
-from services.support.path_config import get_schedule_file_path, get_suggestions_dir
-from services.platform.x.support.process_scheduled_tweets import process_scheduled_tweets
+from services.support.path_config import get_schedule_file_path, get_suggestions_dir, get_project_root
+from services.platform.x.support.post_process_scheduled_tweets import process_scheduled_tweets
 
 def run_content_scheduling(profile_name: str, storage_generated: Optional[BaseStorage] = None, storage_new: Optional[BaseStorage] = None) -> Dict[str, Any]:
     profile_props = PROFILES[profile_name].get('properties', {})
@@ -36,7 +35,6 @@ def run_content_scheduling(profile_name: str, storage_generated: Optional[BaseSt
         log(f"Fetching approved new content from database for {profile_name}", verbose, log_caller_file="scheduling_utils.py")
         approved_new_content_raw = storage_new.get_batch_content(batch_id="", verbose=verbose)
         approved_new_content = [item for item in approved_new_content_raw if item.get('approved') and item.get('review_status') == 'approved']
-
 
         for item in approved_new_content:
             if item.get('approved'):
@@ -157,10 +155,12 @@ def run_content_scheduling(profile_name: str, storage_generated: Optional[BaseSt
             media_paths = [path for path in media_paths if path is not None] if post.get('downloaded_media_paths') else []
 
             if media_paths:
-                project_root = os.getcwd()
+                project_root = get_project_root()
                 media_paths = [os.path.relpath(path, project_root) if os.path.isabs(path) else path for path in media_paths]
 
             schedule_entry = {
+                "content_id": post.get('content_id'),
+                "type": post.get('type'),
                 "scheduled_time": scheduled_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "scheduled_tweet": post['generated_caption'],
                 "scheduled_image": media_paths,
@@ -177,9 +177,6 @@ def run_content_scheduling(profile_name: str, storage_generated: Optional[BaseSt
 
             with open(schedule_file, 'w') as f:
                 json.dump(existing_schedule, f, indent=2)
-
-            with open(suggestions_file, 'w') as f:
-                json.dump(suggestions_data, f, indent=2)
 
             return {
                 "success": True,

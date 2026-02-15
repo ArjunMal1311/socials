@@ -5,38 +5,39 @@ from datetime import datetime
 from rich.console import Console
 
 from services.support.logger_util import _log as log
-from services.support.path_config import get_schedule_file_path
+from services.support.path_config import get_schedule_file_path, get_project_root
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 
+from services.support.image_download import download_images
+
 console = Console()
 
 def post_schedule_tweet(driver, tweet_text, media_urls, scheduled_time, profile_name, status=None, verbose: bool = False):
     try:
-        local_media_paths = None
+        local_media_paths = []
         if media_urls:
-            if isinstance(media_urls, str) and media_urls.startswith('http'):
-                local_media_paths = [media_urls]
-            else:
-                if isinstance(media_urls, str):
-                    candidate_path = os.path.join(os.getcwd(), media_urls)
-                    log(f"Looking for media file at: {candidate_path}", verbose, status=status, log_caller_file="post_schedule_tweet.py")
-                    if os.path.exists(candidate_path):
-                        local_media_paths = [os.path.abspath(candidate_path)]
-                    else:
-                        local_media_paths = [media_urls]
+            if isinstance(media_urls, str):
+                media_urls = [media_urls]
+            
+            urls_to_download = []
+            for item in media_urls:
+                if isinstance(item, str) and item.startswith('http'):
+                    urls_to_download.append(item)
                 else:
-                    local_media_paths = []
-                    for fname in media_urls:
-                        candidate_path = os.path.join(os.getcwd(), fname)
-                        log(f"Looking for media file at: {candidate_path}", verbose, status=status, log_caller_file="post_schedule_tweet.py")
-                        if os.path.exists(candidate_path):
-                            local_media_paths.append(os.path.abspath(candidate_path))
-                        else:
-                            local_media_paths.append(fname)
+                    candidate_path = os.path.join(get_project_root(), item)
+                    if os.path.exists(candidate_path):
+                        local_media_paths.append(os.path.abspath(candidate_path))
+                    else:
+                        log(f"Media file not found: {item}", verbose, is_error=True, status=status, log_caller_file="post_schedule_tweet.py")
+            
+            if urls_to_download:
+                log(f"Downloading {len(urls_to_download)} images...", verbose, status=status, log_caller_file="post_schedule_tweet.py")
+                downloaded_paths = download_images(urls_to_download, profile_name=profile_name, verbose=verbose)
+                local_media_paths.extend(downloaded_paths)
 
         log("Navigating to tweet compose page...", verbose, status=status, log_caller_file="post_schedule_tweet.py")
         driver.get('https://x.com/compose/tweet')

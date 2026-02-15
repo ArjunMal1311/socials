@@ -52,8 +52,9 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
 
         if not scheduled_tweets:
             log("No tweets scheduled yet.", verbose, log_caller_file="process_scheduled_tweets.py")
-            return
+            return {"success": True, "posted_content_ids": []}
 
+        posted_content_ids = []
         with Status("[white]Scheduling tweets...[/white]", spinner="dots", console=console) as status:
             for i, tweet in enumerate(scheduled_tweets):
                 scheduled_time = tweet['scheduled_time']
@@ -68,15 +69,21 @@ def process_scheduled_tweets(profile_name="Default", verbose: bool = False, head
                     scheduled_tweets[i]['posted'] = True
                     scheduled_tweets[i]['posted_at'] = datetime.now().isoformat()
                     log(f"Tweet marked as posted: {scheduled_time}", verbose, log_caller_file="process_scheduled_tweets.py")
+                    if tweet.get('content_id'):
+                        posted_content_ids.append(tweet['content_id'])
                 else:
                     log(f"Failed to schedule tweet: {scheduled_time}", verbose, is_error=True, log_caller_file="process_scheduled_tweets.py")
 
                 save_tweet_schedules(scheduled_tweets, profile_name, verbose=verbose)
                 time.sleep(5)
+        
         log("All scheduled tweets processed!", verbose, log_caller_file="process_scheduled_tweets.py")
+        return {"success": True, "posted_content_ids": posted_content_ids}
 
     except Exception as e:
-        log(f"An error occurred during tweet processing: {e}", verbose, is_error=True, log_caller_file="process_scheduled_tweets.py")
+        error_msg = f"An error occurred during tweet processing: {e}"
+        log(error_msg, verbose, is_error=True, log_caller_file="process_scheduled_tweets.py")
+        return {"success": False, "error": error_msg}
     finally:
         if driver:
             driver.quit()

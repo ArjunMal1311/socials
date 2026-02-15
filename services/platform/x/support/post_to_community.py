@@ -4,7 +4,7 @@ import time
 from rich.console import Console
 
 from services.support.logger_util import _log as log
-from services.support.path_config import get_schedule_file_path
+from services.support.path_config import get_schedule_file_path, get_project_root
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,7 +18,7 @@ def upload_media(driver, media_file, profile_name="Default", status=None, verbos
         if isinstance(media_file, str) and media_file.startswith('http'):
             local_media_path = media_file
         else:
-            candidate_path = os.path.join(os.getcwd(), media_file)
+            candidate_path = os.path.join(get_project_root(), media_file)
             if verbose:
                 log(f"Looking for media file at: {candidate_path}", verbose, log_caller_file="post_to_community.py")
             if os.path.exists(candidate_path):

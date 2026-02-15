@@ -7,6 +7,7 @@ import glob
 import argparse
 
 from profiles import PROFILES
+
 from datetime import datetime
 from dotenv import load_dotenv
 

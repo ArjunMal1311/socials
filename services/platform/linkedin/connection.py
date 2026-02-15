@@ -23,7 +23,7 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="LinkedIn Connection CLI Tool")
-    parser.add_argument("--profile", type=str, default="Default", help="Browser profile name to use.")
+    parser.add_argument("profile", type=str, help="Browser profile name to use.")
     parser.add_argument("usernames", nargs='?', help="Comma-separated list of LinkedIn usernames.")
 
     args = parser.parse_args()

@@ -12,13 +12,9 @@ from services.support.logger_util import _log as log
 from services.support.path_config import get_browser_data_dir
 from services.support.storage.storage_factory import get_storage
 
-from services.platform.instagram.support.video_utils import download_instagram_videos
-from services.platform.instagram.support.scout_utils import scout_instagram_reels
-from services.platform.instagram.support.replies_utils import generate_instagram_replies
-
-from services.platform.x.support.home import run_home_mode
-
+from services.platform.x.support.reply_home import run_home_mode
 from services.platform.linkedin.support.reply_utils import run_linkedin_reply_mode
+from services.platform.instagram.support.replies_utils import (generate_instagram_replies, run_instagram_reply_mode)
 
 console = Console()
 
@@ -121,7 +117,7 @@ def scrape_platform_content(profile_name: str, platform: str, profile_config: di
             browser_data_dir = get_browser_data_dir(profile_name, "instagram")
 
             with Status(f'[white]Scraping {platform} content for {profile_name}...[/white]', spinner="dots", console=console) as status:
-                driver, scraped_content = scrape_instagram_for_action(
+                driver, scraped_content = run_instagram_reply_mode(
                     profile_name=profile_name,
                     count=count,
                     max_comments=max_comments,
@@ -129,7 +125,6 @@ def scrape_platform_content(profile_name: str, platform: str, profile_config: di
                     restrict_filenames=restrict_filenames,
                     verbose=verbose,
                     headless=headless,
-                    browser_data_dir=browser_data_dir,
                     status=status
                 )
 
@@ -211,57 +206,3 @@ def scrape_and_store(profile_platform_map: dict, storages: dict, verbose: bool =
         log(f"Failed to scrape and store tweets: {e}", verbose, is_error=True, log_caller_file="scraper.py")
         raise
 
-def scrape_instagram_for_action(profile_name: str, count: int, max_comments: int, output_format: str, restrict_filenames: bool, verbose: bool, headless: bool, browser_data_dir: str, status: Status):
-    def process_reel_for_action(reel_data: dict, driver) -> dict:
-        reel_url = reel_data['reel_url']
-        comments_data = reel_data['comments_data']
-        
-        local_path, cdn_link = None, None
-        log(f"Downloading Instagram Reel: {reel_url}...", verbose, log_caller_file="scraper.py")
-        local_path, cdn_link = download_instagram_videos(reel_url, profile_name, output_format, restrict_filenames, status, verbose=verbose, extract_cdn_links=True, use_reels_dir=True)
-        
-        if not (local_path and cdn_link):
-            log(f"Failed to download reel or get CDN link for {reel_url}", verbose, is_error=True, log_caller_file="scraper.py")
-        
-        log("Generating automated reply...", verbose, log_caller_file="scraper.py")
-        generated_reply = generate_instagram_replies(
-            comments_data=comments_data,
-            video_path=local_path,
-            verbose=verbose,
-            profile=profile_name,
-            replies=all_replies
-        )
-        
-        reel_data.update({
-            'local_path': local_path,
-            'cdn_link': cdn_link,
-            'media_urls': [cdn_link] if cdn_link else [],
-            'generated_reply': generated_reply if generated_reply and not generated_reply.startswith("Error") else "",
-            'reel_text': '',
-            'likes': 0,
-            'views': 0,
-            'shares': 0
-        })
-        return reel_data
-
-    all_replies = []
-    try:
-        storage = get_storage('instagram', profile_name, 'action', verbose)
-        if storage:
-            if hasattr(storage, 'get_all_approved_and_posted_reels'):
-                all_replies = storage.get_all_approved_and_posted_reels(verbose)
-                log(f"Loaded {len(all_replies)} approved and posted reels for context", verbose, log_caller_file="scraper.py")
-            else:
-                log("Warning: Instagram storage missing get_all_approved_and_posted_reels", verbose, log_caller_file="scraper.py")
-    except Exception as e:
-        log(f"Warning: Could not initialize Instagram storage for context: {e}", verbose, log_caller_file="scraper.py")
-
-    return scout_instagram_reels(
-        profile_name=profile_name,
-        count=count,
-        max_comments=max_comments,
-        verbose=verbose,
-        headless=headless,
-        status=status,
-        process_item_callback=process_reel_for_action
-    )

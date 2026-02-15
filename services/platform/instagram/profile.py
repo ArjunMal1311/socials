@@ -1,4 +1,4 @@
-# socials instagram <profile> profile
+# socials instagram <profile> profiles
 
 import os
 import sys

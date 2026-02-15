@@ -24,7 +24,7 @@ def main():
     initialize_directories()
     parser = argparse.ArgumentParser(description="LinkedIn Replies CLI Tool")
 
-    parser.add_argument("--profile", type=str, default="Default", help="Profile name to use for authentication and configuration")
+    parser.add_argument("profile", type=str, help="Profile name to use for authentication and configuration")
     parser.add_argument("mode", choices=["home"], help="Reply mode: 'home' for home feed replies")
 
     args = parser.parse_args()

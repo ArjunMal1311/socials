@@ -21,13 +21,12 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="Social Media Action System")
-    parser.add_argument("profiles", nargs='*', type=str, help="Profile names to use (optional - if not specified, uses all profiles with platform assignments from profiles.py)")
-
     args = parser.parse_args()
+    
+    parser.add_argument("profiles", nargs='*', type=str, help="Profile names to use (optional - if not specified, uses all profiles with platform assignments from profiles.py)")
 
     profile_names = args.profiles
 
-    verbose = False
     if profile_names and profile_names[0] in PROFILES:
         profile_config = PROFILES[profile_names[0]]
         profile_props = profile_config.get('properties', {})

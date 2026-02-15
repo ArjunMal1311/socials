@@ -9,8 +9,6 @@ MODULE_CONFIGS = {
         'modules': {
             'action': 'action.py',
             'connection': 'connection.py',
-            'ideas': 'idea.py',
-            'networking': 'networking.py',
             'suggestions': 'suggestions.py',
             'learning': 'learning.py'
         },
@@ -35,7 +33,7 @@ MODULE_CONFIGS = {
         'follow': 'follow.py',
         'post': 'post.py',
         'reply': 'reply.py',
-        'scraper': 'scraper.py'
+        'scout': 'scout.py'
     }
     },
     'linkedin': {
@@ -43,7 +41,7 @@ MODULE_CONFIGS = {
         'modules': {
             'connection': 'connection.py',
             'dm': 'dm.py',
-            'scraper': 'scraper.py',
+            'scout': 'scout.py',
             'post': 'post.py',
             'reply': 'reply.py'
         }
@@ -71,7 +69,7 @@ MODULE_CONFIGS = {
         'modules': {
             'videos': 'videos.py',
             'replies': 'replies.py',
-            'scraper': 'scraper.py',
+            'scout': 'scout.py',
             'profiles': 'profile.py'
         }
     }
@@ -79,21 +77,39 @@ MODULE_CONFIGS = {
 
 def get_usage():
     return """
-        Usage:
-        socials profile-sync                         # Synchronize profiles from Supabase
-        socials <platform> <profile> <module> [args...]     # Platform modules
-        socials utils <profile> <module>                   # Utils modules with profile
-        socials <profile> global <command>                 # Global profile management
-        socials <profile> global profile-sync              # Profile synchronization
-        socials <profile> global upload                    # Upload all profiles to Supabase
-        socials <profile> global <platform> <action>       # Platform-specific auth
-
-        Examples:
+        Socials CLI Usage:
         socials profile-sync
-        socials x <profile> scraper --verbose
+        socials <platform> <profile> <module> [args...]     
+        socials utils <profile> <module> [args...]
+        socials <profile> global <command>
+
+        Platforms Modules:
+        socials x <profile>            [dm, follow, post, reply, scout]
+        socials linkedin <profile>     [connection, dm, post, reply, scout]
+        socials instagram <profile>    [videos, replies, scout, profiles]
+        socials reddit <profile>       scout
+        socials producthunt <profile>  scout
+        socials ycombinator <profile>  scout
+
+        Utils Modules:
         socials utils <profile> action
-        socials <profile> global init
-        socials <profile> global x login
+        socials utils <profile> connection
+        socials utils <profile> learning
+        
+        Suggestions Modules:
+        socials utils <profile> suggestions x [scrape, filter, web, download, trends, generate, generate_new, review, schedule, post]
+        socials utils <profile> suggestions linkedin [scrape, filter, web, download, trends, generate, generate_new, schedule, review, post]
+        socials utils <profile> suggestions reddit [scrape, filter, web, download, trends]
+
+        Global Modules:
+        socials <profile> global [init, delete, profile-sync, upload]
+        socials <profile> global [x, linkedin] [login, check-credentials]
+
+        Examples Commands:
+        socials profile-sync
+        socials x <profile> scout
+        socials utils <profile> action
+        socials utils <profile> suggestions x scrape
     """
 
 def parse_args() -> Optional[Dict]:
@@ -101,7 +117,6 @@ def parse_args() -> Optional[Dict]:
         print(get_usage())
         return None
 
-    # Handle the new 'profile-sync' command
     if sys.argv[1] == "profile-sync":
         if len(sys.argv) > 2:
             print("Usage: socials profile-sync (no additional arguments)")
@@ -112,7 +127,6 @@ def parse_args() -> Optional[Dict]:
             'args': []
         }
 
-    # Check for new global command pattern: socials <profile> global <command> [platform] [action]
     if len(sys.argv) >= 3 and sys.argv[2] == "global":
         profile = sys.argv[1]
         if len(sys.argv) < 4:
@@ -122,15 +136,13 @@ def parse_args() -> Optional[Dict]:
         command = sys.argv[3]
 
         if command in ["init", "delete", "profile-sync", "upload"]:
-            # socials <profile> global init/delete/profile-sync/upload
             return {
                 'category': 'platform',
                 'profile': profile,
                 'module': 'global',
                 'args': [profile, command]
             }
-        elif len(sys.argv) >= 5 and command in ["x", "linkedin"]:  # platform names
-            # socials <profile> global <platform> <action>
+        elif len(sys.argv) >= 5 and command in ["x", "linkedin"]:
             platform = command
             action = sys.argv[4]
             if action in ["login", "check-credentials"]:
@@ -186,8 +198,6 @@ def parse_args() -> Optional[Dict]:
         }
 
     if config.get('profile_required', False):
-        # Check if this is an action command with multiple profiles
-        # Pattern: socials utils <profile1> [profile2] [profile3] ... action [additional args]
         action_index = None
         for i in range(2, len(sys.argv)):
             if sys.argv[i] == 'action':
@@ -196,20 +206,18 @@ def parse_args() -> Optional[Dict]:
 
         if action_index is not None:
             module = 'action'
-            profiles = sys.argv[2:action_index] if action_index >= 3 else []  # Profiles before 'action', or empty
-            additional_args = sys.argv[action_index + 1:]  # Additional args after 'action'
+            profiles = sys.argv[2:action_index] if action_index >= 3 else []
+            additional_args = sys.argv[action_index + 1:]
 
             return {
                 'category': category,
-                'profile': profiles[0] if profiles else 'default',  # Use first profile or default for compatibility
+                'profile': profiles[0] if profiles else 'default',
                 'module': module,
                 'args': profiles + additional_args
             }
 
-        # Handle action module with optional profiles: socials utils action [profile1] [profile2] ... [additional args]
         if len(sys.argv) >= 3 and sys.argv[2] == 'action':
             module = sys.argv[2]
-            # Find where profiles end and additional args begin
             profiles = []
             additional_args = []
             found_non_profile = False
@@ -221,15 +229,13 @@ def parse_args() -> Optional[Dict]:
                     found_non_profile = True
                     additional_args.append(arg)
 
-            # Action can work without profiles (reads from profile configs)
             return {
                 'category': category,
-                'profile': profiles[0] if profiles else 'default',  # Use first profile or default for compatibility
+                'profile': profiles[0] if profiles else 'default',
                 'module': module,
                 'args': profiles + additional_args
             }
 
-        # Standard utils modules: socials utils <profile> <module>
         if len(sys.argv) < 4:
             print(f"Usage: socials {category} <profile> <module> [args...] or socials {category} <profile1> [profile2] ... action")
             return None

@@ -1,1 +1,0 @@
-# Reddit suggestions support module

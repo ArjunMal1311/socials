@@ -32,7 +32,7 @@ def _format_tweet_data(raw_tweet_data: dict) -> dict:
 
     return {
         "source": "x",
-        "scraped_at": scouted_at_str,
+        "scraped_at": scraped_at_str,
         "engagement": {
             "likes": likes,
             "retweets": int(raw_tweet_data.get('retweets', 0)),
@@ -107,7 +107,7 @@ def fetch_scout_tweets(driver, service=None, profile_name="Default", max_tweets=
     try:
         while len(processed_tweet_ids) < max_tweets and no_new_content_count < max_retries:
             raw_containers = []
-            no_new_content_count, scroll_count, _ = capture_containers_and_scroll(
+            no_new_content_count, scroll_count, new_tweets_in_pass = capture_containers_and_scroll(
                 driver, raw_containers, processed_tweet_ids, no_new_content_count, scroll_count, verbose, status
             )
 
@@ -152,8 +152,8 @@ def scout_tweets(scout_type: str, target_name: str, profile_name: str, browser_p
         target_desc = f"community '{target_name}'" if scout_type == "community" else "home feed"
         log(f"Starting {target_desc} tweet scouting (target: {max_tweets} tweets)...", verbose, status=status, log_caller_file="scout_utils.py")
         
-        community_name = target_name if scout_type == "community" else None
-        all_tweets_data = fetch_scout_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name, verbose=verbose, status=status, specific_search_url=specific_search_url)
+        community_name_for_fetch = target_name if scout_type == "community" else None
+        all_tweets_data = fetch_scout_tweets(driver, profile_name=profile_name, max_tweets=max_tweets, community_name=community_name_for_fetch, verbose=verbose, status=status, specific_search_url=specific_search_url)
 
         if all_tweets_data:
             formatted_for_saving = [_format_tweet_data(tweet) for tweet in all_tweets_data]
