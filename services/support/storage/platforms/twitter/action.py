@@ -27,7 +27,8 @@ class TwitterActionStorage(BaseStorage):
             "replies": "INTEGER DEFAULT 0",
             "views": "INTEGER DEFAULT 0",
             "bookmarks": "INTEGER DEFAULT 0",
-            "profile_image_url": "TEXT",
+            "author_name": "TEXT",
+            "author_image": "TEXT",
             "media_urls": "JSONB",
             "status": "TEXT DEFAULT 'pending_review'",
             "generated_reply": "TEXT",
@@ -81,7 +82,8 @@ class TwitterActionStorage(BaseStorage):
             "replies": tweet.get("replies", 0),
             "views": tweet.get("views", 0),
             "bookmarks": tweet.get("bookmarks", 0),
-            "profile_image_url": tweet.get("profile_image_url"),
+            "author_name": tweet.get("author_name"),
+            "author_image": tweet.get("author_image"),
             "media_urls": json.dumps(media_urls)
         }
 
@@ -102,7 +104,8 @@ class TwitterActionStorage(BaseStorage):
             "replies": tweet["replies"],
             "views": tweet["views"],
             "bookmarks": tweet["bookmarks"],
-            "profile_image_url": tweet["profile_image_url"],
+            "author_name": tweet.get("author_name", ""),
+            "author_image": tweet.get("author_image", ""),
             "media_urls": media_urls
         }
 

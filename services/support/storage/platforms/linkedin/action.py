@@ -24,6 +24,7 @@ class LinkedInActionStorage(BaseStorage):
             "scraped_at": "TIMESTAMP",
             "post_text": "TEXT NOT NULL",
             "author_name": "TEXT",
+            "author_image": "TEXT",
             "profile_url": "TEXT",
             "post_date": "TIMESTAMP",
             "likes": "INTEGER DEFAULT 0",
@@ -79,6 +80,7 @@ class LinkedInActionStorage(BaseStorage):
                 "scraped_at": post.get("created_at"),
                 "post_text": post.get("post_text"),
                 "author_name": post.get("author_name"),
+                "author_image": post.get("author_image"),
                 "profile_url": post.get("profile_url"),
                 "post_date": post.get("post_date"),
                 "likes": engagement.get("likes", 0),
@@ -96,12 +98,13 @@ class LinkedInActionStorage(BaseStorage):
                 "scraped_at": post.get("scraped_at"),
                 "post_text": data.get("text"),
                 "author_name": data.get("author_name"),
+                "author_image": data.get("author_image"),
                 "profile_url": data.get("profile_url"),
                 "post_date": data.get("post_date"),
                 "likes": engagement.get("likes", 0),
                 "comments": engagement.get("comments", 0),
                 "reposts": engagement.get("reposts", 0),
-                "media_urls": json.dumps(post.get("media_urls", []))
+                "media_urls": json.dumps(data.get("media_urls", []))
             }
 
         return mapped
@@ -123,6 +126,7 @@ class LinkedInActionStorage(BaseStorage):
                 "post_urn": post.get("post_urn"),
                 "text": post["post_text"],
                 "author_name": post["author_name"],
+                "author_image": post.get("author_image", ""),
                 "profile_url": post["profile_url"],
                 "post_date": post["post_date"]
             },

@@ -46,7 +46,8 @@ def _format_tweet_data(raw_tweet_data: dict) -> dict:
             "tweet_url": raw_tweet_data.get('tweet_url', ''),
             "media_urls": raw_tweet_data.get('media_urls', ''),
             "tweet_date": tweet_date_iso,
-            "profile_image_url": raw_tweet_data.get('profile_image_url', ''),
+            "author_name": raw_tweet_data.get('author_name', ''),
+            "author_image": raw_tweet_data.get('author_image', ''),
         }
     }
 

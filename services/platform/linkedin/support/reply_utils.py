@@ -67,6 +67,7 @@ def run_linkedin_reply_mode(profile_name: str, browser_profile_name: str, max_po
                 "post_text": post.get("data", {}).get("text", ""),
                 "profile_url": post.get("data", {}).get("profile_url", ""),
                 "author_name": post.get("data", {}).get("author_name", ""),
+                "author_image": post.get("data", {}).get("author_image", ""),
                 "post_date": post.get("data", {}).get("post_date", ""),
                 "media_urls": post.get("data", {}).get("media_urls", []),
                 "engagement": post.get("engagement", {}),

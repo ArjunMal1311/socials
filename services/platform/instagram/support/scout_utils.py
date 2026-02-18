@@ -25,7 +25,7 @@ from services.platform.instagram.support.video_utils import download_instagram_v
 
 console = Console()
 
-def parse_instagram_comments_robust(html_content):
+def parse_instagram_comments(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
     for tag in soup.find_all(True):
         if tag.name == 'span' and re.search(r'\d+\s*likes', tag.get_text(strip=True)):
@@ -169,7 +169,7 @@ def scout_instagram_reels_comments(driver: webdriver.Chrome, max_comments: int =
                 f.write(html_content)
             log(f"Full comments HTML saved to: {html_dump_path}", verbose, log_caller_file="scout_utils.py")
 
-        cleaned_html = parse_instagram_comments_robust(html_content)
+        cleaned_html = parse_instagram_comments(html_content)
         structured_comments = extract_structured_comments(cleaned_html)
 
         return structured_comments, video_url
@@ -217,6 +217,71 @@ def extract_current_reel_url(driver) -> Optional[str]:
     except Exception as e:
         log(f"Error extracting reel URL: {e}", False, log_caller_file="scout_utils.py")
     return None
+
+def extract_reel_metadata(driver, reel_index: int = 0, verbose: bool = False) -> Dict[str, Any]:
+    metadata = {
+        "author_name": "",
+        "author_image": "",
+        "reel_text": ""
+    }
+
+    def _pick(elements, index):
+        if not elements:
+            return None
+        return elements[index] if index < len(elements) else elements[-1]
+
+    try:
+        try:
+            author_spans = driver.find_elements(
+                By.XPATH,
+                "//a[contains(@href, '/reels/') and @aria-label]//span[@dir='auto']"
+            )
+            el = _pick(author_spans, reel_index)
+            if el:
+                metadata["author_name"] = el.text.strip()
+                log(f"Extracted author name [{reel_index}]: {metadata['author_name']}", verbose, log_caller_file="scout_utils.py")
+        except Exception:
+            try:
+                author_spans = driver.find_elements(
+                    By.XPATH,
+                    "//a[@role='link' and contains(@href, '/reels/')]//span[not(@aria-hidden)]"
+                )
+                el = _pick(author_spans, reel_index)
+                if el:
+                    metadata["author_name"] = el.text.strip()
+            except Exception:
+                pass
+
+        # Author image — one per reel in the DOM
+        try:
+            author_imgs = driver.find_elements(
+                By.XPATH,
+                "//a[contains(@href, '/reels/') and @aria-label]//img[contains(@alt, \"profile picture\")]"
+            )
+            el = _pick(author_imgs, reel_index)
+            if el:
+                metadata["author_image"] = el.get_attribute("src") or ""
+                log(f"Extracted author image [{reel_index}]", verbose, log_caller_file="scout_utils.py")
+        except Exception:
+            pass
+
+        # Reel caption — one per reel in the DOM
+        try:
+            caption_spans = driver.find_elements(
+                By.XPATH,
+                "//div[@role='presentation']//div[@dir='auto']//span[not(@aria-hidden)]"
+            )
+            el = _pick(caption_spans, reel_index)
+            if el:
+                metadata["reel_text"] = el.text.strip()
+                log(f"Extracted reel text [{reel_index}]: {metadata['reel_text'][:80]}", verbose, log_caller_file="scout_utils.py")
+        except Exception:
+            pass
+
+    except Exception as e:
+        log(f"Error extracting reel metadata: {e}", verbose, is_error=True, log_caller_file="scout_utils.py")
+
+    return metadata
 
 def _format_reel_data(reel_url: str, local_path: str, cdn_link: Optional[str], comments_data: List[Dict[str, Any]], profile_name: str) -> Dict[str, Any]:
     scraped_at_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -335,13 +400,18 @@ def scout_instagram_reels(profile_name: str, count: int, max_comments: int, verb
                 reel_index=len(scouted_reels)
             )
 
+            reel_metadata = extract_reel_metadata(driver, reel_index=len(scouted_reels), verbose=verbose)
+
             reel_data = {
                 'reel_id': reel_url.split('/reels/')[1].split('/')[0] if '/reels/' in reel_url else f'reel_{len(scouted_reels)}',
                 'reel_url': reel_url,
                 'comments_data': comments_data,
                 'comments': len(comments_data),
                 'scraped_at': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
-                'profile_name': profile_name
+                'profile_name': profile_name,
+                'author_name': reel_metadata.get('author_name', ''),
+                'author_image': reel_metadata.get('author_image', ''),
+                'reel_text': reel_metadata.get('reel_text', ''),
             }
 
             if process_item_callback:

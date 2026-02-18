@@ -86,7 +86,8 @@ def process_container(container, verbose: bool = False):
             'tweet_date': tweet_date,
             'tweet_url': container['url'],
             'tweet_id': container['tweet_id'],
-            'profile_image_url': container.get('profile_image_url', '')
+            'author_image': container.get('author_image', ''),
+            'author_name': container.get('author_name', '')
         }
         
         return tweet_data

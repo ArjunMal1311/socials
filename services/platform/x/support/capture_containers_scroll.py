@@ -59,13 +59,24 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
                 log(f"DEBUG: Skipping already processed tweet ID: {tweet_id}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
                 continue
 
-            profile_image_url = ""
+            author_image = ""
             try:
-                profile_image_element = tweet_element.find_element(By.CSS_SELECTOR, 'a[href^="/"] img')
-                profile_image_url = profile_image_element.get_attribute('src')
-                log(f"DEBUG (capture_containers_and_scroll): Extracted profile_image_url: {profile_image_url}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
+                profile_image_element = tweet_element.find_element(By.CSS_SELECTOR, '[data-testid^="UserAvatar-Container-"] img')
+                author_image = profile_image_element.get_attribute('src')
+                log(f"DEBUG (capture_containers_and_scroll): Extracted author_image: {author_image}", verbose, status=status, log_caller_file="capture_containers_scroll.py")
             except Exception as img_e:
-                log(f"DEBUG: Could not extract profile image for tweet ID {tweet_id}: {img_e}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
+                try:
+                    profile_image_element = tweet_element.find_element(By.CSS_SELECTOR, 'a[href^="/"] img')
+                    author_image = profile_image_element.get_attribute('src')
+                except Exception:
+                    log(f"DEBUG: Could not extract author image for tweet ID {tweet_id}: {img_e}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
+
+            author_name = ""
+            try:
+                user_name_elem = tweet_element.find_element(By.CSS_SELECTOR, '[data-testid="User-Name"] a span span')
+                author_name = user_name_elem.text.strip()
+            except Exception as name_e:
+                log(f"DEBUG: Could not extract author name for tweet ID {tweet_id}: {name_e}", verbose, is_error=False, status=status, log_caller_file="capture_containers_scroll.py")
 
             container_html = tweet_element.get_attribute('outerHTML')
             container_text = tweet_element.text
@@ -77,7 +88,8 @@ def capture_containers_and_scroll(driver, raw_containers, processed_tweet_ids, n
                 'text': container_text,
                 'url': url,
                 'tweet_id': tweet_id,
-                'profile_image_url': profile_image_url
+                'author_image': author_image,
+                'author_name': author_name
             })
             new_containers_found_in_this_pass += 1
         except Exception as e:

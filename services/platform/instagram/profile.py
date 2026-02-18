@@ -64,6 +64,36 @@ def main():
                     log(f"No posts found for {target}", verbose, log_caller_file="profile.py")
 
         if all_posts:
+            # Detailed Enrichment Pass for Posts (/p/)
+            posts_to_enrich = [p for p in all_posts if "/p/" in p.get('post_url', '')]
+            if posts_to_enrich:
+                log(f"Enriching {len(posts_to_enrich)} posts using 'Default' profile session...", verbose, log_caller_file="profile.py")
+                
+                # Close the grid scout driver
+                if driver:
+                    driver.quit()
+                    driver = None
+                
+                # Setup "Default" driver for detailed scraping
+                from services.platform.instagram.support.scout_utils import scout_instagram_post_details
+                from services.support.path_config import get_browser_data_dir
+                from services.support.web_driver_handler import setup_driver
+                
+                # Use "Default" profile as requested by user
+                default_browser_data_dir = get_browser_data_dir("Default", "instagram")
+                driver, _ = setup_driver(default_browser_data_dir, profile="Default", headless=headless)
+                
+                if driver:
+                    with Status("[white]Scraping post details...[/white]", spinner="dots", console=console) as status:
+                        for post in all_posts:
+                            if "/p/" in post.get('post_url', ''):
+                                details = scout_instagram_post_details(driver, post['post_url'], verbose=verbose, status=status)
+                                post['caption'] = details.get('caption') or post.get('caption')
+                                post['image_urls'] = details.get('image_urls', [])
+                                if post['image_urls']:
+                                    post['thumbnail_url'] = post['image_urls'][0]
+                                log(f"Enriched post: {post['post_url']}", verbose, log_caller_file="profile.py")
+
             output_dir = os.path.join(get_platform_profile_dir("instagram", profile), "profiles")
             ensure_dir_exists(output_dir)
             output_file = os.path.join(output_dir, "posts.json")

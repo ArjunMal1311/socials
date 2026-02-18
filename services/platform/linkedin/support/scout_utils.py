@@ -224,6 +224,7 @@ def extract_post_data_from_html(html_content):
         post_urn = ""
         
         author_name = ""
+        author_image = ""
         profile_url = ""
         post_text = ""
         post_date = datetime.now().isoformat() + "Z"
@@ -236,9 +237,31 @@ def extract_post_data_from_html(html_content):
         if text_element:
             post_text = text_element.get_text(strip=True)
 
-        author_name_elem = post_wrapper.select_one('[data-view-name="feed-header-text"] strong')
-        if author_name_elem:
-            author_name = author_name_elem.get_text(strip=True)
+        # Extract author name from the actor link (the <a> next to the image link)
+        # The actor image link and actor name link are siblings; the name is in the
+        # second <a> that follows the image <a> inside the actor container.
+        actor_image_elem = post_wrapper.select_one('a[data-view-name="feed-actor-image"]')
+        if actor_image_elem:
+            profile_url = actor_image_elem.get('href', '').split('?')[0]
+            # Author image: the <img> inside the figure inside the actor image link
+            actor_img_tag = actor_image_elem.select_one('img')
+            if actor_img_tag:
+                author_image = actor_img_tag.get('src', '')
+            # Author name: find the sibling <a> that contains the name text
+            # It's the next sibling <a> after the image <a>
+            actor_name_elem = actor_image_elem.find_next_sibling('a')
+            if actor_name_elem:
+                # The name is in the first <p> inside the name link
+                name_p = actor_name_elem.select_one('p')
+                if name_p:
+                    # get_text may include degree badge text like " • 2nd", grab only the name span
+                    name_span = name_p.select_one('span._2cda7f44, span[class*="_2cda7f44"]')
+                    if name_span:
+                        # Use the direct text nodes only (exclude nested spans like degree badge)
+                        author_name = ''.join(name_span.find_all(string=True, recursive=False)).strip()
+                    if not author_name:
+                        # Fallback: first text node of the <p>
+                        author_name = name_p.get_text(separator=' ', strip=True).split('•')[0].strip()
 
         profile_url_elem = post_wrapper.select_one('a[data-view-name="feed-actor-image"]')
         if profile_url_elem:
@@ -317,6 +340,7 @@ def extract_post_data_from_html(html_content):
                 "post_urn": post_urn,
                 "text": post_text,
                 "author_name": author_name,
+                "author_image": author_image,
                 "profile_url": profile_url,
                 "post_date": post_date,
                 "media_urls": media_urls

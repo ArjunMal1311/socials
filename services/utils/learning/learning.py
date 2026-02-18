@@ -47,12 +47,12 @@ def main():
         log("Failed to initialize Instagram Learning Storage.", verbose, is_error=True)
         sys.exit(1)
 
-    scraper_config = profile_config.get('properties', {}).get('platform', {}).get('instagram', {}).get('scraper', {})
-    profiles_scraper_config = scraper_config.get('profiles_scraper', {})
-    target_profiles = profiles_scraper_config.get('target_profiles', [])
+    scout_config = profile_config.get('properties', {}).get('platform', {}).get('instagram', {}).get('scout', {})
+    profiles_scout_config = scout_config.get('profiles_scout', {})
+    target_profiles = profiles_scout_config.get('target_profiles', [])
     
     if not target_profiles:
-        log("No target profiles found in profiles_scraper configuration.", verbose, is_error=True)
+        log("No target profiles found in profiles configuration.", verbose, is_error=True)
         sys.exit(1)
 
     log(f"Starting Learning Utility for profile '{profile_name}'", verbose)

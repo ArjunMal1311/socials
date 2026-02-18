@@ -115,3 +115,6 @@ class BaseStorage(ABC):
         except Exception as e:
             log(f"Failed to get batch content for {batch_id}: {e}", verbose, is_error=True, log_caller_file="base_storage.py")
             return []
+
+    def get_all_processed_urls(self, verbose: bool = False) -> List[str]:
+        raise NotImplementedError("get_all_processed_urls must be implemented by platform-specific storage classes")

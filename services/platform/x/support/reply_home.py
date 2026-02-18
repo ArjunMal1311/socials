@@ -198,7 +198,8 @@ def run_home_mode(profile_name: str, custom_prompt: str, max_tweets: int = 10, s
                 'profile': target_profile_name if target_profile_name else profile_name,
                 'status': 'ready_for_approval',
                 'scraped_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'profile_image_url': td.get('profile_image_url', '')
+                'author_name': td.get('author_name', ''),
+                'author_image': td.get('author_image', '')
             }
             results.append(record)
         except Exception as e:

@@ -2,6 +2,7 @@ import os
 import time
 import json
 
+from datetime import datetime
 from rich.status import Status
 from rich.console import Console
 
@@ -336,7 +337,9 @@ def process_reel_for_action(reel_data: dict, driver, profile_name: str, output_f
             "generated_reply": generated_reply
             if generated_reply and not generated_reply.startswith("Error")
             else "",
-            "reel_text": "",
+            "reel_text": reel_data.get("reel_text", ""),
+            "author_name": reel_data.get("author_name", ""),
+            "author_image": reel_data.get("author_image", ""),
             "likes": 0,
             "views": 0,
             "shares": 0,

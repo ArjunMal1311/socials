@@ -21,9 +21,8 @@ def main():
     initialize_directories()
 
     parser = argparse.ArgumentParser(description="Social Media Action System")
-    args = parser.parse_args()
-    
     parser.add_argument("profiles", nargs='*', type=str, help="Profile names to use (optional - if not specified, uses all profiles with platform assignments from profiles.py)")
+    args = parser.parse_args()
 
     profile_names = args.profiles
 

@@ -5,7 +5,7 @@ from services.support.logger_util import _log
 
 class InstagramLearningStorage(BaseStorage):
     def _get_table_name(self) -> str:
-        return "learning_content"
+        return f"{self.profile_name}_learning_instagram"
 
     def _get_conflict_column(self) -> str:
         return "post_url"
@@ -18,7 +18,8 @@ class InstagramLearningStorage(BaseStorage):
             "post_url": "TEXT NOT NULL UNIQUE",
             "post_type": "TEXT",
             "caption": "TEXT",
-            "explanation": "TEXT",
+            "short_explanation": "TEXT",
+            "long_explanation": "TEXT",
             "media_path": "TEXT",
             "cdn_link": "TEXT",
             "raw_data": "JSONB",
@@ -42,8 +43,25 @@ class InstagramLearningStorage(BaseStorage):
             "post_url": item.get("post_url"),
             "post_type": item.get("post_type", "unknown"),
             "caption": item.get("caption", ""),
-            "explanation": item.get("explanation", ""),
+            "short_explanation": item.get("short_explanation", ""),
+            "long_explanation": item.get("long_explanation", ""),
             "media_path": item.get("media_path", ""),
             "cdn_link": item.get("cdn_link", ""),
             "raw_data": json.dumps(item)
         }
+
+    def get_all_processed_urls(self, verbose: bool = False) -> List[str]:
+        from services.support.postgres_util import get_postgres_connection, select_data
+        try:
+            conn = get_postgres_connection(verbose)
+            if not conn:
+                return []
+            
+            results = select_data(conn, self.table_name, verbose=verbose)
+            conn.close()
+            
+            return [r.get('post_url') for r in results if r.get('post_url')]
+        except Exception as e:
+            _log(f"Failed to fetch processed URLs from DB: {e}", verbose, is_error=True)
+            return []
+
